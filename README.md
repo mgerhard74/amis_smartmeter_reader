@@ -22,4 +22,4 @@ Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, 
 ![AMIS Reader Hardware](hardware/amis_hardware.png?raw=true "AMIS Reader Hardware")
 
 ## Danksagung
-Vielen Dank an Gottfried Brandstetter für die Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
+Vielen Dank an Gottfried Prandstetter für die grandiose Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
