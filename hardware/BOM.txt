@@ -1,0 +1,23 @@
+C1-C3   0.1uF ker.  0805-1206
+C2-C5   0.1uF ker.  0805-1206
+C4   220µ/6,3V
+D1   IR-Sensor    PT17-21C/L41/TR8   0805 940nm Everlight
+alternativ
+D1   IR-Sensor    PT19-21B/L41/TR8   0603 940nm Everlight
+D2   IR-Tx-Led    IR17-21C/TR8       0805 940nm Everlight 
+IC1  LDO          AMS1117/3.3        SOT223
+JP1               PINHD-1X2          1X02         
+JP2               R-EU_R1210W        Place Holder only
+Q1   BC858 o.ä.   PNP Transistor     SOT23        
+Q2   BC848 o.ä.   NPN Transistor     SOT23        
+R1   330          R0805W
+R3   180          R0805W
+R4   10k          R0805W
+R8   10k          R0805W
+R9   1K           R0805W
+R10  330          R0805W
+R11  330          R0805W
+RXD  red          LEDSML0805
+TXD  green        LEDSML0805
+U$2  ESP12f       AI-Thinker
+USB  Micro-USB    5-pol
