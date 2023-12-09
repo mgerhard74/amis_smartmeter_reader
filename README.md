@@ -20,3 +20,6 @@ Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, 
 
 ## AMIS Hardware. PCB von Jlcpcb, händisch bestückt und gelötet:
 ![AMIS Reader Hardware](hardware/amis_hardware.png?raw=true "AMIS Reader Hardware")
+
+## Danksagung
+Vielen Dank an Gottfried Brandstetter für die Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
