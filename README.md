@@ -16,7 +16,7 @@ Mit einem Handy, Tablett oder Notebook kann man das WiFi-Netz "ESP8266_AMIS" ver
 Ev. auch gleich den AMIS/MBUS-Schlüssel vom NetzOÖ Portal eingeben, auf Allgemein "ThingSpeak/Highcharts aktiv" vorläufig nicht aktivieren. Jumper/Steckbrücke nun öffnen/abziehen und rebooten, nun sollte der Amis Leser über die gewählte IP erreichbar sein. Erzeugt er wieder das Wlan Netz "ESP8266_AMIS", obige Schritte wiederholen, vielleicht wurden Daten falsch eingegeben.
 Der Amis Leser muss mit dem USB Port nach oben bzw schräg rechts unten (je nach Version) an den richtigen (AMIS/MBUS Key) Siemens TD3511 magnetisch angeheftet werden. 
 RFPower ermöglicht die Kontrolle über die Sendeleistung, wobei weniger Sendeleistung anzuraten ist. 0dBm ist 1mW, was für kleinere Entfernungen genügt. Maximal 20dBm.
-Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, dann sollten unter Zähler Werte angezeigt werden. Wenn die Entschlüsselung der Daten unplausible Daten erzeugt, wird dies durch eine Meldung "falscher MBUS Key" angezeigt. Es dauert 1-2 Minuten bis Zähler und ESP synchron sind. Die Leds für TxD (nur Hardware V1) und RxD blinken dann im Sekundentakt.
+Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, dann sollten unter Zähler Werte angezeigt werden. Wenn die Entschlüsselung der Daten unplausible Daten erzeugt, wird dies durch eine Meldung "falscher MBUS Key" angezeigt. Es dauert 1-2 Minuten bis Zähler und ESP synchron sind. Die Leds für TxD und RxD blinken dann im Sekundentakt.
 
-## AMIS Hardware. PCB von Jlcpcb, händlisch bestückt und gelötet:
+## AMIS Hardware. PCB von Jlcpcb, händisch bestückt und gelötet:
 ![AMIS Reader Hardware](hardware/amis_hardware.png?raw=true "AMIS Reader Hardware")
