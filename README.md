@@ -10,6 +10,8 @@ Der Amis Reader benötigt eine 5V Spannungsversorgung (max. 0,13A, typ. 0,075A; 
 
 Der AMIS Reader emuliert auch einen Fronius Smartmeter (nur Einspeisepunkt Adresse 1) per Modbus/TCP für einen Fronius Symo (ab Datamanager Version 3.28.1-3) oder Gen24 Wechselrichter. 
 
+![AMIS Reader Webinterface](hardware/webinterface.png?raw=true "AMIS Reader Webinterface")
+
 ## Inbetriebnahme
 Der Amis-ESP8266 läuft normalerweise im Station-Mode, d.h. der ESP8266 verbindet sich als Client mit einem Wlan Router/AP. Dazu muss er aber erst einmal die SSID und das Wlan Passwort kennen. Daher wird der ESP8266 zur Einrichtung in den AP-Mode (Access-Point) versetzt. Das geschieht, indem man mit gesetztem Jumper (Steckbrücke) bootet. 
 Mit einem Handy, Tablett oder Notebook kann man das WiFi-Netz "ESP8266_AMIS" verbinden. Nach dem Verbinden einen Web-Browser starten und als Adresse http://192.168.4.1 eingeben. Menü / Wifi wählen und Netzwerkeinstellungen vornehmen, wir empfehlen dem AMIS Reader eine fixe IP zu geben, damit ist er immer mit der gleichen IP in deinem Netzwerk erreichbar. Gateway- und Namenserver-IP Adresse sind u.a. für Thingspeak notwendig.
