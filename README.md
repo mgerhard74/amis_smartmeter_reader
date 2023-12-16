@@ -21,7 +21,7 @@ RFPower ermöglicht die Kontrolle über die Sendeleistung, wobei weniger Sendele
 Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, dann sollten unter Zähler Werte angezeigt werden. Wenn die Entschlüsselung der Daten unplausible Daten erzeugt, wird dies durch eine Meldung "falscher MBUS Key" angezeigt. Es dauert 1-2 Minuten bis Zähler und ESP synchron sind. Die Leds für TxD und RxD blinken dann im Sekundentakt.
 
 ## AMIS Hardware. PCB von Jlcpcb, händisch bestückt und gelötet:
-<img src='hardware/amis_hardware.png' width='750'>
+<img src='hardware/amishardware.png' width='750'>
 
 ## Danksagung
 Vielen Dank an Gottfried Prandstetter für die grandiose Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
