@@ -11,6 +11,7 @@ Der Amis Reader benötigt eine 5V Spannungsversorgung (max. 0,13A, typ. 0,075A; 
 Der AMIS Reader emuliert auch einen Fronius Smartmeter (nur Einspeisepunkt Adresse 1) per Modbus/TCP für einen Fronius Symo (ab Datamanager Version 3.28.1-3) oder Gen24 Wechselrichter. Siehe dazu Docs/AmisFroniusSmartmeter.pdf.
 
 Startseite Webinterface:
+
 <img src='hardware/webinterface.png' width='356'>
 
 ## Inbetriebnahme
