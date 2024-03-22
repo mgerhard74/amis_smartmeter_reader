@@ -12,6 +12,7 @@ var yestd_out;
 var monthlist;
 var weekdata;
 var restoreData;
+var g_lastDT = new Date(); // letzte erhaltene Zeit
 
 var config_general = {
     "devicetype": "AMIS-Reader",
@@ -62,24 +63,92 @@ var config_mqtt={
     "command":"/config_mqtt"
 };
 
-function timeDecoder (tc) {
-  let hi=Number(tc.slice(0,4));
-  let lo=Number("0x"+tc.slice(4,12));
-  let secs = zeroPad((lo & 0x3f),2);
-  lo=lo >> 8;
-  let mins = zeroPad((lo & 0x3f),2);
-  lo =lo >> 8;
-  let hrs = zeroPad((lo & 0x1f),2);
-  lo =lo >> 8;
-  let day = zeroPad((lo & 0x1f),2);
-  let month = zeroPad((hi & 0x0f),2);
-  let year=(lo & 0xe0) >> 5;
-  year |= (hi & 0xf0) >> 1;
-  year+=2000;
-  return (year+'/'+month+'/'+day+'&nbsp;'+hrs+':'+mins+'.'+secs);
+function toNumberString(value, numberOfDecimals) {
+    return value.toFixed(numberOfDecimals).replace('.',',');
 }
 
-function updateElements (obj) {
+function UTCDate(d) {
+    let r = new Date();
+    r.setUTCMonth(1); // prevent any possible exception setting 29.02.XXXX
+    r.setUTCFullYear(d.getUTCFullYear());
+    r.setUTCMonth(d.getUTCMonth());
+    r.setUTCDate(d.getUTCDate());
+    r.setUTCHours(d.getUTCHours());
+    r.setUTCMinutes(d.getUTCMinutes());
+    r.setUTCSeconds(d.getUTCSeconds());
+    r.setUTCMilliseconds(d.getUTCMilliseconds());
+    return r;
+}
+
+function adjustDays(date, days) {
+    var r = new Date(date.valueOf());
+    r.setDate(r.getDate() + days);
+    return r;
+}
+
+function secsSinceMidnight(dt) {
+  // Anzahl der Sekunden seit Mitternacht berechnen
+  // Sommer/Winterzeit wird berücksichtigt sofern im Browser/OS richtig eingestellt
+  // Bsp: 2024/03/31 01:59:59 = 7199
+  //      2024/03/31 02:00:00 = 7200 - dürfte es aber ja eigentlich nie geben (wäre falsche Eingabe)!
+  //      2024/03/31 03:00:00 = 7200
+  let da = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(),
+                    dt.getHours(), dt.getMinutes(), dt.getSeconds());
+  da = UTCDate(da);
+
+  let dayBegin = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(),
+                          0, 0, 0);
+  dayBegin = UTCDate(dayBegin);
+
+  let r = ((da.getTime() - dayBegin.getTime()) / 1000) | 0;
+  return r;
+}
+
+function secsWholeDay(date) {
+  // Anzahl der Sekunden eines ganzen Tages
+  // Sommer/Winterzeit wird berücksichtigt sofern im Browser/OS richtig eingestellt
+  // Bsp f Österreich (CET/CEST):
+  //      2024/03/30 xx:xx:xx = 86400
+  //      2024/03/31 xx:xx:xx = 82800
+  //      2024/04/01 xx:xx:xx = 86400
+  //      2024/10/26 xx:xx:xx = 86400
+  //      2024/10/27 xx:xx:xx = 90000
+  //      2024/10/28 xx:xx:xx = 86400
+  let dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(),
+                          0, 0, 0);
+  dayStart = UTCDate(dayStart);
+
+  let dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(),
+                        23, 59, 59);
+  dayEnd = UTCDate(dayEnd);
+  let r = ((dayEnd.getTime() - dayStart.getTime()) / 1000) | 0;
+  return r + 1; // Die Sekunde von 23:59:59 auf 00:00:00 auch noch dazuzählen !
+}
+
+function timeDecoder(tc) {
+  let hi = Number(tc.slice(0,4));
+  let lo = Number("0x"+tc.slice(4,12));
+
+  let secs = lo & 0x3f;
+  lo >>= 8;
+  let mins = lo & 0x3f;
+  lo >>= 8;
+  let hrs = lo & 0x1f;
+  lo >>= 8;
+  let day = lo & 0x1f;
+  lo >>= 5;
+  let month = hi & 0x0f;
+  let year = lo & 0x07;
+  year |= (hi & 0xf0) >> 1;
+  year += 2000;
+
+  g_lastDT = new Date(year, month-1, day, hrs, mins, secs);
+
+  return year + '/' + zeroPad(month,2) + '/' + zeroPad(day,2) + '&nbsp;' +
+         zeroPad(hrs,2) + ':' + zeroPad(mins,2) + ':' + zeroPad(secs,2);
+}
+
+function updateElements(obj) {
   let pre;
   let post;
   let div;
@@ -115,17 +184,26 @@ function updateElements (obj) {
           value = timeDecoder((value));
       }
     }
-    else if (key==='today_in') {   // 1x nach Start
+    else if (key==='today_in') {   // Nur 1x nach dem Start
       yestd_in=obj.yestd_in;
       yestd_out=obj.yestd_out;
-      $("#tdy_in"  ).html(((value-yestd_in)/1000).toFixed(3).replace('.',','));
-      $("#tdy_out" ).html(((obj.today_out-yestd_out) / 1000).toFixed(3).replace('.',','));
+      $("#tdy_in"  ).html(toNumberString((value-yestd_in)/1000, 3));
+      $("#tdy_out" ).html(toNumberString((obj.today_out-yestd_out)/1000, 3));
       var diff=(value-yestd_in)-(obj.today_out-yestd_out);
       if (diff >0) $("#tdy_diff").css({'color':'#FF0000'});
       else         $("#tdy_diff").css({'color':'#0000FF'});
-      $("#tdy_diff").html((diff / 1000).toFixed(3).replace('.',','));
+      $("#tdy_diff").html(toNumberString(diff / 1000, 3));
+      if (diff >0) $("#perhour_tdy").css({'color':'#FF0000'});
+      else         $("#perhour_tdy").css({'color':'#0000FF'});
+      let secsDayStart = secsSinceMidnight(g_lastDT);
+      if (secsDayStart > 0) {
+        $("#perhour_tdy").html(toNumberString((diff * 3600) / secsDayStart / 1000, 3));
+      } else {
+        $("#perhour_tdy").html(toNumberString(diff / 1000, 3));
+      }
       for (let i=0;i<7;i++ ) {
         let datax = "data" + i;
+        let date = adjustDays(g_lastDT, -1 - i);
         if (datax in obj) {
           datax = obj[datax];
           if (i === 0) $("#wd0").html('Gestern');
@@ -135,7 +213,11 @@ function updateElements (obj) {
           diff=datax[1]-datax[2];
           if (diff >0) $("#wd_diff"+i).css({'color':'#FF0000'});
           else         $("#wd_diff"+i).css({'color':'#0000FF'});
-          $("#wd_diff"+i).html((diff / 1000).toFixed(3).replace('.',','));
+          $("#wd_diff"+i).html(toNumberString(diff / 1000, 3));
+          if (diff >0) $("#perhour_"+i).css({'color':'#FF0000'});
+          else         $("#perhour_"+i).css({'color':'#0000FF'});
+          let secsDay = secsWholeDay(date);
+          $("#perhour_"+i).html(toNumberString((diff * 3600) / secsDay / 1000, 3));
         }
       }
       continue;
