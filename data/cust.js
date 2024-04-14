@@ -148,6 +148,16 @@ function timeDecoder(tc) {
          zeroPad(hrs,2) + ':' + zeroPad(mins,2) + ':' + zeroPad(secs,2);
 }
 
+function setAvgItem(basitemname, totalValue, numberOfSeconds, setcolorNegPos) {
+    let fieldname = "#avg_" + basitemname;
+
+    if (setcolorNegPos) {
+        if (totalValue > 0) $(fieldname).css({'color':'#FF0000'});
+        else                $(fieldname).css({'color':'#0000FF'});
+    }
+    $(fieldname).html("Ø " + toNumberString((totalValue * 3600) / numberOfSeconds / 1000, 3));
+}
+
 function updateElements(obj) {
   let pre;
   let post;
@@ -185,39 +195,36 @@ function updateElements(obj) {
       }
     }
     else if (key==='today_in') {   // Nur 1x nach dem Start
+      let secsDayStart = secsSinceMidnight(g_lastDT);
       yestd_in=obj.yestd_in;
       yestd_out=obj.yestd_out;
       $("#tdy_in"  ).html(toNumberString((value-yestd_in)/1000, 3));
+      setAvgItem("tdy_in", value-yestd_in, secsDayStart, false);
       $("#tdy_out" ).html(toNumberString((obj.today_out-yestd_out)/1000, 3));
+      setAvgItem("tdy_out", obj.today_out-yestd_out, secsDayStart, false);
       var diff=(value-yestd_in)-(obj.today_out-yestd_out);
       if (diff >0) $("#tdy_diff").css({'color':'#FF0000'});
       else         $("#tdy_diff").css({'color':'#0000FF'});
       $("#tdy_diff").html(toNumberString(diff / 1000, 3));
-      if (diff >0) $("#perhour_tdy").css({'color':'#FF0000'});
-      else         $("#perhour_tdy").css({'color':'#0000FF'});
-      let secsDayStart = secsSinceMidnight(g_lastDT);
-      if (secsDayStart > 0) {
-        $("#perhour_tdy").html(toNumberString((diff * 3600) / secsDayStart / 1000, 3));
-      } else {
-        $("#perhour_tdy").html(toNumberString(diff / 1000, 3));
-      }
+      setAvgItem("tdy_diff", diff, secsDayStart, true);
+
       for (let i=0;i<7;i++ ) {
         let datax = "data" + i;
         let date = adjustDays(g_lastDT, -1 - i);
         if (datax in obj) {
+          let secsDay = secsWholeDay(date);
           datax = obj[datax];
           if (i === 0) $("#wd0").html('Gestern');
           else $("#wd"+i).html(wday[datax[0]]);
           $("#wd_in" +i).html((datax[1] / 1000).toFixed(3).replace('.',','));
+          setAvgItem("wd_in"+i, datax[1], secsDay, false);
           $("#wd_out"+i).html((datax[2] / 1000).toFixed(3).replace('.',','));
+          setAvgItem("wd_out"+i, datax[2], secsDay, false);
           diff=datax[1]-datax[2];
           if (diff >0) $("#wd_diff"+i).css({'color':'#FF0000'});
           else         $("#wd_diff"+i).css({'color':'#0000FF'});
           $("#wd_diff"+i).html(toNumberString(diff / 1000, 3));
-          if (diff >0) $("#perhour_"+i).css({'color':'#FF0000'});
-          else         $("#perhour_"+i).css({'color':'#0000FF'});
-          let secsDay = secsWholeDay(date);
-          $("#perhour_"+i).html(toNumberString((diff * 3600) / secsDay / 1000, 3));
+          setAvgItem("wd_diff"+i, diff, secsDay, true);
         }
       }
       continue;
