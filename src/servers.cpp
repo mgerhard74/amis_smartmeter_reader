@@ -226,7 +226,7 @@ void serverInit(unsigned mode) {
   else 	server.rewrite("/", "/upgrade");
   // attach filesystem root at URL /fs
   // server.serveStatic("/fs", LittleFS, "/");
-  server.serveStatic("/", LittleFS, "/");  // /*.* wird aut.  geservt, alle Files die keine Daten anfordern (GET,POST...)
+  server.serveStatic("/", LittleFS, "/", "public, must-revalidate");  // /*.* wird aut.  geservt, alle Files die keine Daten anfordern (GET,POST...)
   server.begin();
 }
 //*************************************************************
