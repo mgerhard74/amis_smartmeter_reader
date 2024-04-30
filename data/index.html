@@ -4,7 +4,7 @@
     <!--<meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval';">-->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP-Device</title>
+    <title>Amis-Reader</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script>
       window.jQuery || document.write('<script src="jquery371slim.js"><\/script>');
@@ -119,17 +119,18 @@
               <table class="pure-table pure-table-striped" width="100%">
                 <thead><tr><th>Tag</th><th align="right">Bezug</th><th align="right">Lfrg.</th><th align="right">Diff.</th></tr></thead>
                 <Tbody>
-                  <tr><td>Heute</td>    <td align="right" id="tdy_in"></td><td align="right" id="tdy_out"></td><td align="right" id="tdy_diff"></td></tr>
-                  <tr><td id="wd0"></td><td align="right" id="wd_in0"></td><td align="right" id="wd_out0"></td><td align="right" id="wd_diff0"></td></tr>
-                  <tr><td id="wd1"></td><td align="right" id="wd_in1"></td><td align="right" id="wd_out1"></td><td align="right" id="wd_diff1"></td></tr>
-                  <tr><td id="wd2"></td><td align="right" id="wd_in2"></td><td align="right" id="wd_out2"></td><td align="right" id="wd_diff2"></td></tr>
-                  <tr><td id="wd3"></td><td align="right" id="wd_in3"></td><td align="right" id="wd_out3"></td><td align="right" id="wd_diff3"></td></tr>
-                  <tr><td id="wd4"></td><td align="right" id="wd_in4"></td><td align="right" id="wd_out4"></td><td align="right" id="wd_diff4"></td></tr>
-                  <tr><td id="wd5"></td><td align="right" id="wd_in5"></td><td align="right" id="wd_out5"></td><td align="right" id="wd_diff5"></td></tr>
-                  <tr><td id="wd6"></td><td align="right" id="wd_in6"></td><td align="right" id="wd_out6"></td><td align="right" id="wd_diff6"></td></tr>
+                  <tr><td>Heute</div></td>         <td align="right"><div id="tdy_in"></div><p><div id="avg_tdy_in"></div></td><td align="right"><div id="tdy_out"></div><p><div id="avg_tdy_out"></div></td><td align="right"><div id="tdy_diff"></div><p><div id="avg_tdy_diff"></div></td></tr>
+                  <tr><td><div id="wd0"></div></td><td align="right"><div id="wd_in0"></div><p><div id="avg_wd_in0"></div></td><td align="right"><div id="wd_out0"></div><p><div id="avg_wd_out0"></div></td><td align="right"><div id="wd_diff0"></div><p><div id="avg_wd_diff0"></div></td></tr>
+                  <tr><td><div id="wd1"></div></td><td align="right"><div id="wd_in1"></div><p><div id="avg_wd_in1"></div></td><td align="right"><div id="wd_out1"></div><p><div id="avg_wd_out1"></div></td><td align="right"><div id="wd_diff1"></div><p><div id="avg_wd_diff1"></div></td></tr>
+                  <tr><td><div id="wd2"></div></td><td align="right"><div id="wd_in2"></div><p><div id="avg_wd_in2"></div></td><td align="right"><div id="wd_out2"></div><p><div id="avg_wd_out2"></div></td><td align="right"><div id="wd_diff2"></div><p><div id="avg_wd_diff2"></div></td></tr>
+                  <tr><td><div id="wd3"></div></td><td align="right"><div id="wd_in3"></div><p><div id="avg_wd_in3"></div></td><td align="right"><div id="wd_out3"></div><p><div id="avg_wd_out3"></div></td><td align="right"><div id="wd_diff3"></div><p><div id="avg_wd_diff3"></div></td></tr>
+                  <tr><td><div id="wd4"></div></td><td align="right"><div id="wd_in4"></div><p><div id="avg_wd_in4"></div></td><td align="right"><div id="wd_out4"></div><p><div id="avg_wd_out4"></div></td><td align="right"><div id="wd_diff4"></div><p><div id="avg_wd_diff4"></div></td></tr>
+                  <tr><td><div id="wd5"></div></td><td align="right"><div id="wd_in5"></div><p><div id="avg_wd_in5"></div></td><td align="right"><div id="wd_out5"></div><p><div id="avg_wd_out5"></div></td><td align="right"><div id="wd_diff5"></div><p><div id="avg_wd_diff5"></div></td></tr>
+                  <tr><td><div id="wd6"></div></td><td align="right"><div id="wd_in6"></div><p><div id="avg_wd_in6"></div></td><td align="right"><div id="wd_out6"></div><p><div id="avg_wd_out6"></div></td><td align="right"><div id="wd_diff6"></div><p><div id="avg_wd_diff6"></div></td></tr>
                 </Tbody>
               </table>
             </div>
+
             <h3>Energie monatlich[kWh]</h3>
             <div class="pure-u-1">
                <span id="month_table"></span>
@@ -156,6 +157,8 @@
             <div class="pure-u-11-24"><span class="right" name="version"></span></div>
             <div class="pure-u-1-2">App name</div>
             <div class="pure-u-11-24"><span class="right" name="app_name"></span></div>
+            <div class="pure-u-1-2">Compiled [UTC]</div>
+            <div class="pure-u-11-24"><span class="right" name="app_compiled_time_utc"></span></div>
             <div class="pure-u-1-2">Firmware size</div>
             <div class="pure-u-11-24"><span class="right" name="sketchsize" post=" bytes"></span></div>
             <div class="pure-u-1-2">Free space</div>
@@ -181,29 +184,29 @@
         </div>
         <div class="pure-u-1 pure-u-lg-11-24 state">
             <div class="pure-u-1-2">Network</div>
-            <div class="pure-u-11-24" name="ssid"></div>
+            <div class="pure-u-11-24"><span name="ssid"></span></div>
             <div class="pure-u-1-2">Channel</div>
-            <div class="pure-u-11-24" name="channel"></div>
+            <div class="pure-u-11-24"><span  name="channel"></span></div>
             <div class="pure-u-1-2">RSSI</div>
-            <div class="pure-u-11-24" name="rssi" post=" dB"></div>
+            <div class="pure-u-11-24"><span name="rssi" post=" dB"></span></div>
             <div class="pure-u-1-2">IP</div>
-            <div class="pure-u-11-24" name="deviceip"></div>
+            <div class="pure-u-11-24"><span name="deviceip"></span></div>
             <div class="pure-u-1-2">DNS</div>
-            <div class="pure-u-11-24" name="dns"></div>
+            <div class="pure-u-11-24"><span name="dns"></span></div>
             <div class="pure-u-1-2">Gateway</div>
-            <div class="pure-u-11-24" name="gateway"></div>
+            <div class="pure-u-11-24"><span name="gateway"></span></div>
             <div class="pure-u-1-2">Netmask</div>
-            <div class="pure-u-11-24" name="netmask"></div>
+            <div class="pure-u-11-24"><span name="netmask"></span></div>
             <div class="pure-u-1-2">VCC</div>
             <div class="pure-u-11-24"><span class="right" name="vcc">? </span><span>mV</span></div>
             <div class="pure-u-1-2 module-mqtt">MQTT Status</div>
-            <div class="pure-u-11-24 module-mqtt" name="mqttStatus"></div>
+            <div class="pure-u-11-24 module-mqtt"><span name="mqttStatus"></span></div>
             <div class="pure-u-1-2 module-ntp">NTP Status</div>
-            <div class="pure-u-11-24 module-ntp" name="ntpSynced"></div>
+            <div class="pure-u-11-24 module-ntp"><span name="ntpSynced"></span></div>
             <div class="pure-u-1-2 module-ntp">Current time</div>
-            <div class="pure-u-11-24 module-ntp" name="now"></div>
+            <div class="pure-u-11-24 module-ntp"><span name="now"></span></div>
             <div class="pure-u-1-2">Uptime</div>
-            <div class="pure-u-11-24" name="uptime"></div>
+            <div class="pure-u-11-24"><span name="uptime"></span></div>
         </div>
       </div>
 

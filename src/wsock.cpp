@@ -18,6 +18,8 @@
   #endif
 #endif
 
+extern const char *__COMPILED_DATE_TIME_UTC_STR__;
+
 String  printIP(IPAddress adress) {
   return (String)adress[0] + "." + (String)adress[1] + "." + (String)adress[2] + "." + (String)adress[3];
 }
@@ -153,6 +155,7 @@ void  sendStatus(uint32_t clientId) {
   root[F("chipid")] = String(ESP.getChipId(), HEX);
   root[F("version")] = VERSION;
   root[F("app_name")] = APP_NAME;
+  root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
   root[F("core")] = ESP.getCoreVersion();
   root[F("sketchsize")] = ESP.getSketchSize();
   root[F("freesize")] = ESP.getFreeSketchSpace();
