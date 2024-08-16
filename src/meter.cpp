@@ -139,6 +139,7 @@ static void handleData(void* arg, AsyncClient* client, void *data, size_t len) {
 
     switch (reg_idx) {          // diese Adressen werden von Symo Geräten abgefragt
       case 71:                  // Anfragen an andere Adressen liefern Müll!
+      case 97:
         // die Register 40072..40128 werden im sec-Takt gelesen, reg_len==58
         signed int xsaldo;
         xsaldo=(a_result[4]-a_result[5]);           // 1.7.0 - 2.7.0 = Power
