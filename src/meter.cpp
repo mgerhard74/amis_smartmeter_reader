@@ -141,6 +141,10 @@ static void handleData(void* arg, AsyncClient* client, void *data, size_t len) {
       case 71:                  // Anfragen an andere Adressen liefern Müll!
       case 97:
         // die Register 40072..40128 werden im sec-Takt gelesen, reg_len==58
+	memset(mBuffer,0,116);
+        mBuffer[48]=0x42;                            // 40096: 50 Hz
+        mBuffer[49]=0x48;
+      
         signed int xsaldo;
         xsaldo=(a_result[4]-a_result[5]);           // 1.7.0 - 2.7.0 = Power
         floatvar.value=(float)(xsaldo);
