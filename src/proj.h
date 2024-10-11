@@ -13,6 +13,7 @@
 #include "LittleFS.h"
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
+#include <ESP8266HTTPClient.h>
 
 /// Debug Einstellungen:
 /// DEBUGHW 0             keine Ausgaben
@@ -25,7 +26,7 @@
 #define AP_PIN 14
 //#define OTA
 //#define STROMPREIS
-#define VERSION "1.2.9"
+#define VERSION "1.3.0"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
@@ -59,6 +60,11 @@ struct strConfig {
   unsigned rest_var;
   signed rest_ofs;
   bool rest_neg;
+  bool reboot0;
+  signed switch_on;
+  signed switch_off;
+  String switch_url_on;
+  String switch_url_off;
 };
 struct kwhstruct {
   unsigned kwh_in;

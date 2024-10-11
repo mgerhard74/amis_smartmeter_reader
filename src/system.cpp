@@ -190,6 +190,11 @@ void generalInit() {
   config.rest_var=json[F("rest_var")].as<int>();
   config.rest_ofs=json[F("rest_ofs")].as<int>();
   config.rest_neg=json[F("rest_neg")].as<bool>();
+  config.reboot0=json[F("reboot0")].as<bool>();
+  config.switch_on=json[F("switch_on")].as<int>();
+  config.switch_off=json[F("switch_off")].as<int>();
+  config.switch_url_on=json[F("switch_url_on")].as<String>();
+  config.switch_url_off=json[F("switch_url_off")].as<String>();
 }
 
 void histInit () {

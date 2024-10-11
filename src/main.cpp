@@ -57,6 +57,7 @@ String lastMonth;
 kwhstruct kwh_hist[7];
 bool inAPMode,mqttStatus,hwTest;
 ADC_MODE(ADC_VCC);
+int switch_last = 0;
 
 void setup(){
   Serial.begin(9600,SERIAL_8E1);      // Schnittstelle zu Amis-Z?er
@@ -273,16 +274,58 @@ void secTick() {
       writeHistFileIn(x,a_result[0]);
       kwh_day_out[x]=a_result[1];     // 2.8.0
       writeHistFileOut(x,a_result[1]);
-      dow_local=dow;
+      dow_local=dow;	  
       if (mon_local != mon) {         // Monatswechsel
         writeMonthFile(year,mon);
         mon_local=mon;
       }
       first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
+      
+     if ((millis()/1000 > 43200) && (config.reboot0))      // Reboot wenn uptime > 12h
+      {
+          writeEvent("INFO", "sys", "Reboot uptime>12h", "");
+		  delay(10);
+          ESP.restart();
+      }
     }
   }
 
-  /// Thingspeak aktualisieren
+  // Wifi Switch on/off
+  if ((config.switch_url_on != "") && (config.switch_url_off != "")) 
+  {	
+	signed int xsaldo;
+	xsaldo=(a_result[4]-a_result[5]);
+	unsigned int sek = (millis()/1000) % 5;
+	
+	if ((xsaldo < config.switch_on) && (switch_last != 1) && (sek == 0))
+	{
+		HTTPClient http;
+		WiFiClient client;
+		http.begin(client,config.switch_url_on);
+		int httpCode = http.GET();
+		if(httpCode == HTTP_CODE_OK) 
+		{
+			//writeEvent("INFO", "sys", "Switch on Url sent", "");
+		}
+		http.end();
+		switch_last = 1;
+	}
+	if ((xsaldo > config.switch_off) && (switch_last != 2) && (sek == 0))
+	{
+		HTTPClient http;
+		WiFiClient client;
+		http.begin(client,config.switch_url_off);
+		int httpCode = http.GET();
+		if(httpCode == HTTP_CODE_OK) 
+		{
+			//writeEvent("INFO", "sys", "Switch off Url sent", "");
+		}
+		http.end();
+		switch_last = 2;
+	}	
+  }
+
+  // Thingspeak aktualisieren
   if (config.thingspeak_aktiv && things_cycle >= config.thingspeak_iv && new_data && valid==5) {
     things_cycle=0;
     thingspeak_watch++;
