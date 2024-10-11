@@ -82,7 +82,7 @@
 
       <div class="panel" id="panel-home">
         <div class="header">
-            <h1>AMIS-Zähler</h1>
+            <h1>AMIS-Smartmeter Leser</h1>
             <br>
         </div><br>
         <div class="amis">
@@ -109,7 +109,7 @@
             <div class="pure-u-11-24">1.128.0 (Inkasso)</div>
             <div class="pure-u-11-24" name="1_128_0"></div>
             <br><hr>
-            <div class="pure-u-11-24">Uptime</div>
+            <div class="pure-u-11-24">Laufzeit</div>
             <div class="pure-u-11-24" name="uptime"></div>
             <div class="pure-u-11-24">Upload ThingSpeak</div>
             <div class="pure-u-11-24" name="things_up"></div>
@@ -117,16 +117,16 @@
             <h3>Energie wöchentlich [kWh]</h3>
             <div class="pure-u-1">
               <table class="pure-table pure-table-striped" width="100%">
-                <thead><tr><th>Tag</th><th align="right">Bezug</th><th align="right">Lfrg.</th><th align="right">Diff.</th></tr></thead>
+                <thead><tr><th>Tag</th><th align="right">Bezug</th><th align="right">Lfrg.</th><th align="right">Diff.</th><th align="right">ØLstg.</th></tr></thead>
                 <Tbody>
-                  <tr><td>Heute</div></td>         <td align="right"><div id="tdy_in"></div><p><div id="avg_tdy_in"></div></td><td align="right"><div id="tdy_out"></div><p><div id="avg_tdy_out"></div></td><td align="right"><div id="tdy_diff"></div><p><div id="avg_tdy_diff"></div></td></tr>
-                  <tr><td><div id="wd0"></div></td><td align="right"><div id="wd_in0"></div><p><div id="avg_wd_in0"></div></td><td align="right"><div id="wd_out0"></div><p><div id="avg_wd_out0"></div></td><td align="right"><div id="wd_diff0"></div><p><div id="avg_wd_diff0"></div></td></tr>
-                  <tr><td><div id="wd1"></div></td><td align="right"><div id="wd_in1"></div><p><div id="avg_wd_in1"></div></td><td align="right"><div id="wd_out1"></div><p><div id="avg_wd_out1"></div></td><td align="right"><div id="wd_diff1"></div><p><div id="avg_wd_diff1"></div></td></tr>
-                  <tr><td><div id="wd2"></div></td><td align="right"><div id="wd_in2"></div><p><div id="avg_wd_in2"></div></td><td align="right"><div id="wd_out2"></div><p><div id="avg_wd_out2"></div></td><td align="right"><div id="wd_diff2"></div><p><div id="avg_wd_diff2"></div></td></tr>
-                  <tr><td><div id="wd3"></div></td><td align="right"><div id="wd_in3"></div><p><div id="avg_wd_in3"></div></td><td align="right"><div id="wd_out3"></div><p><div id="avg_wd_out3"></div></td><td align="right"><div id="wd_diff3"></div><p><div id="avg_wd_diff3"></div></td></tr>
-                  <tr><td><div id="wd4"></div></td><td align="right"><div id="wd_in4"></div><p><div id="avg_wd_in4"></div></td><td align="right"><div id="wd_out4"></div><p><div id="avg_wd_out4"></div></td><td align="right"><div id="wd_diff4"></div><p><div id="avg_wd_diff4"></div></td></tr>
-                  <tr><td><div id="wd5"></div></td><td align="right"><div id="wd_in5"></div><p><div id="avg_wd_in5"></div></td><td align="right"><div id="wd_out5"></div><p><div id="avg_wd_out5"></div></td><td align="right"><div id="wd_diff5"></div><p><div id="avg_wd_diff5"></div></td></tr>
-                  <tr><td><div id="wd6"></div></td><td align="right"><div id="wd_in6"></div><p><div id="avg_wd_in6"></div></td><td align="right"><div id="wd_out6"></div><p><div id="avg_wd_out6"></div></td><td align="right"><div id="wd_diff6"></div><p><div id="avg_wd_diff6"></div></td></tr>
+                  <tr><td>Heute</td>    <td align="right" id="tdy_in"></td><td align="right" id="tdy_out"></td><td align="right" id="tdy_diff"></td><td align="right" id="perhour_tdy"></td></tr>
+                  <tr><td id="wd0"></td><td align="right" id="wd_in0"></td><td align="right" id="wd_out0"></td><td align="right" id="wd_diff0"></td><td align="right" id="perhour_0"></td></tr>
+                  <tr><td id="wd1"></td><td align="right" id="wd_in1"></td><td align="right" id="wd_out1"></td><td align="right" id="wd_diff1"></td><td align="right" id="perhour_1"></td></tr>
+                  <tr><td id="wd2"></td><td align="right" id="wd_in2"></td><td align="right" id="wd_out2"></td><td align="right" id="wd_diff2"></td><td align="right" id="perhour_2"></td></tr>
+                  <tr><td id="wd3"></td><td align="right" id="wd_in3"></td><td align="right" id="wd_out3"></td><td align="right" id="wd_diff3"></td><td align="right" id="perhour_3"></td></tr>
+                  <tr><td id="wd4"></td><td align="right" id="wd_in4"></td><td align="right" id="wd_out4"></td><td align="right" id="wd_diff4"></td><td align="right" id="perhour_4"></td></tr>
+                  <tr><td id="wd5"></td><td align="right" id="wd_in5"></td><td align="right" id="wd_out5"></td><td align="right" id="wd_diff5"></td><td align="right" id="perhour_5"></td></tr>
+                  <tr><td id="wd6"></td><td align="right" id="wd_in6"></td><td align="right" id="wd_out6"></td><td align="right" id="wd_diff6"></td><td align="right" id="perhour_6"></td></tr>
                 </Tbody>
               </table>
             </div>
@@ -305,8 +305,12 @@
           <div class="pure-u-2-3">Saldo 1.7.0-2.7.0 negieren</div>
           <div class="pure-u-1-3"><input type="checkbox" name="rest_neg" id="rest_neg" class="general"/></div>
           Änderungen hier werden auch ohne Neustart wirksam!
-        </div>
+		</div>
         <hr><br>
+        <div class="pure-g">
+          <div class="pure-u-2-3">Reboot um 0:00 Uhr</div>
+          <div class="pure-u-1-3"><input type="checkbox" name="reboot0" id="reboot0" class="general"/></div>
+        </div>
         <div class="pure-g">
           <label class="pure-u-2-3">Smartmeter Emulation aktiv:</label>
             <div class="pure-u-1-3 "><input type="checkbox" name="smart_mtr" id="smart_mtr" class="general"/></div>
@@ -315,7 +319,25 @@
             Verwendbar zB für Einspeiselimit.
           </div>
         </div>
+        <hr><br>
         <div class="pure-g">
+          <div class="pure-u-3-4">"Ein"-Befehl unter x Watt Saldo (zB -250W):</div>
+          <input class="pure-u-1-4 general" type="number" name="switch_on" value="0" id="switch_on">
+        </div>
+        <div class="pure-g">
+          <div class="pure-u-3-4">"Aus"-Befehl &uuml;ber x Watt Saldo (zB 25W):</div>
+          <input class="pure-u-1-4 general" type="number" name="switch_off" value="0" id="switch_off">
+        </div>
+		<div class="pure-g">
+          <label class="pure-u-1-3">Url Ein:</label>
+          <input class="pure-u-2-3 general" type="text" name="switch_url_on" id="switch_url_on" class="general"/>
+        </div>
+		<div class="pure-g">
+          <label class="pure-u-1-3">Url Aus:</label>
+          <input class="pure-u-2-3 general" type="text" name="switch_url_off" id="switch_url_off" class="general"/>
+        </div>
+        <hr><br>
+		<div class="pure-g">
           <div class="pure-u-1-2 pure-u-sm-1-5"><progress id="prgbar_general"></progress></div>
           <div style="min-height: 40px"></div>
         </div>
@@ -571,54 +593,58 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.3.0</h3>
+              T&auml;glicher reboot um 0:00 Uhr kann in Allgemein aktiviert werden.<br>
+              Ein Verbraucher kann nun direkt &uuml;ber eine Wifi Steckdose geschalten werden. Die Steckdose muss über einen http Aufruf schaltbar sein - zB Tasmota kompatible Steckdosen.<br>
+              zB: Verbraucher hat 500Watt Leistungsaufnahme. "Ein" unter -500Watt (Einspeisung), "Aus" &uuml;ber 10Watt (Bezug). Schaltvorgang alle 5sec.<br>
               <h3>Version 1.2.9</h3>
-              Per ModbusTCP kann nur auch direkt die Adresse 40079 für den Saldo (32Bit sw. float) abgefragt werden.<br>
+              Per ModbusTCP kann nur auch direkt die Adresse 40079 f&uuml;r den Saldo (32Bit sw. float) abgefragt werden.<br>
               <h3>Version 1.2.8</h3>
               Diverse kleine Verbesserungen (Webserverzugriff). Details auf Github (<a href="https://github.com/mgerhard74/amis_smartmeter_reader/pull/2">pull request #2</a>) <br>
               <h3>Version 1.2.7</h3>
-              * Amis-Reader fungiert als Smartmeter-Emulator per ModbusTCP auf Port 502.<br>
+              * Amis-Reader fungiert als Smartmeter-Emulator per Modbus-TCP auf Port 502.<br>
               Funktioniert mit Gen24. Stark vereinfacht auf das tatsächliche Fxxxxxs-Polling.
               Es wird nur der Wert AC-Power korrekt behandelt, der Rest ist Fake!
-              Reicht aber zB für korrekte dyn. Einspeisebegrenzung.<br>
-              * Alle Einstellungen und die gespeicherten Wochen- und Monatsdaten können in eine Konfigurationsdatei geschrieben und natürlich
+              Reicht aber zB f&uuml;r korrekte dyn. Einspeisebegrenzung.<br>
+              * Alle Einstellungen und die gespeicherten Wochen- und Monatsdaten können in eine Konfigurationsdatei geschrieben und nat&uuml;rlich
               auch wieder eingelesen werden. Da die Datei im Format JSON vorliegt, ist auch denkbar diese zu editieren.
               <br>
               <h3>Version 1.2.6</h3>
-              Plausibilitätsprüfung wird auch auf Datenexport zu Thingspeak, MQTT und REST angewendet.
+              Plausibilit&auml;tspr&uuml;fung wird auch auf Datenexport zu Thingspeak, MQTT und REST angewendet.
               <br>
               <h3>Version 1.2.5</h3>
-              Plausibilitätsprüfung der Zählerdaten musste eingeführt werden, weil sonst das neue File für die Monatsdaten total zugemüllt wird.
-              Falls das schon passiert ist, den Amis-Reader ohne Kontakt zum Zähler in Betrieb nehmen und versuchen, die Monatsdaten im Menüpunkt Log zu löschen.
+              Plausibilit&auml;tspr&uuml;fung der Z&auml;hlerdaten musste eingef&uuml;hrt werden, weil sonst das neue File f&uuml;r die Monatsdaten total zugem&uuml;llt wird.
+              Falls das schon passiert ist, den Amis-Reader ohne Kontakt zum Z&auml;hler in Betrieb nehmen und versuchen, die Monatsdaten im Men&uuml;punkt Log zu l&ouml;schen.
               <br>
               <h3>Version 1.2.4</h3>
-              * Neu eingeführt wurde eine Liste der monatlichen Energiewerte Bezug und Lieferung, diese wird unterhalb der Wochentagswerte dargestellt. Bitte bedenken, dass bei der Inbetriebnahme bzw. nach einem Update die momentanen Zählerstände als Ausgangswert der Datenaufzeichnung für den laufenden Monat gelten. Erst der Folgemonat wird zur Gänze erfasst.
+              * Neu eingef&uuml;hrt wurde eine Liste der monatlichen Energiewerte Bezug und Lieferung, diese wird unterhalb der Wochentagswerte dargestellt. Bitte bedenken, dass bei der Inbetriebnahme bzw. nach einem Update die momentanen Z&auml;hlerst&auml;nde als Ausgangswert der Datenaufzeichnung f&uuml;r den laufenden Monat gelten. Erst der Folgemonat wird zur G&auml;nze erfasst.
               <br>
-              * Die Ausgabe der Zählerregister per MQTT sieht jetzt genau so aus wie die Ausgabe per HTML/rest, es gelten auch die selben Einstellungen für das Format, welches unter "Allgemein/REST- und MQTT-API" getroffen wird.
+              * Die Ausgabe der Z&auml;hlerregister per MQTT sieht jetzt genau so aus wie die Ausgabe per HTML/rest, es gelten auch die selben Einstellungen f&uuml;r das Format, welches unter "Allgemein/REST- und MQTT-API" getroffen wird.
               <br>
               <h3>Version 1.2.3</h3>
               Verbesserungen der Datenauswertung:<br>
-              Der Saldo (Bezug - Lieferung) wird in der Grafik dargestellt. Diese Berechnung funktioniert auch für ältere Daten, da sie erst zur Laufzeit durchgeführt wird.<br>
-              Das Rest-API wurde um diesen Saldo erweitert, was für Anwendungen die den Überschuss benötigen vorteilhaft ist. Siehe Einstellungen/Algemein.
+              Der Saldo (Bezug - Lieferung) wird in der Grafik dargestellt. Diese Berechnung funktioniert auch f&uuml;r &auml;ltere Daten, da sie erst zur Laufzeit durchgef&uuml;hrt wird.<br>
+              Das Rest-API wurde um diesen Saldo erweitert, was f&uuml;r Anwendungen die den &Uuml;berschu&szlig; ben&ouml;tigen vorteilhaft ist. Siehe Einstellungen/Algemein.
               <h3>Version 1.2.2</h3>
-              ThingsPeak ändert wieder einmal sein API, MQTT wird auf Secure MQTT umgestellt. Da der dafür notwendige Aufwand für einen ESP8266 ziemlich hoch ist, werden die Daten jetzt per HTTP gesendet.
+              ThingsPeak &auml;ndert wieder einmal sein API, MQTT wird auf Secure MQTT umgestellt. Da der daf&uuml;r notwendige Aufwand f&uuml;r einen ESP8266 ziemlich hoch ist, werden die Daten jetzt per HTTP gesendet.
               Kleine Bugs behoben.
               Update betrifft firmware.bin, index.html.
               <br>
               <h3>Version 1.2.1</h3>
-              Bug in der Entschlüsselung behoben. Work-around in cust.js entfernt. Danke Andreas B.
+              Bug in der Entschl&uuml;sselung behoben. Work-around in cust.js entfernt. Danke Andreas B.
               Update betrifft also firmware.bin, index.html und cust.js.
               <br>
               <h3>Version 1.2.0</h3>
-              Neues Filesystem LittleFs eingeführt. Leider gehen dadurch alle Konfigurations- und Logdateien verloren.
+              Neues Filesystem LittleFs eingef&uuml;hrt. Leider gehen dadurch alle Konfigurations- und Logdateien verloren.
               Kleine Bugs behoben.
               <br>
               <h3>Version 1.1.5</h3>
-              Antwort auf rest-Anfrage ist gesperrt, so lange Zähler nicht synchron ist.
+              Antwort auf rest-Anfrage ist gesperrt, so lange Z&auml;hler nicht synchron ist.
               <br>
               <h3>Version 1.1.4</h3>
-              Alle Web-Dateien werden vom lokalen Server bereitgestellt, d.h. kein Nachladen aus externen Quellen ist notwendig. Ausnahme: Chart-Grafik, aber dazu ist grundsätzlich eine Internetverbindung notwendig.
+              Alle Web-Dateien werden vom lokalen Server bereitgestellt, d.h. kein Nachladen aus externen Quellen ist notwendig. Ausnahme: Chart-Grafik, aber dazu ist grunds&auml;tzlich eine Internetverbindung notwendig.
               <br>
-              Logdatei und Log-Anzeige: übersteigt die Größe der Logdatei ca. 1000 Zeilen, dann wird sie gelöscht und neu erzeugt. Der Seitenabruf wurde verbessert wegen Timeout-Problemen.
+              Logdatei und Log-Anzeige: &uuml;bersteigt die Gr&ouml;sse der Logdatei ca. 1000 Zeilen, dann wird sie gel&ouml;scht und neu erzeugt. Der Seitenabruf wurde verbe&szlig;ert wegen Timeout-Problemen.
               <br>
               <h3>Version 1.1.3</h3>
               Leerzeichen in SSID erlaubt.
@@ -626,18 +652,18 @@
               <br>
               <h3>Version 1.1.2</h3>
               Saldo 1.7.0 - 2.7.0 wird angezeigt.<br>
-              Die Energie-History wurde ergänzt und zeigt jetzt auch die Lieferung und den Saldo per Tag an.
+              Die Energie-History wurde erg&auml;nzt und zeigt jetzt auch die Lieferung und den Saldo per Tag an.
               <br>
               <h3>Version 1.1.1</h3>
-              Einführung Versionsinfo.<br>
+              Einf&uuml;hrung Versionsinfo.<br>
               Bugfix MQTT.<br>
               Die blaue LED leuchtet jetzt dauernd, sobald eine Verbindung zu einem Router (Access-Point) aufgebaut ist.<br>
               Wenn das Modul selbst als Access-Point auftritt (Jumper gesetzt), blinkt die LED. Die Netzwerkkennung (SSID) ist dann "ESP8266_AP",
               die Verbindung kann unter 192.168.4.1 aufgebaut werden.<br>
               <h3>Version 1.1.0</h3>
-              Der Datenabruf von ThingSpeak musste geändert werden, weil die bisherige Methhode mit jsonp nicht mehr unterstützt wird.
-              Durch die Änderung des API können sehr restriktive Webbrowser u.U. keine Daten mehr abrufen.<br>
-              Die gesamte Oberfläche wurde neu gestaltet, im Hintergrund laufen jetzt alle Vorgänge asynchron ab. Die Betriebssicherheit
+              Der Datenabruf von ThingSpeak musste ge&auml;ndert werden, weil die bisherige Methhode mit jsonp nicht mehr unterst&uuml;tzt wird.
+              Durch die &Auml;nderung des API k&ouml;nnen sehr restriktive Webbrowser u.U. keine Daten mehr abrufen.<br>
+              Die gesamte Oberfl&auml;che wurde neu gestaltet, im Hintergrund laufen jetzt alle Vorg&auml;nge asynchron ab. Die Betriebssicherheit
               sollte dadurch noch besser werden.
             </div>
           </div>
