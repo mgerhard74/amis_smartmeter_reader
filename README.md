@@ -27,7 +27,7 @@ Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, 
 <img src='hardware/amishardware.png' width='750'>
 
 ## AMIS Hardware V2. Maschinell bestückt und gelötet:
-<img src='hardware/amishardwareV2.png' width='750'>
+
 
 ## Danksagung
 Vielen Dank an Gottfried Prandstetter für die grandiose Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
