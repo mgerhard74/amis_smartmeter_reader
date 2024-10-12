@@ -9,6 +9,7 @@ Der NetzOÖ Smartmeter gibt Daten im Sekundentakt aus, somit stehen jede Sekunde
 Der Amis Reader benötigt eine 5V Spannungsversorgung (max. 0,13A, typ. 0,075A; Leistungsaufnahme < 1W) durch ein Micro-USB Netzteil und wird magnetisch durch 3 Magnete, die an der Platinenunterseite  angeklebt sind, an der optischen Kundenschnittstelle des Siemens Smartmeter gehalten.
 
 Der AMIS Reader emuliert auch einen Fronius Smartmeter (nur Einspeisepunkt Adresse 1) per Modbus/TCP für einen Fronius Symo (ab Datamanager Version 3.28.1-3) oder Gen24 Wechselrichter. Siehe dazu Docs/AmisFroniusSmartmeter.pdf.
+In der aktuellen Version ist es auch möglich eine (Tasmota-)Wifi Steckdose aufgrund von PV Überschuss anzusteuern. ("Ein" unter Saldowert; "Aus" über Saldowert; Url für Ein bzw Aus)
 
 Startseite Webinterface:
 
@@ -24,6 +25,9 @@ Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, 
 
 ## AMIS Hardware. PCB von Jlcpcb, händisch bestückt und gelötet:
 <img src='hardware/amishardware.png' width='750'>
+
+## AMIS Hardware V2. Maschinell bestückt und gelötet:
+<img src='hardware/amishardwareV2.png' width='750'>
 
 ## Danksagung
 Vielen Dank an Gottfried Prandstetter für die grandiose Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
