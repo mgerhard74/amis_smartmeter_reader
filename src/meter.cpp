@@ -56,7 +56,7 @@
 
 // Auf Big-Endian konvertierte Register-Var
 const uint16_t PROGMEM BE_holdregs[]={                                                           // Zählerkennung:
-/*00*/ 0x7553, 0x536e, 0x0100, 0x4100, 0x4100, 0x6d00, 0x6900, 0x7300, 0x2000, 0x5200,           //SunSA m i s   R
+/*00*/ 0x7553, 0x536e, 0x0100, 0x4100, 0x4100, 0x6d00, 0x6900, 0x7300, 0x2000, 0x5200,           // SunSA m i s   R
 /*10*/ 0x6500, 0x6100, 0x6400, 0x6500, 0x7200, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,           // e a d e r
 /*20*/ 0x5300, 0x6d00, 0x6100, 0x7200, 0x7400, 0x2000, 0x4d00, 0x6500, 0x7400, 0x6500,
 /*30*/ 0x7200, 0x2000, 0x3600, 0x3300, 0x4100, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
@@ -141,17 +141,60 @@ static void handleData(void* arg, AsyncClient* client, void *data, size_t len) {
       case 71:                  // Anfragen an andere Adressen liefern Müll!
       case 97:
         // die Register 40072..40128 werden im sec-Takt gelesen, reg_len==58
-	memset(mBuffer,0,116);
-        mBuffer[48]=0x42;                            // 40096: 50 Hz
-        mBuffer[49]=0x48;
-      
+        memset(mBuffer,0,116);
         signed int xsaldo;
         xsaldo=(a_result[4]-a_result[5]);           // 1.7.0 - 2.7.0 = Power
         floatvar.value=(float)(xsaldo);
-        mBuffer[52]=(floatvar.bytes[3]);             // Power  Big Endian korrekt kopieren auf P gesamt 40098
+        mBuffer[52]=(floatvar.bytes[3]);            // Power Big Endian korrekt kopieren auf P gesamt 40098
         mBuffer[53]=(floatvar.bytes[2]);
         mBuffer[54]=(floatvar.bytes[1]);
         mBuffer[55]=(floatvar.bytes[0]);
+
+        //floatvar.value=(float)(xsaldo)/230;
+        //mBuffer[0]=(floatvar.bytes[3]);             // Total AC Current 
+        //mBuffer[1]=(floatvar.bytes[2]);
+        //mBuffer[1]=(floatvar.bytes[1]);
+        //mBuffer[3]=(floatvar.bytes[0]);
+        floatvar.value=(float)(xsaldo)/690;
+        mBuffer[4]=(floatvar.bytes[3]);             // Phase A Current 
+        mBuffer[5]=(floatvar.bytes[2]);
+        mBuffer[6]=(floatvar.bytes[1]);
+        mBuffer[7]=(floatvar.bytes[0]);
+        memcpy(&mBuffer[8], &mBuffer[4], 4);        // Phase B Current 
+        memcpy(&mBuffer[12], &mBuffer[4], 4);       // Phase C Current 
+        floatvar.value=230;
+        mBuffer[16]=(floatvar.bytes[3]);            // Line to Neutral voltage
+        mBuffer[17]=(floatvar.bytes[2]);
+        mBuffer[18]=(floatvar.bytes[1]);
+        mBuffer[19]=(floatvar.bytes[0]);
+        memcpy(&mBuffer[20], &mBuffer[16], 4);      // Phase Voltage AN
+        memcpy(&mBuffer[24], &mBuffer[16], 4);      // Phase Voltage BN
+        memcpy(&mBuffer[28], &mBuffer[16], 4);      // Phase Voltage CN
+        floatvar.value=400;
+        mBuffer[32]=(floatvar.bytes[3]);            // Line to Line AC Voltage (average of active phases)
+        mBuffer[33]=(floatvar.bytes[2]);
+        mBuffer[34]=(floatvar.bytes[1]);
+        mBuffer[35]=(floatvar.bytes[0]);
+        memcpy(&mBuffer[36], &mBuffer[32], 4);      // Phase Voltage AB
+        memcpy(&mBuffer[40], &mBuffer[32], 4);      // Phase Voltage BC
+        memcpy(&mBuffer[44], &mBuffer[32], 4);      // Phase Voltage CA
+        floatvar.value=(float)(xsaldo)/3;
+        mBuffer[56]=(floatvar.bytes[3]);            // Watt Phase A 
+        mBuffer[57]=(floatvar.bytes[2]);
+        mBuffer[58]=(floatvar.bytes[1]);
+        mBuffer[59]=(floatvar.bytes[0]);
+        memcpy(&mBuffer[60], &mBuffer[56], 4);      // Watt Phase B
+        memcpy(&mBuffer[64], &mBuffer[56], 4);      // Watt Phase C       
+        floatvar.value=1;
+        mBuffer[100]=(floatvar.bytes[3]);           // Power Factor Sum
+        mBuffer[101]=(floatvar.bytes[2]);
+        mBuffer[102]=(floatvar.bytes[1]);
+        mBuffer[103]=(floatvar.bytes[0]);
+        memcpy(&mBuffer[104], &mBuffer[100], 4);    // Power Factor Phase A
+        memcpy(&mBuffer[108], &mBuffer[100], 4);    // Power Factor Phase B
+        memcpy(&mBuffer[112], &mBuffer[100], 4);    // Power Factor Phase C
+        mBuffer[48]=0x42;                           // 40096: 50 Hz
+        mBuffer[49]=0x48;
         break;
 
       // die Register 40130..40160 werden jede Minute gelesen, reg_len==32
