@@ -58,6 +58,7 @@ kwhstruct kwh_hist[7];
 bool inAPMode,mqttStatus,hwTest;
 ADC_MODE(ADC_VCC);
 int switch_last = 0;
+signed int Saldomittelwert[5];
 
 void setup(){
   Serial.begin(9600,SERIAL_8E1);      // Schnittstelle zu Amis-Z?er
@@ -295,9 +296,18 @@ void secTick() {
   {	
 	signed int xsaldo;
 	xsaldo=(a_result[4]-a_result[5]);
+	for (unsigned i=4;i>0;i--)
+		{ Saldomittelwert[i]=Saldomittelwert[i-1];}
+	Saldomittelwert[0]=xsaldo;
+	signed int xsaldo_mw=0;
+	for (unsigned i=0;i<5;i++)
+	{ xsaldo_mw=xsaldo_mw+Saldomittelwert[i]; }
+	xsaldo_mw=xsaldo_mw/5;
 	unsigned int sek = (millis()/1000) % 5;
+	if (config.switch_intervall > 0)
+	{ sek = (millis()/1000) % config.switch_intervall; }
 	
-	if ((xsaldo < config.switch_on) && (switch_last != 1) && (sek == 0))
+	if ((xsaldo_mw < config.switch_on) && (switch_last != 1) && (sek == 0))
 	{
 		HTTPClient http;
 		WiFiClient client;
@@ -310,7 +320,7 @@ void secTick() {
 		http.end();
 		switch_last = 1;
 	}
-	if ((xsaldo > config.switch_off) && (switch_last != 2) && (sek == 0))
+	if ((xsaldo_mw > config.switch_off) && (switch_last != 2) && (sek == 0))
 	{
 		HTTPClient http;
 		WiFiClient client;

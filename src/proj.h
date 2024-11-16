@@ -26,7 +26,7 @@
 #define AP_PIN 14
 //#define OTA
 //#define STROMPREIS
-#define VERSION "1.3.0"
+#define VERSION "1.3.1"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
@@ -65,6 +65,7 @@ struct strConfig {
   signed switch_off;
   String switch_url_on;
   String switch_url_off;
+  unsigned switch_intervall;
 };
 struct kwhstruct {
   unsigned kwh_in;
