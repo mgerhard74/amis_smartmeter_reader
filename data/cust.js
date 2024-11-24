@@ -574,7 +574,7 @@ function doUpdateMQTT() {
   progressAnimate('prgbar_mqtt',300);
   $(".mqtt").each(function () {
     if ($(this).prop('type') == 'checkbox') config_mqtt[this.name] = $(this).prop('checked');
-    else if ($(this).prop('type') == 'text')config_mqtt[this.name] = this.value.replaceAll(" ","");
+    else if ($(this).prop('type') == 'text')config_mqtt[this.name] = this.value;          // Keine Leerzeichen ersetzen ....= this.value.replaceAll(" ","");
     else config_mqtt[this.name] = this.value;
   })
   websock.send(JSON.stringify(config_mqtt));
