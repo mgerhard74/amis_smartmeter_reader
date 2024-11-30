@@ -29,5 +29,9 @@ Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, 
 ## AMIS Hardware V2. Maschinell bestückt und gelötet:
 <img src='hardware/amishardwareV2.png' width='750'>
 
+## 31mm Drahtantenne verbessert Wifi Konnektivität um ca 8dB:
+Man kann ganz einfach die Wifi Konnektivität verbessern, in dem man die PCB Antenne auftrennt und einen Draht wie am Bild anlötet.
+<img src='hardware/amis_anlant_gm2.jpg' width='400'>
+
 ## Danksagung
 Vielen Dank an Gottfried Prandstetter für die grandiose Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
