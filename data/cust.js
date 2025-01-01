@@ -873,9 +873,14 @@ $(function() {            // main
   updateElements(config_wifi);
   updateElements(config_mqtt);
   let host=window.location.hostname;
-  wsUri = "ws://" + host + "/ws";
-  loginUri = "http://" + host + "/login";
-  UpdateUri = "http://" + host + "/update";
+  let proto=window.location.protocol;
+  let wsProto="ws:";
+  if (proto.endsWith("https:")) {
+      wsProto="wss:";
+  }
+  wsUri = wsProto + "//" + host + "/ws";
+  loginUri = proto + "//" + host + "/login";
+  UpdateUri = proto + "//" + host + "/update";
   if (host=="localhost") {
     wsUri = "ws://192.168.2.20/ws";
     loginUri = "http://192.168.2.20/login";
