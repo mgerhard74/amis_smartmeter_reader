@@ -252,28 +252,6 @@ void pingrestart_ping() {
   } else {
     DBGOUT("Ping still running");
   }
-
-  /*
-  return false; // kein neustart notwendig
-
-  bool success = true; //Ping.ping(config.pingrestart_ip.c_str());
-  int rtt = 1; //Ping.averageTime();
-
-  if (success) {
-    DBGOUT("Ping successful, RTT = " + rtt);
-    if (pingrestart_pingFails > 0) {
-      if (config.log_sys) writeEvent("INFO", "wifi", "Ping attempt " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " successful, RTT = " + String(rtt), "");
-    }
-    pingrestart_pingFails = 0; // fehlerzähler zurücksetzen
-  } else {
-    pingrestart_pingFails++;
-    if (config.log_sys) writeEvent("WARN", "wifi", "Ping attempt " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " failed!", "");
-    if (pingrestart_pingFails >= config.pingrestart_max) {
-      if (config.log_sys) writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
-      return true; // neustart erforderlich
-    }
-  }
-  */
 }
 
 void writeHistFileIn(int x, long val) {

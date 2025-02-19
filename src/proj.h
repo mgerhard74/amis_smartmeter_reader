@@ -17,7 +17,6 @@
 
 /* ping restart checks begin */
 #include <AsyncPing.h>
-//#include <ESP8266Ping.h> 
 /* ping restart checks end*/
 
 /// Debug Einstellungen:

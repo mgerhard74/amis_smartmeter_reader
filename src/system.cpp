@@ -114,12 +114,13 @@ void connectToWifi() {
     WiFi.mode(WIFI_STA);
     
     if (json[F("allow_sleep_mode")] == false) {
-      // meks sleep mode deaktivieren
+      // disable sleep mode
       DBGOUT(F("Wifi sleep mode disabled\n"));
       WiFi.setSleepMode(WIFI_NONE_SLEEP);
       if (config.log_sys) writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
     }
 
+    // configure ping restart check
     config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
     config.pingrestart_ip = json[F("pingrestart_ip")].as<String>();
     config.pingrestart_interval = json[F("pingrestart_interval")].as<int>();;
