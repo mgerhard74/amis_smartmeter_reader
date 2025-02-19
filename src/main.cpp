@@ -18,6 +18,14 @@
   #endif
 #endif
 
+/* ping restart config */
+unsigned int pingrestart_tickCounter;
+unsigned int pingrestart_pingFails;
+bool pingrestart_ping_running;
+AsyncPing ping; // non-blocking
+void pingrestart_ping();
+/* ping restart config end */
+
 bool pf;
 
 void secTick();
@@ -100,6 +108,16 @@ void setup(){
   secTicker.attach_scheduled(1,secTick);
   if (config.smart_mtr)  meter_init();
   if (config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
+
+  // start separate ping restart ticker
+  if (config.pingrestart_do) {
+    pingrestart_tickCounter = 0;
+    pingrestart_pingFails = 0;
+    pingrestart_ping_running = false;
+    if (config.log_sys) writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+    secTicker.attach(1, pingrestart_ping); // non blocking pings
+  }
+  shouldReboot = false;
 }
 
 void loop(){
@@ -127,14 +145,16 @@ void loop(){
   #ifdef OTA
   ArduinoOTA.handle();
   #endif
+
   if(shouldReboot){
+    shouldReboot = false;
     secTicker.detach();
     mqttTimer.detach();
     if (config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
     DBGOUT("Rebooting...");
     delay(300);
-    ESP.wdtDisable();           // bootet 2x ???
-    //ESP.restart();
+    //ESP.wdtDisable();           // bootet 2x ???
+    ESP.restart();
     while (1)    delay(1);
   }
   if (config.thingspeak_aktiv && thingspeak_watch>10) {
@@ -184,6 +204,76 @@ void loop(){
     digitalWrite(LEDPIN,HIGH);
   }
   #endif
+}
+
+
+void pingrestart_ping() {
+  pingrestart_tickCounter++;
+
+  if (!config.pingrestart_do || pingrestart_tickCounter < config.pingrestart_interval) {
+      return; // noch nicht genug Zeit vergangen oder ping deaktiviert
+  }
+
+  pingrestart_tickCounter = 0; // zurücksetzen
+
+  /* callback for each answer/timeout of ping */
+  //ping.on(true,[](const AsyncPingResponse& response){
+  //  return false; //do not stop
+  //});
+  
+  /* callback for end of ping */
+  ping.on(false,[](const AsyncPingResponse& response){
+    DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
+
+    if (response.answer) {
+      if (pingrestart_pingFails > 0) {
+        if (config.log_sys) writeEvent("INFO", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " to " + config.pingrestart_ip + " successful, RTT = " + String(response.total_time), "");
+      }
+      pingrestart_pingFails = 0; // fehlerzähler zurücksetzen
+    } else {
+      pingrestart_pingFails++;
+      if (config.log_sys) writeEvent("WARN", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " to " + config.pingrestart_ip + " failed!", "");
+
+      if (pingrestart_pingFails >= config.pingrestart_max) {
+        if (config.log_sys) writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
+        shouldReboot = true; // neustart erforderlich
+      }
+    }
+
+    pingrestart_ping_running = false;
+    return true; //doesn't matter
+  });
+  
+  if (!pingrestart_ping_running) {
+    DBGOUT("Ping to " + config.pingrestart_ip);
+
+    pingrestart_ping_running = true;
+    ping.begin(config.pingrestart_ip.c_str(), 1, 900U); // 1 ping, 900ms timeout
+  } else {
+    DBGOUT("Ping still running");
+  }
+
+  /*
+  return false; // kein neustart notwendig
+
+  bool success = true; //Ping.ping(config.pingrestart_ip.c_str());
+  int rtt = 1; //Ping.averageTime();
+
+  if (success) {
+    DBGOUT("Ping successful, RTT = " + rtt);
+    if (pingrestart_pingFails > 0) {
+      if (config.log_sys) writeEvent("INFO", "wifi", "Ping attempt " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " successful, RTT = " + String(rtt), "");
+    }
+    pingrestart_pingFails = 0; // fehlerzähler zurücksetzen
+  } else {
+    pingrestart_pingFails++;
+    if (config.log_sys) writeEvent("WARN", "wifi", "Ping attempt " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " failed!", "");
+    if (pingrestart_pingFails >= config.pingrestart_max) {
+      if (config.log_sys) writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
+      return true; // neustart erforderlich
+    }
+  }
+  */
 }
 
 void writeHistFileIn(int x, long val) {

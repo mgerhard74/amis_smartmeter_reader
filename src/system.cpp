@@ -103,6 +103,7 @@ void connectToWifi() {
   //json.prettyPrintTo(S);
   wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
   wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
+  
   if (digitalRead(AP_PIN)==LOW || err) {
       WiFi.mode(WIFI_AP);
       WiFi.softAP( "ESP8266_AMIS");
@@ -111,6 +112,19 @@ void connectToWifi() {
   }
   else {
     WiFi.mode(WIFI_STA);
+    
+    if (json[F("allow_sleep_mode")] == false) {
+      // meks sleep mode deaktivieren
+      DBGOUT(F("Wifi sleep mode disabled\n"));
+      WiFi.setSleepMode(WIFI_NONE_SLEEP);
+      if (config.log_sys) writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
+    }
+
+    config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
+    config.pingrestart_ip = json[F("pingrestart_ip")].as<String>();
+    config.pingrestart_interval = json[F("pingrestart_interval")].as<int>();;
+    config.pingrestart_max = json[F("pingrestart_max")].as<int>();;
+
     DBGOUT(F("Start Wifi\n"));
     bool dhcp=json[F("dhcp")];
     if (dhcp) DBGOUT("DHCP\n");

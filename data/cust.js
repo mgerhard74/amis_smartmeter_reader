@@ -46,6 +46,11 @@ var config_wifi= {
     "ip_nameserver": "192.168.",
     "rfpower":20,
     "mdns": 0,
+    "allow_sleep_mode":true,
+    "pingrestart_do":false,
+    "pingrestart_ip":"192.168.",
+    "pingrestart_interval": 60,
+    "pingrestart_max": 3,
     "command":"/config_wifi"
 };
 var config_mqtt={
