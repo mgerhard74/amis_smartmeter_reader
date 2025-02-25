@@ -227,6 +227,7 @@ void pingrestart_ping() {
 
     if (response.answer) {
       if (pingrestart_pingFails > 0) {
+        pingrestart_pingFails++;
         if (config.log_sys) writeEvent("INFO", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " to " + config.pingrestart_ip + " successful, RTT = " + String(response.total_time), "");
       }
       pingrestart_pingFails = 0; // fehlerzähler zurücksetzen
