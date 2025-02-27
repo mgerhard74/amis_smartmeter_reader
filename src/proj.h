@@ -15,6 +15,10 @@
 #include <EEPROM.h>
 #include <ESP8266HTTPClient.h>
 
+/* ping restart checks begin */
+#include <AsyncPing.h>
+/* ping restart checks end*/
+
 /// Debug Einstellungen:
 /// DEBUGHW 0             keine Ausgaben
 /// DEBUGHW 1             TCP Port 10000
@@ -66,6 +70,10 @@ struct strConfig {
   String switch_url_on;
   String switch_url_off;
   unsigned switch_intervall;
+  bool pingrestart_do;
+  String pingrestart_ip;
+  unsigned pingrestart_interval;
+  unsigned pingrestart_max;
 };
 struct kwhstruct {
   unsigned kwh_in;
