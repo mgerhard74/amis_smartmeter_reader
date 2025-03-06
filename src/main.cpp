@@ -109,13 +109,12 @@ void setup(){
   if (config.smart_mtr)  meter_init();
   if (config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
 
-  // start separate ping restart ticker
+  // initiate ping restart check
   if (config.pingrestart_do) {
     pingrestart_tickCounter = 0;
     pingrestart_pingFails = 0;
     pingrestart_ping_running = false;
     if (config.log_sys) writeEvent("INFO", "wifi", "Ping restart check enabled", "");
-    secTicker.attach(1, pingrestart_ping); // non blocking pings
   }
   shouldReboot = false;
 }
@@ -361,47 +360,53 @@ void secTick() {
   }
 
   // Wifi Switch on/off
-  if ((config.switch_url_on != "") && (config.switch_url_off != "")) 
-  {	
-	signed int xsaldo;
-	xsaldo=(a_result[4]-a_result[5]);
-	for (unsigned i=4;i>0;i--)
-		{ Saldomittelwert[i]=Saldomittelwert[i-1];}
-	Saldomittelwert[0]=xsaldo;
-	signed int xsaldo_mw=0;
-	for (unsigned i=0;i<5;i++)
-	{ xsaldo_mw=xsaldo_mw+Saldomittelwert[i]; }
-	xsaldo_mw=xsaldo_mw/5;
-	unsigned int sek = (millis()/1000) % 5;
-	if (config.switch_intervall > 0)
-	{ sek = (millis()/1000) % config.switch_intervall; }
-	
-	if ((xsaldo_mw < config.switch_on) && (switch_last != 1) && (sek == 0))
-	{
-		HTTPClient http;
-		WiFiClient client;
-		http.begin(client,config.switch_url_on);
-		int httpCode = http.GET();
-		if(httpCode == HTTP_CODE_OK) 
-		{
-			//writeEvent("INFO", "sys", "Switch on Url sent", "");
-		}
-		http.end();
-		switch_last = 1;
-	}
-	if ((xsaldo_mw > config.switch_off) && (switch_last != 2) && (sek == 0))
-	{
-		HTTPClient http;
-		WiFiClient client;
-		http.begin(client,config.switch_url_off);
-		int httpCode = http.GET();
-		if(httpCode == HTTP_CODE_OK) 
-		{
-			//writeEvent("INFO", "sys", "Switch off Url sent", "");
-		}
-		http.end();
-		switch_last = 2;
-	}	
+  if ((config.switch_url_on != "") && (config.switch_url_off != ""))
+  {
+    signed int xsaldo;
+    xsaldo = (a_result[4] - a_result[5]);
+    for (unsigned i = 4; i > 0; i--)
+    {
+      Saldomittelwert[i] = Saldomittelwert[i - 1];
+    }
+    Saldomittelwert[0] = xsaldo;
+    signed int xsaldo_mw = 0;
+    for (unsigned i = 0; i < 5; i++)
+    {
+      xsaldo_mw = xsaldo_mw + Saldomittelwert[i];
+    }
+    xsaldo_mw = xsaldo_mw / 5;
+    unsigned int sek = (millis() / 1000) % 5;
+    if (config.switch_intervall > 0)
+    {
+      sek = (millis() / 1000) % config.switch_intervall;
+    }
+
+    if ((xsaldo_mw < config.switch_on) && (switch_last != 1) && (sek == 0))
+    {
+      HTTPClient http;
+      WiFiClient client;
+      http.begin(client, config.switch_url_on);
+      int httpCode = http.GET();
+      if (httpCode == HTTP_CODE_OK)
+      {
+        // writeEvent("INFO", "sys", "Switch on Url sent", "");
+      }
+      http.end();
+      switch_last = 1;
+    }
+    if ((xsaldo_mw > config.switch_off) && (switch_last != 2) && (sek == 0))
+    {
+      HTTPClient http;
+      WiFiClient client;
+      http.begin(client, config.switch_url_off);
+      int httpCode = http.GET();
+      if (httpCode == HTTP_CODE_OK)
+      {
+        // writeEvent("INFO", "sys", "Switch off Url sent", "");
+      }
+      http.end();
+      switch_last = 2;
+    }
   }
 
   // Thingspeak aktualisieren
@@ -448,6 +453,9 @@ void secTick() {
     }
   }
   ws.cleanupClients();   // beendete Webclients nicht mehr updaten
+
+  // perform ping restart check
+  pingrestart_ping();
 }
 
 void  writeEvent(String type, String src, String desc, String data) {
