@@ -41,3 +41,4 @@ Man kann ganz einfach die Wifi Konnektivität verbessern, in dem man die PCB Ant
 
 ## Danksagung
 Vielen Dank an Gottfried Prandstetter für die grandiose Entwicklungsarbeit an diesem Projekt. Er stellt die Soft- und Hardware als open-source zur Verfügung.
+Vielen Dank auch die TechnikerInnen hier auf Github für eure Unterstützung.
