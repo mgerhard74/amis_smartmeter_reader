@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "proj.h"
 #include "aes.h"
+
+
 //#define DEBUG
 #ifndef DEBUG
   #define eprintf( fmt, args... )
@@ -44,6 +46,63 @@ char timecode[16];
 bool amisNotOnline=true;
 int valid;
 
+
+// Prüft, ob ein Jahr ein Schaltjahr ist
+bool isLeapYear(int year) {
+  return ((year % 4 == 0) && (year % 100 != 0)) || (year % 400 == 0);
+}
+
+// Gibt die Anzahl der Tage in einem Monat zurück
+int daysInMonth(int month, int year) {
+  switch (month) {
+    case 1: return 31;
+    case 2: return isLeapYear(year) ? 29 : 28;
+    case 3: return 31;
+    case 4: return 30;
+    case 5: return 31;
+    case 6: return 30;
+    case 7: return 31;
+    case 8: return 31;
+    case 9: return 30;
+    case 10: return 31;
+    case 11: return 30;
+    case 12: return 31;
+    default: return 0;
+  }
+}
+
+// Gibt die Anzahl der Tage seit dem 1.1.1970 zurück
+unsigned long daysSinceEpoch(int day, int month, int year) {
+  unsigned long days = 0;
+  for (int y = 1970; y < year; y++) {
+    days += isLeapYear(y) ? 366 : 365;
+  }
+  for (int m = 1; m < month; m++) {
+    days += daysInMonth(m, year);
+  }
+  days += (day - 1);
+  return days;
+}
+
+
+time_t cp48ToUnix(uint64_t cp48)
+{
+  uint8_t second = (cp48 >> 0) & 0x3F;        // bits 1-6
+  uint8_t minute = (cp48 >> 8) & 0x3F;        // bits 9-14
+  uint8_t hour   = (cp48 >> 16) & 0x1F;       // bits 17-21
+  uint8_t day    = (cp48 >> 24) & 0x1F;       // bits 25-29
+  uint8_t month  = (cp48 >> 32) & 0x0F;       // bits 33-36
+  uint16_t year  = ((cp48 >> 29) & 0x07) + (((cp48 >> 36) & 0x0F) * 8) + 2000;       // bits 30, then 32-37 to 40
+
+  //writeEvent("INFO", "Date", "Year " + String(year) + ", Month " + String(month) + ", Day " + String(day) + ", Hour " + String(hour) + ", Minute "  + String(minute) + ", Second " + String(second), "");
+
+ // Unix time berechnen
+  unsigned long days = daysSinceEpoch(day, month, year);
+  unsigned long seconds = days * 86400UL + hour * 3600UL + minute * 60UL + second;
+
+  return seconds;
+}
+
 void amis_decoder() {
   char cs=0;
   int i;
@@ -71,8 +130,8 @@ void amis_decoder() {
     if (dow >0 && dow <8) valid++;
     mon = buffer[8] & 0x0f;
     if (mon >0 && mon < 13) valid++;
-    year = ((buffer[8] & 0xf0) >> 1) | (buffer[7]>>5);
-    if(year >=23 && year < 40) valid++;
+    myyear = ((buffer[8] & 0xf0) >> 1) | (buffer[7]>>5);
+    if(myyear >=23 && myyear < 40) valid++;
     memcpy(&a_result[0],buffer+OFFS_180,4);
     memcpy(&a_result[1],buffer+OFFS_280,4);
     memcpy(&a_result[2],buffer+OFFS_381,4);
@@ -82,6 +141,10 @@ void amis_decoder() {
     memcpy(&a_result[6],buffer+OFFS_370,4);
     memcpy(&a_result[7],buffer+OFFS_470,4);
     memcpy(&a_result[8],buffer+OFFS_11280,4);
+    
+	
+	a_result[9] = cp48ToUnix(buffer[4] + buffer[5]*0x100 + buffer[6]*0x10000 + buffer[7]*0x1000000 + buffer[8]*0x100000000);
+	
     if (a_result[8]==0) valid++;
     if (valid==5) {
       new_data = true;

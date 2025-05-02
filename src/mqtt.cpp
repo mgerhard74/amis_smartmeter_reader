@@ -148,7 +148,8 @@ void mqtt_publish_state() {
 #else
       root[F("1.128.0")] = a_result[8];
 #endif
-      root[F("saldo")]=saldo;
+      root[F("saldo")] = saldo;
+	  root[F("time")] = a_result[9];
     }
     else {
       root[F("1_8_0")] = a_result[0];
@@ -160,7 +161,8 @@ void mqtt_publish_state() {
       root[F("3_7_0")] = a_result[6];
       root[F("4_7_0")] = a_result[7];
       root[F("1_128_0")] = a_result[8];
-      root[F("saldo")]=saldo;
+      root[F("saldo")] = saldo;
+	  root[F("time")] = a_result[9];
     }
     String mqttBuffer;
     //root.prettyPrintTo(mqttBuffer);

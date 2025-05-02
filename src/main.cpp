@@ -41,14 +41,14 @@ strConfig config;
 //AsyncMqttClient mq_client;                    // ThingsPeak Client
 WiFiClient thp_client;
 unsigned things_cycle;
-uint32_t a_result[9];
+uint32_t a_result[10];
 uint8_t key[16];
 String things_up;
 unsigned thingspeak_watch;
 bool new_data,new_data3,ledbit,ledflag;
 unsigned first_frame;
 uint8_t dow_local,dow;
-uint8_t mon,year,mon_local;
+uint8_t mon,myyear,mon_local;
 unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
@@ -275,7 +275,7 @@ void writeMonthFile(uint8_t y,uint8_t m) {
   String s=String(m);
   if (s.length()<2) s="0"+s;
   s=String(y)+s;
-  eprintf("F: %u %u %s",year, mon, s.c_str());
+  eprintf("F: %u %u %s",myyear, mon, s.c_str());
   File f = LittleFS.open("/monate", "a");
   f.print(s+" ");
   f.print(a_result[0]);
@@ -312,8 +312,8 @@ void secTick() {
       dow_local=dow;
       String s=String(mon);
       if (s.length()<2) s="0"+s;
-      s=String(year)+s;
-      if (s.compareTo(lastMonth)!=0) writeMonthFile(year,mon);  // Monat noch nicht im File
+      s=String(myyear)+s;
+      if (s.compareTo(lastMonth)!=0) writeMonthFile(myyear,mon);  // Monat noch nicht im File
       mon_local=mon;
     }
     else if (first_frame==2) {        // Wochentabelle Energie erzeugen
@@ -345,7 +345,7 @@ void secTick() {
       writeHistFileOut(x,a_result[1]);
       dow_local=dow;	  
       if (mon_local != mon) {         // Monatswechsel
-        writeMonthFile(year,mon);
+        writeMonthFile(myyear,mon);
         mon_local=mon;
       }
       first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
