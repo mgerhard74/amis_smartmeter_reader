@@ -1,0 +1,115 @@
+sensor:
+  - name: "AMIS Energy Buy (Wh)"
+    state_topic: amis/out
+    value_template: "{{ value_json['1.8.0'] }}"
+    unit_of_measurement: Wh
+    device_class: energy
+    state_class: total_increasing
+    force_update: true
+    unique_id: "sensor_amis_180"
+    device:
+      identifiers: "amis"
+  - name: "AMIS Energy Sell (Wh)"
+    state_topic: amis/out
+    value_template: "{{ value_json['2.8.0'] }}"
+    unit_of_measurement: Wh
+    device_class: energy
+    state_class: total_increasing
+    force_update: true
+    unique_id: "sensor_amis_280"
+    device:
+      identifiers: "amis"
+
+  - name: "AMIS Power Buy (W)"
+    state_topic: amis/out
+    value_template: "{{ value_json['1.7.0'] }}"
+    unit_of_measurement: W
+    device_class: power
+    force_update: true
+    unique_id: "sensor_amis_170"
+    device:
+      identifiers: "amis"
+  - name: "AMIS Power Sell (W)"
+    state_topic: amis/out
+    value_template: "{{ value_json['2.7.0'] }}"
+    unit_of_measurement: W
+    device_class: power
+    force_update: true
+    unique_id: "sensor_amis_270"
+    device:
+      identifiers: "amis"
+
+  - name: "AMIS Reactive Energy Buy (varh)"
+    state_topic: amis/out
+    value_template: "{{ value_json['3.8.1'] }}"
+    unit_of_measurement: Wh
+    device_class: energy
+    state_class: total_increasing
+    force_update: true
+    unique_id: "sensor_amis_381"
+    device:
+      identifiers: "amis"
+  - name: "AMIS Reactive Energy Sell (varh)"
+    state_topic: amis/out
+    value_template: "{{ value_json['4.8.1'] }}"
+    unit_of_measurement: Wh
+    device_class: energy
+    state_class: total_increasing
+    force_update: true
+    unique_id: "sensor_amis_481"
+    device:
+      identifiers: "amis"
+
+  - name: "AMIS Reactive Power Buy (var)"
+    state_topic: amis/out
+    value_template: "{{ value_json['3.7.0'] }}"
+    unit_of_measurement: var
+    device_class: reactive_power
+    force_update: true
+    unique_id: "sensor_amis_370"
+    device:
+      identifiers: "amis"
+  - name: "AMIS Reactive Power Sell (var)"
+    state_topic: amis/out
+    value_template: "{{ value_json['4.7.0'] }}"
+    unit_of_measurement: var
+    device_class: reactive_power
+    force_update: true
+    unique_id: "sensor_amis_470"
+    device:
+      identifiers: "amis"
+
+  - name: "AMIS Power Saldo (W)"
+    state_topic: amis/out
+    value_template: "{{ value_json['saldo'] }}"
+    unit_of_measurement: W
+    device_class: power
+    force_update: true
+    unique_id: "sensor_amis_saldo"
+    device:
+      identifiers: "amis"
+
+  - name: "AMIS Debt Collection Counter (Wh)"
+    state_topic: amis/out
+    value_template: "{{ value_json['1.128.0'] }}"
+    unit_of_measurement: Wh
+    device_class: energy
+    force_update: true
+    unique_id: "sensor_amis_11280"
+    device:
+      identifiers: "amis"
+
+  # MQTT message sample in JSON:
+  # {
+  #     "1.8.0": 12300000,
+  #     "2.8.0": 1230000,
+  #     "3.8.1": 1230000,
+  #     "4.8.1": 12300,
+  #     "1.7.0": 0,
+  #     "2.7.0": 4000,
+  #     "3.7.0": 75,
+  #     "4.7.0": 30,
+  #     "1.128.0": 0,
+  #     "saldo": -4000,
+  #     "time": 1750000000
+  # }
