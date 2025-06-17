@@ -13,6 +13,8 @@ var monthlist;
 var weekdata;
 var restoreData;
 var g_lastDT = new Date(); // letzte erhaltene Zeit
+var wsTimer;
+var wsActiveFlag=true;
 
 var config_general = {
     "devicetype": "AMIS-Reader",
@@ -429,6 +431,7 @@ function socketMessageListener(evt) {   // incomming from ESP
 }
 
 function connectWS() {
+  clearInterval(wsTimer);
   websock = new WebSocket(wsUri);
   websock.addEventListener("message", socketMessageListener);
   websock.onopen = function(evt) {
@@ -444,6 +447,14 @@ function connectWS() {
     //console.log("connectws")
     ws_pingpong = setInterval(function() {
       websock.send('{"command":"ping"}');
+    }, 3000);
+  }
+  websock.onclose = function(evt) {
+    clearInterval(ws_pingpong);
+    wsTimer=setInterval(function() {
+      if (wsActiveFlag) {
+        connectWS();
+      }
     }, 3000);
   }
 }
@@ -825,6 +836,18 @@ function amisRestore(file) {
   }
   reader.readAsText(file)
 }
+
+document.addEventListener("visibilitychange", function (event) {
+  if (document.hidden) {
+    //console.log("hidden");
+    wsActiveFlag=false;
+    websock.close();
+  }
+  else {
+    //console.log("visible");
+    wsActiveFlag=true;
+  }
+});
 
 $(function() {            // main
   loadTimeZones();
