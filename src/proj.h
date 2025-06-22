@@ -87,14 +87,14 @@ extern AsyncWebSocket ws;
 extern WiFiClient dbg_client;
 extern WiFiServer dbg_server;
 extern unsigned things_cycle;
-extern uint32_t a_result[9];
+extern uint32_t a_result[10];
 extern uint8_t key[16];           // Amis-Key
 extern String things_up;
 extern unsigned thingspeak_watch;
 extern bool new_data,new_data3,amisNotOnline,ledbit;
 extern unsigned first_frame;
 extern uint8_t dow,dow_local;
-extern uint8_t mon,year,mon_local;
+extern uint8_t mon,myyear,mon_local;
 extern char timecode[16];
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
