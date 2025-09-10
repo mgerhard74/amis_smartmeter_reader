@@ -590,7 +590,7 @@ function doUpdateWiFi() {
   $(".wifi").each(function () {
     if ($(this).prop('type') == 'checkbox') config_wifi[this.name] = $(this).prop('checked');
     else if ($(this).prop('type') == 'text') {
-      if (this.name!='ssid') {
+      if (this.name!='ssid' && this.name!='wifipassword')  {
         config_wifi[this.name] = this.value.replaceAll(" ", "");
       }else config_wifi[this.name] = this.value;
     }
