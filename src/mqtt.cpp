@@ -41,20 +41,13 @@ void onMqttConnect(bool sessionPresent) {
     eprintf("MQTT subscr %s\n",config.mqtt_sub.c_str());
   }
   mqttStatus=true;
-  // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
-  if (config.mqtt_ha_discovery) {
-    String avail_topic;
-    if (config.mqtt_sub.length()) {
-      avail_topic = config.mqtt_sub;
-      if (!avail_topic.endsWith("/")) avail_topic += "/";
-      avail_topic += "status";
-    } else {
-      avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
-    }
-    mqttClient.publish(avail_topic.c_str(), config.mqtt_qos, true, "online");
+  if (config.mqtt_ha_discovery) 
+  {
+    // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
+    mqtt_publish_ha_availability(true);
+    // Publish Home Assistant discovery info so HA can auto-detect this device (if enabled)
+    mqtt_publish_ha_discovery();
   }
-  // Publish Home Assistant discovery info so HA can auto-detect this device (if enabled)
-  if (config.mqtt_ha_discovery) mqtt_publish_ha_discovery();
 #ifdef STROMPREIS
   mqttClient.subscribe("strompreis",0);
 #endif // STROMPREIS
@@ -84,6 +77,12 @@ void connectToMqtt() {
   if (json[F("mqtt_will")]!="") {
     mqttClient.setWill(json[F("mqtt_will")].as<char*>(),config.mqtt_qos,config.mqtt_retain,config.DeviceName.c_str());
     eprintf("MQTT SetWill: %s %u %u %s\n",json[F("mqtt_will")].as<char*>(),config.mqtt_qos,config.mqtt_retain,config.DeviceName.c_str());
+  }
+  else if (config.mqtt_ha_discovery){
+    // Set LWT to availability topic for HA discovery in case the user did not define a custom one
+    String avail_topic = get_ha_availability_topic();
+    // mqttClient.setWill(avail_topic.c_str(), config.mqtt_qos, true, String("offline").c_str());
+    eprintf("MQTT SetWill (HA): %s %u %u offline\n",avail_topic.c_str(),config.mqtt_qos, true);
   }
   if (json[F("mqtt_user")]!="") {
     mqttClient.setCredentials(json[F("mqtt_user")].as<char*>(),json[F("mqtt_password")].as<char*>());
@@ -132,20 +131,7 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   eprintf("Disconnected from MQTT server: %s\n", reasonstr.c_str());
 
   // If we have HA discovery enabled, try to publish offline status (clean disconnect)
-  if (config.mqtt_ha_discovery) {
-    String avail_topic;
-    if (config.mqtt_sub.length()) {
-      avail_topic = config.mqtt_sub;
-      if (!avail_topic.endsWith("/")) avail_topic += "/";
-      avail_topic += "status";
-    } else {
-      avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
-    }
-    if (mqttClient.connected()) {
-      mqttClient.publish(avail_topic.c_str(), config.mqtt_qos, true, "offline");
-    }
-  }
-
+  if (config.mqtt_ha_discovery) mqtt_publish_ha_availability(false);
   //if(WiFi.isConnected()) {
     mqttTimer.attach_scheduled(15, connectToMqtt);
   //}
@@ -215,6 +201,25 @@ static String sanitizeTopic(const String &s) {
   return t;
 }
 
+String get_ha_availability_topic() {
+  String avail_topic;
+  if (config.mqtt_pub.length()) {
+    avail_topic = config.mqtt_pub;
+    if (!avail_topic.endsWith("/")) avail_topic += "/";
+    avail_topic += "status";
+  } else {
+    avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
+  }
+  return avail_topic;
+}
+
+void mqtt_publish_ha_availability(bool isOnline) {
+  if (!mqttClient.connected()) return;
+  String avail_topic = get_ha_availability_topic();
+  String payload = isOnline ? "online" : "offline";
+  mqttClient.publish(avail_topic.c_str(), config.mqtt_qos, true, payload.c_str());
+}
+
 // Publish Home Assistant MQTT discovery messages for all sensors
 void mqtt_publish_ha_discovery() {
 
@@ -255,15 +260,7 @@ void mqtt_publish_ha_discovery() {
     String name = String(config.DeviceName) + " " + e.name;
     root[F("name")] = name;
     root[F("state_topic")] = state_topic;
-    String avail_topic;
-    if (config.mqtt_sub.length()) {
-      avail_topic = config.mqtt_sub;
-      if (!avail_topic.endsWith("/")) avail_topic += "/";
-      avail_topic += "status";
-    } else {
-      avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
-    }
-    root[F("availability_topic")] = avail_topic;
+    root[F("availability_topic")] = get_ha_availability_topic();
     // root[F("payload_available")] = "online";
     // root[F("payload_not_available")] = "offline";
 

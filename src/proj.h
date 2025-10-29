@@ -108,6 +108,8 @@ extern AsyncServer* meter_server;
 
 extern kwhstruct kwh_hist[7];
 extern void mqtt_publish_state();
+extern void mqtt_publish_ha_availability(bool);
+extern String get_ha_availability_topic();
 extern void mqtt_publish_ha_discovery();
 extern strConfig config;
 extern void serverInit(unsigned mode);
