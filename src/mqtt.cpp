@@ -41,6 +41,20 @@ void onMqttConnect(bool sessionPresent) {
     eprintf("MQTT subscr %s\n",config.mqtt_sub.c_str());
   }
   mqttStatus=true;
+  // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
+  if (config.mqtt_ha_discovery) {
+    String avail_topic;
+    if (config.mqtt_sub.length()) {
+      avail_topic = config.mqtt_sub;
+      if (!avail_topic.endsWith("/")) avail_topic += "/";
+      avail_topic += "status";
+    } else {
+      avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
+    }
+    mqttClient.publish(avail_topic.c_str(), config.mqtt_qos, true, "online");
+  }
+  // Publish Home Assistant discovery info so HA can auto-detect this device (if enabled)
+  if (config.mqtt_ha_discovery) mqtt_publish_ha_discovery();
 #ifdef STROMPREIS
   mqttClient.subscribe("strompreis",0);
 #endif // STROMPREIS
@@ -66,6 +80,7 @@ void connectToMqtt() {
   config.mqtt_sub=json[F("mqtt_sub")].as<String>();
   config.mqtt_pub=json[F("mqtt_pub")].as<String>();
   config.mqtt_keep=json[F("mqtt_keep")].as<int>();
+  config.mqtt_ha_discovery = json[F("mqtt_ha_discovery")];
   if (json[F("mqtt_will")]!="") {
     mqttClient.setWill(json[F("mqtt_will")].as<char*>(),config.mqtt_qos,config.mqtt_retain,config.DeviceName.c_str());
     eprintf("MQTT SetWill: %s %u %u %s\n",json[F("mqtt_will")].as<char*>(),config.mqtt_qos,config.mqtt_retain,config.DeviceName.c_str());
@@ -115,6 +130,21 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
   }
   if (config.log_sys) writeEvent("WARN", "mqtt", "Disconnected from MQTT server", reasonstr);
   eprintf("Disconnected from MQTT server: %s\n", reasonstr.c_str());
+
+  // If we have HA discovery enabled, try to publish offline status (clean disconnect)
+  if (config.mqtt_ha_discovery) {
+    String avail_topic;
+    if (config.mqtt_sub.length()) {
+      avail_topic = config.mqtt_sub;
+      if (!avail_topic.endsWith("/")) avail_topic += "/";
+      avail_topic += "status";
+    } else {
+      avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
+    }
+    if (mqttClient.connected()) {
+      mqttClient.publish(avail_topic.c_str(), config.mqtt_qos, true, "offline");
+    }
+  }
 
   //if(WiFi.isConnected()) {
     mqttTimer.attach_scheduled(15, connectToMqtt);
@@ -173,7 +203,96 @@ void mqtt_publish_state() {
   else DBGOUT("MQTT publish: not connected\n");
 }
 
-// Hier sind keine IO-Zugriffe zulässig!
+
+// Helper: sanitize a device name for topic/object id
+static String sanitizeTopic(const String &s) {
+  String t = s;
+  for (unsigned int i = 0; i < t.length(); i++) {
+    char c = t[i];
+    if (!isalnum(c)) t[i] = '_';
+    else t[i] = tolower(c);
+  }
+  return t;
+}
+
+// Publish Home Assistant MQTT discovery messages for all sensors
+void mqtt_publish_ha_discovery() {
+
+  if (!mqttClient.connected()) return;
+  // Use the configured state topic as the main state_topic for sensors
+  String state_topic = config.mqtt_pub;
+  if (state_topic.length() == 0) return;
+  String chipId = String(ESP.getChipId(), HEX);
+  String dev = sanitizeTopic(config.DeviceName + String("_") + chipId);
+  // Publish discovery for all relevant measurement keys. Use bracket notation
+  // for JSON access to handle keys with dots or underscores.
+  struct HASensor { const char *key; const char *name; const char *unit; const char *device_class; const char *state_class; };
+  HASensor entries[] = {
+    {"1.8.0","Bezug","kWh","energy","total_increasing"},
+    {"2.8.0","Lieferung","kWh","energy","total_increasing"},
+    {"1.7.0","Leistung Bezug","W","power",NULL},
+    {"2.7.0","Leistung Lieferung","W","power",NULL},
+    {"saldo","Saldo","W", "power",NULL},
+  };
+  // Helper that accepts the whole HASensor and builds the discovery payload,
+  // including rest_var handling and value_template logic.
+  auto publishSensor = [&](const HASensor &e){
+    // choose key variant depending on rest_var (dots vs underscores)
+  String key_use = String(e.key);
+  if (config.rest_var != 0) key_use.replace('.', '_');
+
+    // Build the value_template: energy entries are in Wh -> convert to kWh (/1000)
+    String tpl;
+    if (e.device_class && strcmp(e.device_class, "energy") == 0) {
+      tpl = String("{{ (value_json[\"") + key_use + String("\"] / 1000) }}");
+    } else {
+      tpl = String("{{ value_json[\"") + key_use + String("\"] }}");
+    }
+
+    // Build the discovery JSON
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+    String name = String(config.DeviceName) + " " + e.name;
+    root[F("name")] = name;
+    root[F("state_topic")] = state_topic;
+    String avail_topic;
+    if (config.mqtt_sub.length()) {
+      avail_topic = config.mqtt_sub;
+      if (!avail_topic.endsWith("/")) avail_topic += "/";
+      avail_topic += "status";
+    } else {
+      avail_topic = sanitizeTopic(config.DeviceName) + String("/status");
+    }
+    root[F("availability_topic")] = avail_topic;
+    // root[F("payload_available")] = "online";
+    // root[F("payload_not_available")] = "offline";
+
+    if (e.unit && strlen(e.unit)) root[F("unit_of_measurement")] = e.unit;
+    if (tpl.length()) root[F("value_template")] = tpl;
+    String obj = sanitizeTopic(key_use);
+    String uid = dev + String("_") + obj;
+    root[F("unique_id")] = uid;
+    // attach device object
+    JsonObject &devn = root.createNestedObject("device");
+    JsonArray &ids = devn.createNestedArray("identifiers");
+    ids.add(config.DeviceName);
+    devn[F("name")] = config.DeviceName;
+    devn[F("model")] = APP_NAME;
+    devn[F("sw_version")] = VERSION;
+  if (e.device_class && strlen(e.device_class)) root[F("device_class")] = e.device_class;
+  if (e.state_class && strlen(e.state_class)) root[F("state_class")] = e.state_class;
+
+    String out;
+    root.printTo(out);
+    String topic = String("homeassistant/sensor/") + dev + String("/") + obj + String("/config");
+    mqttClient.publish(topic.c_str(), config.mqtt_qos, true, out.c_str());
+  };
+
+  for (unsigned i=0;i<sizeof(entries)/sizeof(entries[0]);i++){
+    publishSensor(entries[i]);
+  }
+}
+
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
 #ifdef STROMPREIS
   char p[20];
