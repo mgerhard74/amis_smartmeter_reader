@@ -67,6 +67,7 @@ var config_mqtt={
     "mqtt_keep": 0,
     "mqtt_pub":"amis/out",
     "mqtt_will":"",
+    "mqtt_ha_discovery": true,
     "command":"/config_mqtt"
 };
 
