@@ -20,10 +20,6 @@
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 
-String  printIP(IPAddress adress) {
-  return (String)adress[0] + "." + (String)adress[1] + "." + (String)adress[2] + "." + (String)adress[3];
-}
-
 void sendWeekData() {
   File f;
   uint8_t ibuffer[12];      //12870008
@@ -180,7 +176,7 @@ void  sendStatus(uint32_t clientId) {
     struct station_config conf;
     wifi_station_get_config(&conf);
     root[F("ssid")] = String(reinterpret_cast<char *>(conf.ssid));
-    root[F("dns")] = printIP(WiFi.dnsIP());
+    root[F("dns")] = WiFi.dnsIP().toString();
     root[F("mac")] = WiFi.macAddress();
     root[F("channel")] = WiFi.channel();
     root[F("rssi")] = WiFi.RSSI();
@@ -188,9 +184,9 @@ void  sendStatus(uint32_t clientId) {
   IPAddress ipaddr = IPAddress(info.ip.addr);
   IPAddress gwaddr = IPAddress(info.gw.addr);
   IPAddress nmaddr = IPAddress(info.netmask.addr);
-  root[F("deviceip")] = printIP(ipaddr);
-  root[F("gateway")] = printIP(gwaddr);
-  root[F("netmask")] = printIP(nmaddr);
+  root[F("deviceip")] = ipaddr.toString();
+  root[F("gateway")] = gwaddr.toString();
+  root[F("netmask")] = nmaddr.toString();
   //root["loadaverage"] = systemLoadAverage();
   //if (ADC_MODE_VALUE == ADC_VCC) {
   root[F("vcc")] = ESP.getVcc();

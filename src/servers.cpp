@@ -199,7 +199,7 @@ void serverInit(unsigned mode) {
   });
 
   server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String remoteIP = printIP(request->client()->remoteIP());
+    String remoteIP = request->client()->remoteIP().toString();
     DBGOUT("login "+remoteIP+"\n");
     if (!config.use_auth) {
       request->send(200, F("text/plain"), F("Success"));

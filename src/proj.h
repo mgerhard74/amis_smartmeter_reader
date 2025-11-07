@@ -126,7 +126,6 @@ extern void mqtt_init();
 extern Ticker uniTicker,secTicker;
 extern bool inAPMode,mqttStatus,hwTest;
 extern void generalInit();
-extern String  printIP(IPAddress adress);
 extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);
