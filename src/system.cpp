@@ -1,4 +1,7 @@
 #include "proj.h"
+
+#include "LedSingle.h"
+
 //#define DEBUG
 #ifndef DEBUG
   #define eprintf( fmt, args... )
@@ -33,9 +36,7 @@ void printStackSize(String txt){
 }
 
 void onWifiConnect(const WiFiEventStationModeGotIP& event) {
-  #if LEDPIN
-    ledbit=true;
-  #endif // LEDPIN
+  LedBlue.turnBlink(4000, 10);
   String data = WiFi.SSID() + " " + WiFi.localIP().toString();
   eprintf("Connected to %s\n",data.c_str());
   if (Config.log_sys) writeEvent("INFO", "wifi", "WiFi is connected", data);
@@ -54,9 +55,7 @@ void onWifiConnect(const WiFiEventStationModeGotIP& event) {
 }
 
 void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
-  #if LEDPIN
-  ledbit=false;
-  #endif // LEDPIN
+  LedBlue.turnOff();
   mqttTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
   wifiReconnectTimer.once_scheduled(5, connectToWifi);
   if (Config.log_sys) writeEvent("INFO", "wifi", "WiFi !!! DISCONNECT !!!", "");
@@ -109,6 +108,7 @@ void connectToWifi() {
       WiFi.softAP( "ESP8266_AMIS");
       DBGOUT(F("AP-Mode: 192.168.4.1\n"));
       inAPMode=true;
+      LedBlue.turnBlink(500, 500);
   }
   else {
     WiFi.mode(WIFI_STA);

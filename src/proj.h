@@ -57,7 +57,7 @@ extern uint32_t a_result[10];
 extern uint8_t key[16];           // Amis-Key
 extern String things_up;
 extern unsigned thingspeak_watch;
-extern bool new_data,new_data3,amisNotOnline,ledbit;
+extern bool new_data,new_data3,amisNotOnline;
 extern unsigned first_frame;
 extern uint8_t dow,dow_local;
 extern uint8_t mon,myyear,mon_local;

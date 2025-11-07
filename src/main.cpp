@@ -18,6 +18,9 @@
   #endif
 #endif
 
+#include "LedSingle.h"
+
+
 /* ping restart config */
 unsigned int pingrestart_tickCounter;
 unsigned int pingrestart_pingFails;
@@ -45,7 +48,7 @@ uint32_t a_result[10];
 uint8_t key[16];
 String things_up;
 unsigned thingspeak_watch;
-bool new_data,new_data3,ledbit,ledflag;
+bool new_data,new_data3;
 unsigned first_frame;
 uint8_t dow_local,dow;
 uint8_t mon,myyear,mon_local;
@@ -54,7 +57,6 @@ unsigned kwh_day_out[7];
 unsigned last_mon_in;
 unsigned last_mon_out;
 uint32_t clientId;
-unsigned prev_millis;
 int logPage=-1;
 uint8_t updates;
 String lastMonth;
@@ -72,10 +74,9 @@ void setup(){
   Serial.begin(9600,SERIAL_8E1);      // Schnittstelle zu Amis-Z?er
   Serial.setTimeout(10);              // f. readBytes in amis.cpp
   pinMode(AP_PIN,INPUT_PULLUP);
-  #if LEDPIN
-  digitalWrite(LEDPIN,HIGH);
-  pinMode(LEDPIN, OUTPUT);
-  #endif // if LEDPIN == Serial1.txd: reroute pin function
+
+  // OutputLed (LedBlue) was already initiated
+
   #if DEBUGHW==2
     #if DEBUG_OUTPUT==0
       Serial.begin(115200);
@@ -101,6 +102,7 @@ void setup(){
     upgrade(0);
     return;
   }
+
   serverInit(0);                  // /init.html als /
   generalInit();
   histInit();
@@ -169,22 +171,7 @@ void loop(){
   }
   //if (WiFi.isConnected())
   amis_poll();                 // Rev. 20.4.2023: auch im AP-Modus abfragen
-  #ifdef LEDPIN
-  if (inAPMode) {
-    // ESP fungiert selbst als Access-Point(AP-Modus) alle 500ms Led ein/aus schalten
-    // ==>
-    if (millis() > prev_millis) {
-      prev_millis=millis()+500;
-      digitalWrite(LEDPIN,digitalRead(LEDPIN)^1);
-    }
-  }
-  else {
-    //
-    if (ledflag && ledbit) {
-        digitalWrite(LEDPIN,LOW);
-    }
-  }
-  #endif
+
   if (hwTest) {
     for (unsigned i=0;i < 200; i++)  {
       Serial.write(i);
@@ -199,13 +186,8 @@ void loop(){
     pf=false;
 //    prnt();
   }
-  delay(10);
-  #ifdef LEDPIN
-  if (ledflag) {
-    ledflag=false;
-    digitalWrite(LEDPIN,HIGH);
-  }
-  #endif
+
+  LedBlue.loop();
 }
 
 
@@ -291,9 +273,7 @@ void writeMonthFile(uint8_t y,uint8_t m) {
 void secTick() {
   // wird jede Sekunde aufgerufen
   things_cycle++;
-  #ifdef LEDPIN
-  if (things_cycle % 4==0) ledflag=true;
-  #endif
+
   if (ws.count()) {        // ws-connections
     if (first_frame==0) {
       sendZDataWait();
