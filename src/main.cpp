@@ -18,7 +18,9 @@
   #endif
 #endif
 
+
 #include "LedSingle.h"
+#include "Utils.h"
 
 
 /* ping restart config */
@@ -88,17 +90,10 @@ void setup(){
   initOTA();
   #endif // OTA
   LittleFS.begin();                 // always true! SPIFF.begin does autoformat!!!
-  bool test=false;
-  File f = LittleFS.open("/index.html", "r");
-  if(f) f.close();
-  else test=true;
-  if (!test) {
-    f = LittleFS.open("/custom.css", "r");
-    if(f) f.close();
-    else test=true;
-  }
-  if (test) {                     // keine html-Files
-    serverInit(1);                // /upgrade.html als /
+
+  if (!UtilsClass::fileExists("/index.html") && !UtilsClass::fileExists("/custom.css"))
+  {                     // Nötige html files nicht vorhanden
+    serverInit(1);      // /upgrade.html als /
     upgrade(0);
     return;
   }
