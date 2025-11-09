@@ -74,7 +74,7 @@ static const uint8_t* Key;
 
 #if defined(CBC) && CBC
   // Initial Vector used only for CBC mode
-  static uint8_t* Iv;
+  static const uint8_t* Iv;
 #endif
 
 // The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
@@ -485,13 +485,16 @@ static void InvCipher(void)
   AddRoundKey(0);
 }
 
-static void BlockCopy(uint8_t* output, uint8_t* input)
+static void BlockCopy(uint8_t* output, const uint8_t* input)
 {
+#if 1
+  memcpy(output, input, KEYLEN);
+#else
   uint8_t i;
-  for (i=0;i<KEYLEN;++i)
-  {
+  for (i=0;i<KEYLEN;++i) {
     output[i] = input[i];
   }
+#endif
 }
 
 
@@ -580,7 +583,7 @@ void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
   }
 }
 
-void AES128_CBC_decrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void AES128_CBC_decrypt_buffer(uint8_t* output, const uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uintptr_t i;
   uint8_t remainders = length % KEYLEN; /* Remaining bytes in the last non-full block */
