@@ -15,10 +15,6 @@
 #include <EEPROM.h>
 #include <ESP8266HTTPClient.h>
 
-/* ping restart checks begin */
-#include <AsyncPing.h>
-/* ping restart checks end*/
-
 #include "config.h"
 
 /// Debug Einstellungen:

@@ -5,15 +5,8 @@
 
 #include "LedSingle.h"
 #include "Utils.h"
+#include "WatchdogPing.h"
 
-
-/* ping restart config */
-unsigned int pingrestart_tickCounter;
-unsigned int pingrestart_pingFails;
-bool pingrestart_ping_running;
-AsyncPing ping; // non-blocking
-void pingrestart_ping();
-/* ping restart config end */
 
 bool pf;
 
@@ -90,17 +83,19 @@ void setup(){
   if (Config.smart_mtr)  meter_init();
   if (Config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
 
-  // initiate ping restart check
+  // initiate ping watchdog
+  WatchdogPing.init();
+  WatchdogPing.config(Config.pingrestart_ip.c_str(), Config.pingrestart_interval ,Config.pingrestart_max, &shouldReboot);
   if (Config.pingrestart_do) {
-    pingrestart_tickCounter = 0;
-    pingrestart_pingFails = 0;
-    pingrestart_ping_running = false;
-    if (Config.log_sys) writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+    WatchdogPing.enable();
+    if (Config.log_sys) {
+      writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+    }
   }
   shouldReboot = false;
 }
 
-void loop(){
+void loop() {
   #if DEBUGHW==1
   if (dbg_string.length()) {          // Debug-Ausgaben TCP
     dbg_string+="\n";
@@ -167,56 +162,9 @@ void loop(){
   }
 
   LedBlue.loop();
+  WatchdogPing.loop();
 }
 
-
-void pingrestart_ping() {
-  pingrestart_tickCounter++;
-
-  if (!Config.pingrestart_do || pingrestart_tickCounter < Config.pingrestart_interval) {
-      return; // noch nicht genug Zeit vergangen oder ping deaktiviert
-  }
-
-  pingrestart_tickCounter = 0; // zurücksetzen
-
-  /* callback for each answer/timeout of ping */
-  //ping.on(true,[](const AsyncPingResponse& response){
-  //  return false; //do not stop
-  //});
-
-  /* callback for end of ping */
-  ping.on(false,[](const AsyncPingResponse& response){
-    DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
-
-    if (response.answer) {
-      if (pingrestart_pingFails > 0) {
-        pingrestart_pingFails++;
-        if (Config.log_sys) writeEvent("INFO", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(Config.pingrestart_max) + " to " + Config.pingrestart_ip + " successful, RTT = " + String(response.total_time), "");
-      }
-      pingrestart_pingFails = 0; // fehlerzähler zurücksetzen
-    } else {
-      pingrestart_pingFails++;
-      if (Config.log_sys) writeEvent("WARN", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(Config.pingrestart_max) + " to " + Config.pingrestart_ip + " failed!", "");
-
-      if (pingrestart_pingFails >= Config.pingrestart_max) {
-        if (Config.log_sys) writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
-        shouldReboot = true; // neustart erforderlich
-      }
-    }
-
-    pingrestart_ping_running = false;
-    return true; //doesn't matter
-  });
-
-  if (!pingrestart_ping_running) {
-    DBGOUT("Ping to " + Config.pingrestart_ip);
-
-    pingrestart_ping_running = true;
-    ping.begin(Config.pingrestart_ip.c_str(), 1, 900U); // 1 ping, 900ms timeout
-  } else {
-    DBGOUT("Ping still running");
-  }
-}
 
 void writeHistFileIn(int x, long val) {
   DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
@@ -416,9 +364,6 @@ void secTick() {
     }
   }
   ws.cleanupClients();   // beendete Webclients nicht mehr updaten
-
-  // perform ping restart check
-  pingrestart_ping();
 }
 
 void  writeEvent(String type, String src, String desc, String data) {
