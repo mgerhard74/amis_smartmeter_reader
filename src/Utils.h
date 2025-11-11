@@ -4,7 +4,7 @@
 
 #define UTILS_IS_VALID_YEAR(YEAR) (((YEAR) >= 2025) && ((YEAR) < 2040))
 
-class UtilsClass {
+class Utils {
     public:
         static bool fileExists(const char *fname);
         static bool MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata);

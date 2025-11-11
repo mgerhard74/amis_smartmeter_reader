@@ -234,7 +234,7 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     }
 
     // Datum & Uhrzeit rausholen und validieren
-    if (!UtilsClass::MbusCP48IToTm(numresult.time, decrypted.valueDT)) {
+    if (!Utils::MbusCP48IToTm(numresult.time, decrypted.valueDT)) {
         return -20;
     }
     numresult.results[0] = UA::ReadU32LE(&decrypted.value1_8_0);
@@ -722,9 +722,9 @@ void AmisReaderClass::setKey(const char *key)
         if (i >= sizeof(_key)) {
             break;
         }
-        _key[i] = UtilsClass::hexchar2Num(key[j]);
+        _key[i] = Utils::hexchar2Num(key[j]);
         _key[i] <<= 4;
-        _key[i] |= UtilsClass::hexchar2Num(key[j+1]);
+        _key[i] |= Utils::hexchar2Num(key[j+1]);
     }
     while (i < sizeof(_key)) {
         _key[i++] = 0; // fill all the rest with 0

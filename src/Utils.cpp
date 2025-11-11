@@ -3,7 +3,7 @@
 //#include <Arduino.h>
 #include <LittleFS.h>
 
-bool UtilsClass::fileExists(const char *fname)
+bool Utils::fileExists(const char *fname)
 {
     File f;
     f = LittleFS.open(fname, "r");
@@ -14,7 +14,7 @@ bool UtilsClass::fileExists(const char *fname)
     return false;
 }
 
-bool UtilsClass::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
+bool Utils::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
 {
     // MBUS CP48 - Datum & Uhrzeit im I-Format[6Bytes-CP48] (VIF=0x6d) ==> struct tm
     //        Verwandt dazu:          F-Format[4Bytes-CP32] und G-Format[2Bytes-CP16]
@@ -82,7 +82,7 @@ bool UtilsClass::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
     return true;
 }
 
-uint8_t UtilsClass::hexchar2Num(const char v)
+uint8_t Utils::hexchar2Num(const char v)
 {
     if (v >= 'A' && v <= 'F') {
         return v - 'A' + 10;

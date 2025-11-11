@@ -66,7 +66,7 @@ void setup(){
   #endif // OTA
   LittleFS.begin();                 // always true! SPIFF.begin does autoformat!!!
 
-  if (!UtilsClass::fileExists("/index.html") && !UtilsClass::fileExists("/custom.css"))
+  if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css"))
   {                     // Nötige html files nicht vorhanden
     serverInit(1);      // /upgrade.html als /
     upgrade(0);
