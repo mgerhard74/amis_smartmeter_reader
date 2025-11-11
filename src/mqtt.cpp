@@ -1,22 +1,8 @@
 #include "proj.h"
+#include "AmisReader.h"
+
 //#define DEBUG
-#ifndef DEBUG
-  #define eprintf( fmt, args... )
-  #define DBGOUT(...)
-#else
-  #if DEBUGHW>0
-    #define FOO(...) __VA_ARGS__
-    #define DBGOUT dbg_string+= FOO
-    #if (DEBUGHW==2)
-      #define eprintf(fmt, args...) S.printf(fmt, ##args)
-    #elif (DEBUGHW==1 || DEBUGHW==3)
-      #define eprintf(fmt, args...) {sprintf(dbg,fmt, ##args);dbg_string+=dbg;dbg[0]=0;}
-    #endif
-  #else
-    #define eprintf( fmt, args... )
-    #define DBGOUT(...)
-  #endif
-#endif
+#include "debug.h"
 
 #ifdef STROMPREIS
 extern String strompreis;
@@ -148,9 +134,10 @@ void mqtt_publish_state() {
   if (mqttClient.connected() && first_frame==1) {
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
-    signed saldo= (a_result[4]-a_result[5]-Config.rest_ofs);
+    signed saldo = (a_result[4]-a_result[5]-Config.rest_ofs);
     if (Config.rest_neg) saldo =-saldo;
-    if (Config.rest_var==0) {
+    if (Config.rest_var == 0) {
+      // Variablennamen mit Punkten (".")
       root[F("1.8.0")] = a_result[0];
       root[F("2.8.0")] = a_result[1];
       root[F("3.8.1")] = a_result[2];
@@ -164,10 +151,8 @@ void mqtt_publish_state() {
 #else
       root[F("1.128.0")] = a_result[8];
 #endif
-      root[F("saldo")] = saldo;
-	  root[F("time")] = a_result[9];
-    }
-    else {
+    } else {
+      // Variablennamen mit Unterstrichen ("_")
       root[F("1_8_0")] = a_result[0];
       root[F("2_8_0")] = a_result[1];
       root[F("3_8_1")] = a_result[2];
@@ -177,9 +162,10 @@ void mqtt_publish_state() {
       root[F("3_7_0")] = a_result[6];
       root[F("4_7_0")] = a_result[7];
       root[F("1_128_0")] = a_result[8];
-      root[F("saldo")] = saldo;
-	  root[F("time")] = a_result[9];
     }
+    root[F("saldo")] = saldo;
+	  root[F("time")] = a_result[9];
+    root[F("serialnumber")] = AmisReader.getSerialNumber();
     String mqttBuffer;
     //root.prettyPrintTo(mqttBuffer);
     root.printTo(mqttBuffer);

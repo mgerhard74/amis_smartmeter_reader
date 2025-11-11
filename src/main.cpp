@@ -3,6 +3,7 @@
 #include "debug.h"
 
 
+#include "AmisReader.h"
 #include "LedSingle.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
@@ -23,14 +24,12 @@ Ticker uniTicker,secTicker;
 //AsyncMqttClient mq_client;                    // ThingsPeak Client
 WiFiClient thp_client;
 unsigned things_cycle;
-uint32_t a_result[10];
-uint8_t key[16];
 String things_up;
 unsigned thingspeak_watch;
 bool new_data,new_data3;
-unsigned first_frame;
-uint8_t dow_local,dow;
-uint8_t mon,myyear,mon_local;
+unsigned first_frame=0;
+uint8_t dow_local;
+uint8_t mon_local;
 unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
@@ -50,11 +49,10 @@ int switch_last = 0;
 signed int Saldomittelwert[5];
 
 void setup(){
-  Serial.begin(9600,SERIAL_8E1);      // Schnittstelle zu Amis-Z?er
-  Serial.setTimeout(10);              // f. readBytes in amis.cpp
-  pinMode(AP_PIN,INPUT_PULLUP);
+  AmisReader.init(1); // Init mit Serieller Schnittstelle #1
+  AmisReader.enable(); // und gleich enablen
 
-  // OutputLed (LedBlue) was already initiated
+  pinMode(AP_PIN,INPUT_PULLUP);
 
   #if DEBUGHW==2
     #if DEBUG_OUTPUT==0
@@ -81,7 +79,6 @@ void setup(){
   connectToWifi();  // and MQTT and NTP
   secTicker.attach_scheduled(1,secTick);
   if (Config.smart_mtr)  meter_init();
-  if (Config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
 
   // initiate ping watchdog
   WatchdogPing.init();
@@ -92,7 +89,8 @@ void setup(){
       writeEvent("INFO", "wifi", "Ping restart check enabled", "");
     }
   }
-  shouldReboot = false;
+
+  if (Config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
 }
 
 void loop() {
@@ -143,8 +141,8 @@ void loop() {
       sendZData();
     }
   }
-  //if (WiFi.isConnected())
-  amis_poll();                 // Rev. 20.4.2023: auch im AP-Modus abfragen
+
+  AmisReader.loop();  // Zähler auslesen
 
   if (hwTest) {
     for (unsigned i=0;i < 200; i++)  {

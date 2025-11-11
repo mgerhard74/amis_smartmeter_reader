@@ -1,4 +1,6 @@
 #include "proj.h"
+#include "AmisReader.h"
+
 //#define DEBUG
 #ifndef DEBUG
   #define eprintf( fmt, args... )
@@ -85,6 +87,7 @@ void sendZDataWait() {
   JsonObject &doc = jsonBuffer.createObject();
   doc["now"] = valid;
   doc["uptime"] = millis()/1000;
+  doc["serialnumber"] = AmisReader.getSerialNumber();
 //  doc["things_up"] = things_up;
   size_t len = doc.measureLength();
   AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
@@ -109,6 +112,7 @@ void sendZData() {
   doc["1_128_0"] = a_result[8];
   doc["uptime"] = millis()/1000;
   doc["things_up"] = things_up;
+  doc["serialnumber"] = AmisReader.getSerialNumber();
 
   size_t len = doc.measureLength();
   AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
@@ -245,7 +249,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
   }
   if(strcmp(command,"weekfiles")==0) {
     long zstand;
-    Serial.end();    //
+    AmisReader.disable();
     clearHist();
     for (unsigned i=0;i<7;i++){
       zstand=root["week"][0][i].as<long>();
@@ -265,8 +269,11 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
         }
       }
     }
+    histInit();
+    AmisReader.enable();
   }
   else if(strcmp(command,"monthlist")==0) {
+    AmisReader.disable();
     LittleFS.remove("/monate");
     File f = LittleFS.open("/monate", "a");
     int arrSize=root["month"].size();
@@ -275,6 +282,8 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
       f.print('\n');
     }
     f.close();
+    histInit();
+    AmisReader.enable();
   }
   else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
     File f = LittleFS.open(command, "w+");

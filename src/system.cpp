@@ -1,5 +1,6 @@
 #include "proj.h"
 
+#include "AmisReader.h"
 #include "LedSingle.h"
 
 //#define DEBUG
@@ -158,17 +159,6 @@ void connectToWifi() {
   }
 }
 
-#define CHR2BIN(c) (c-(c>='A'?55:48))
-
-void hex2bin(String s, uint8_t *buf) {
-  unsigned len = s.length();
-  if (len != 32) return;
-
-  for (unsigned i=0; i<len; ++i) {
-    buf[i] = CHR2BIN(s.c_str()[i*2])<<4 | CHR2BIN(s.c_str()[i*2+1]);
-  }
-}
-
 void generalInit() {
   File configFile = LittleFS.open("/config_general", "r");
   if(!configFile) {
@@ -193,7 +183,7 @@ void generalInit() {
   Config.smart_mtr=json[F("smart_mtr")].as<bool>();
 
   String akey=json[F("amis_key")].as<String>();
-  hex2bin(akey, (uint8_t*)&key);  // key Variable belegen
+  AmisReader.setKey(akey.c_str());
   Config.thingspeak_aktiv=json[F("thingspeak_aktiv")].as<bool>();
   Config.channel_id=json[F("channel_id")].as<int>();
   Config.write_api_key=json[F("write_api_key")].as<String>();

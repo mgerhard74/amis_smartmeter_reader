@@ -1,4 +1,6 @@
 #include "proj.h"
+#include "AmisReader.h"
+
 //#define DEBUG
 #include "debug.h"
 
@@ -176,6 +178,7 @@ void serverInit(unsigned mode) {
         root[F("1_128_0")] = a_result[8];
         root[F("saldo")] = saldo;
       }
+      root[F("serialnumber")] = AmisReader.getSerialNumber();
       //root.prettyPrintTo(*response);
       root.printTo(*response);
       request->send(response);

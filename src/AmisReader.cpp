@@ -1,0 +1,759 @@
+#include "AmisReader.h"
+
+#include "aes.h"
+#include "UA.h"
+#include "Utils.h"
+
+#define MIN(A,B) std::min((size_t)(A), (size_t)(B))  // std:min() can not compare (size_t) and (unsigned int)
+
+
+
+// TODO: Refactor this global vars and external function
+uint32_t a_result[10] = {};
+bool amisNotOnline = true;
+int valid = 0;
+char timecode[13] = {}; // "0x" + 5*2 + '\0'
+extern void writeEvent(String type, String src, String desc, String data);
+extern bool new_data,new_data3;
+extern unsigned first_frame;
+uint8_t dow;
+uint8_t mon, myyear;
+
+
+// ---------------------------------------------------------------------------------------------------------------------------
+
+struct __attribute__((__packed__))  enryptedMBUSTelegram_SND_UD {
+    // 2021-11-05-spezifikation-ks-amis.pdf Page 6 - 2.4.2.9. 'Beispiel: Zählerdaten [hex]'
+    // Unser Lesekopf ist eigentlich ein "M-BUS-Slave" und wir erhalten periodisch
+    // eine 'Long Frame' Antwort
+    // siehe https://m-bus.com/documentation-wired/05-data-link-layer
+
+    // Offset 0
+    struct __attribute__((__packed__)) {
+        struct __attribute__((__packed__)) {  // 0x68 0x5F 0x5F 0x68 0x53
+            uint8_t startSign;           // 0x68
+            uint8_t telegramLength;      // 0x5F
+            uint8_t telegramLengthRepeat;// 0x5F
+            uint8_t startSignRepeat;     // 0x68
+            uint8_t cField;              // 0x53 oder 0x73
+        } SND_UD;
+    // Offset 5
+        uint8_t primaryAddress;          // 0xF0
+        uint8_t ci;                      // 0x5B = 'variable data respond'
+    // Offset 7
+        struct __attribute__((__packed__)) {
+            uint8_t identificationNumber[4]; // TODO: Zählernummerr?? 0x00, 0x00, 0x00, 0x00
+            uint16_t vendorId;               // Hersteller Identifikation EMH, LSB first 0x2d 0x4c
+            uint8_t version;                 // 0x01
+            uint8_t medium;                  // 02 = Medium Elektrizität --> hier 0x0e
+        } secondaryAddress;
+    // Offset 15
+        uint8_t accessNumber;            // accesscounter (laufender Zähler - erhöht sich bei jeder Ausgabe)
+        uint8_t status;                  // undefined              0x50
+        uint16_t signature;              // undefined              0x05
+    } header;
+    // Offset 19
+    uint8_t encryptedData[80];
+    // Offset 99
+    uint8_t checkSum;                // cheksum(ByteAdd) from(including) primaryAddress to(including) encryptedData[79]
+    uint8_t stopSign;                // 0x16
+};
+static_assert(sizeof(struct enryptedMBUSTelegram_SND_UD) == 101);
+
+struct __attribute__((__packed__))  decryptedTelegramData_SND_UD {
+    uint8_t filler_prev[2];     // 0x2f 0x2f
+
+    uint8_t difVifDT[2];        // 0x06 / 0x6d
+    uint8_t valueDT[6];         // Date+Time [M-Bus CP48]
+
+    uint8_t difVif1_8_0[2];     // 0x04 / 0x03
+    uint32_t value1_8_0;        // Zählerstand Energie A+ [Wh]
+
+    uint8_t difVif2_8_0[3];     // 0x04 / 0x83 0x3C
+    uint32_t value2_8_0;        // Zählerstand Energie A- [Wh]
+
+    uint8_t difVif3_8_1[5];     // 0x84 / 0x10 0xFB 0x82 0x73
+    uint32_t value3_8_1;        // Zählerstand Energie R+ [Wh]
+
+    uint8_t difVif4_8_1[6];     // 0x84 / 0x10 0xFB 0x82 0xF3 0x3C
+    uint32_t value4_8_1;        // Zählerstand Energie R- [Wh]
+
+    uint8_t difVif1_7_0[2];     // 0x04 / 0x2B
+    uint32_t value1_7_0;        // momentane Wirkleistung P+
+
+    uint8_t difVif2_7_0[3];     // 0x04 / 0xAB 0x3C
+    uint32_t value2_7_0;        // momentane Wirkleistung P-
+
+    uint8_t difVif3_7_0[3];     // 0x04 / 0xFB 0x14
+    uint32_t value3_7_0;        // momentane Blindleistung Q+
+
+    uint8_t difVif4_7_0[4];     // 0x04 / 0xFB 0x94 0x3C
+    uint32_t value4_7_0;        // momentane Blindleistung Q-
+
+    uint8_t difVif1_128_0[4];   // 0x04 / 0x83 0xFF 0x04
+    int32_t value1_128_0;       // Inkassozählwerk
+
+    uint8_t filler_tail[2];     // 0x2f 0x2f
+};
+static_assert(sizeof(struct decryptedTelegramData_SND_UD) == 80);
+
+// ---------------------------------------------------------------------------------------------------------------------------
+
+
+int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)
+{
+    // This decoding functions needs about 1-2 ms!
+
+    result.isSet = false;
+
+    AmisReaderNumResult_t numresult;
+    const enryptedMBUSTelegram_SND_UD *encryptedSndUD = (const enryptedMBUSTelegram_SND_UD *) buffer;
+
+    // Here we expect got a MBUS - SND_UD (Send User Data to Slave)
+    // Refer to: https://m-bus.com/documentation-wired/05-data-link-layer
+    //                     5.2 Telegram Format - Long Frame
+    //                     5.3 Meaning of the Fields
+
+    // check the minimal needed length
+    if (len < sizeof(enryptedMBUSTelegram_SND_UD)) {
+        return -1;
+    }
+
+    // check fields 'header' and 'repeat header' have expected value
+    if(encryptedSndUD->header.SND_UD.startSign!=0x68 || encryptedSndUD->header.SND_UD.startSignRepeat!=0x68) {
+        return -2;
+    }
+
+    // check fields 'length' and 'repeat length' have same value
+    if(encryptedSndUD->header.SND_UD.telegramLength != encryptedSndUD->header.SND_UD.telegramLengthRepeat) {
+        return -3;
+    }
+
+    // check the length as we expected
+    if (encryptedSndUD->header.SND_UD.telegramLength != 0x5f) {
+        return -4;
+    }
+
+    // check 'C Field (Control Field, Function Field)' have expected value
+    if (encryptedSndUD->header.SND_UD.cField != 0x53 && encryptedSndUD->header.SND_UD.cField != 0x73) {
+        return -5;
+    }
+
+    // check the expected "Stop" value in SND_UD
+    if (encryptedSndUD->stopSign != 0x16) {
+        return -6;
+    }
+
+    // create and check checksum
+    uint8_t checksum=0;
+    const uint8_t *chk_s = (const uint8_t *) &encryptedSndUD->header.SND_UD.cField;
+    const uint8_t *chk_e = (const uint8_t *) &encryptedSndUD->checkSum;
+    while (chk_s < chk_e) {
+        checksum += *chk_s++;
+    }
+    if (checksum != encryptedSndUD->checkSum) {
+        return -7;
+    }
+
+    // Decrypt
+    uint8_t initialVector[16];
+    const uint8_t *secondaryAddress = (const uint8_t *) &encryptedSndUD->header.secondaryAddress;
+    initialVector[0] = secondaryAddress[4]; // =encryptedSndUD->secondaryAddress.vendorId/1
+    initialVector[1] = secondaryAddress[5]; // =encryptedSndUD->secondaryAddress.vendorId/2
+    initialVector[2] = secondaryAddress[0]; // =encryptedSndUD->secondaryAddress.identificationNumber[0]
+    initialVector[3] = secondaryAddress[1]; // =encryptedSndUD->secondaryAddress.identificationNumber[1]
+    initialVector[4] = secondaryAddress[2]; // =encryptedSndUD->secondaryAddress.identificationNumber[2]
+    initialVector[5] = secondaryAddress[3]; // =encryptedSndUD->secondaryAddress.identificationNumber[3]
+    initialVector[6] = secondaryAddress[6]; // =encryptedSndUD->secondaryAddress.version
+    initialVector[7] = secondaryAddress[7]; // =encryptedSndUD->secondaryAddress.medium
+    for (size_t i=8; i<16; ++i) {
+        initialVector[i] = secondaryAddress[8]; // =encryptedSndUD->secondaryAddress.accessNumber
+    }
+
+    struct decryptedTelegramData_SND_UD decrypted; // wir decodieren 80 Bytes ( 5 * 16 )
+    uint8_t *decrypted_ptr = (uint8_t *) &decrypted;
+#if 0
+    AES128_CBC_decrypt_buffer(decrypted_ptr,    &encryptedSndUD->encryptedData[0],  16, _key, initialVector);
+    AES128_CBC_decrypt_buffer(decrypted_ptr+16, &encryptedSndUD->encryptedData[16], 16, nullptr, nullptr);
+    AES128_CBC_decrypt_buffer(decrypted_ptr+32, &encryptedSndUD->encryptedData[32], 16, nullptr, nullptr);
+    AES128_CBC_decrypt_buffer(decrypted_ptr+48, &encryptedSndUD->encryptedData[48], 16, nullptr, nullptr);
+    AES128_CBC_decrypt_buffer(decrypted_ptr+64, &encryptedSndUD->encryptedData[64], 16, nullptr, nullptr);
+#else
+    AES128_CBC_decrypt_buffer(decrypted_ptr,    &encryptedSndUD->encryptedData[0],  16*5, _key, initialVector);
+#endif
+    //yield();
+    //sprintf(timecode,"0x%02x%02x%02x%02x%02x",decrypted[8],decrypted[7],decrypted[6],decrypted[5],decrypted[4]);
+
+    if (decrypted.filler_prev[0] != 0x2f || decrypted.filler_prev[1] != 0x2f) {
+        return -8; // Füllbytes vorne
+    }
+    if (decrypted.filler_tail[0] != 0x2f || decrypted.filler_tail[1] != 0x2f) {
+        return -9; // Füllbytes hinten
+    }
+
+    // DIF/VIFs prüfen
+    if (memcmp(&decrypted.difVifDT[0], "\x06\x6d", 2) != 0) {
+        // M-Bus DIF/VIFs - für Datum/Uhrzeit
+        return -10;
+    }
+    if (memcmp(&decrypted.difVif1_8_0[0], "\x04\x03", 2) != 0) {
+        // M-Bus DIF/VIFs - für Zählerstand Energie A+ [Wh]
+        return -11;
+    }
+    if (memcmp(&decrypted.difVif2_8_0[0], "\x04\x83\x3c", 3) != 0) {
+        // M-Bus DIF/VIFs - für Zählerstand Energie A- [Wh]
+        return -12;
+    }
+    if (memcmp(&decrypted.difVif3_8_1[0], "\x84\x10\xFB\x82\x73", 5) != 0) {
+        // M-Bus DIF/VIFs - für Zählerstand Energie R+ [Wh]
+        return -13;
+    }
+    if (memcmp(&decrypted.difVif4_8_1[0], "\x84\x10\xFB\x82\xf3\x3c", 6) != 0) {
+        // M-Bus DIF/VIFs - für Zählerstand Energie R+ [Wh]
+        return -14;
+    }
+    if (memcmp(&decrypted.difVif1_7_0[0], "\x04\x2b", 2) != 0) {
+        // M-Bus DIF/VIFs - für momentane Wirkleistung P+
+        return -15;
+    }
+    if (memcmp(&decrypted.difVif2_7_0[0], "\x04\xab\x3c", 3) != 0) {
+        // M-Bus DIF/VIFs - für momentane Wirkleistung P-
+        return -16;
+    }
+    if (memcmp(&decrypted.difVif3_7_0[0], "\x04\xfb\x14", 3) != 0) {
+        // M-Bus DIF/VIFs - für momentane Blindleistung Q+
+        return -17;
+    }
+    if (memcmp(&decrypted.difVif4_7_0[0], "\x04\xfb\x94\x3c", 4) != 0) {
+        // M-Bus DIF/VIFs - für momentane Blindleistung Q-
+        return -18;
+    }
+    if (memcmp(&decrypted.difVif1_128_0[0], "\x04\x83\xff\x04", 4) != 0) {
+        // M-Bus DIF/VIFs - für Inkassozählwerk
+        return -19;
+    }
+
+    // Datum & Uhrzeit rausholen und validieren
+    if (!UtilsClass::MbusCP48IToTm(numresult.time, decrypted.valueDT)) {
+        return -20;
+    }
+    numresult.results[0] = UA::ReadU32LE(&decrypted.value1_8_0);
+    numresult.results[1] = UA::ReadU32LE(&decrypted.value2_8_0);
+    numresult.results[2] = UA::ReadU32LE(&decrypted.value3_8_1);
+    numresult.results[3] = UA::ReadU32LE(&decrypted.value4_8_1);
+    numresult.results[4] = UA::ReadU32LE(&decrypted.value1_7_0);
+    numresult.results[5] = UA::ReadU32LE(&decrypted.value2_7_0);
+    numresult.results[6] = UA::ReadU32LE(&decrypted.value3_7_0);
+    numresult.results[7] = UA::ReadU32LE(&decrypted.value4_7_0);
+    numresult.results_8  = UA::ReadS32LE(&decrypted.value1_128_0);
+
+    // TODO: "Diese Aufbereitung" Timecode entfernen
+    // Da das eine
+    //        MM(1..12) in Hex
+    sprintf(numresult.timecode, "0x%02x%02x%02x%02x%02x",
+            decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
+            decrypted.valueDT[1], decrypted.valueDT[0]
+    );
+
+    numresult.isSet = true;
+    result = numresult; // memcpy(&result, &numresult, sizeof(numresult));
+
+    return 0;
+}
+
+const char *AmisReaderClass::getSerialNumber()
+{
+    if (_serialNumber[0]) {
+        return _serialNumber;
+    }
+    return "unbekannt";
+}
+
+size_t AmisReaderClass::serialWrite(const char *str)
+{
+    size_t r;
+    if (_serial) {
+        r = _serial->write(str);
+        _serial->flush();
+    } else {
+        r = strlen(str);
+    }
+    /*if (false) {
+        MsgOut.writeTimestamp();
+        MsgOut.printf("serialWrite()[%u]:\r\n", strlen(str));
+        MsgOut.dumpHexBytes(str);
+    }*/
+    return r;
+}
+
+size_t AmisReaderClass::serialWrite(uint8_t byte)
+{
+    size_t r;
+    if (_serial) {
+        r = _serial->write(byte);
+    } else {
+        r = sizeof(byte);
+    }
+    /*if (false) {
+        MsgOut.writeTimestamp();
+        MsgOut.println("serialWrite()[1]:");
+        MsgOut.dumpHexBytes(&byte, sizeof(uint8_t));
+    }*/
+    return r;
+}
+
+
+size_t AmisReaderClass::pollSerial()
+{
+#if (AMISREADER_SIMULATE_SERIAL)
+    return pollSerialSimulateSerialInput();
+#else
+    if (_serial == nullptr) {
+        return 0;
+    }
+
+    size_t bytesReadTotal = 0;
+    size_t serialBufferLeft = sizeof(_serialReadBuffer) - _serialReadBufferIdx;
+    size_t serialAvail = _serial->available();
+    size_t bytesRead;
+    size_t serialReadBufferIdxStarted = _serialReadBufferIdx;
+    bool rxError = false & _serial->hasRxError();
+
+    while (serialAvail > 0 && serialBufferLeft > 0 && !rxError) {
+        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], MIN(serialAvail, serialBufferLeft));
+        bytesReadTotal += bytesRead;
+        serialBufferLeft -= bytesRead;
+        _serialReadBufferIdx += bytesRead;
+        serialAvail = _serial->available();
+        rxError = false & _serial->hasRxError(); // INFO: This call clears the pending error flag
+    }
+
+    if ((serialBufferLeft == 0 && serialAvail > 0) || rxError ) {
+        // No space in buffer left and still something available or a rx error occured
+        // Eat all from the searial port and discard everything as we had an overflow
+        // ERROR: Serial input overflowed!
+
+        /*
+        MsgOut.writeTimestamp();
+        if (bytesBufferLeft == 0 && avail > 0) {
+            MsgOut.printf("ERROR: Serial interface OVERRUN: SerAvailable:%u\r\n", avail);
+        } else {
+            MsgOut.printf("ERROR: Serial interface RX-Error SerAvailable:%u BufferSpaceLeft:%u\r\n", avail, bytesBufferLeft);
+        }
+        */
+
+        _serialReadBufferIdx = 0;
+        bytesRead = clearSerialRx();
+        bytesReadTotal += bytesRead;
+    }
+    if (bytesReadTotal) {
+        if (_serialReadBufferIdx > serialReadBufferIdxStarted) {
+          /*
+            if (false) {
+                MsgOut.writeTimestamp();
+                MsgOut.printf("Startlength: %u\r\n", serialReadBufferIdxStarted);
+                MsgOut.printf("pollSerial() Total length now in buffer: %u\r\n", _serialReadBufferIdx);
+                MsgOut.dumpHexBytes(&_serialReadBuffer[serialReadBufferIdxStarted], _serialReadBufferIdx - serialReadBufferIdxStarted, true);
+            }
+            */
+        }
+    }
+    return bytesReadTotal;
+#endif // AMISREADER_SIMULATE_SERIAL
+}
+
+size_t AmisReaderClass::clearSerialRx()
+{
+    /* Alles aus dem internen Puffer der Seriellen Schnittstelle auslesen und die Anzahl der Bytes zurückgeben */
+    size_t bytesRead = 0;
+    if (_serial == nullptr) {
+        return 0;
+    }
+
+    size_t avail = _serial->available();
+    while (avail > 0) {
+        char b[128];
+        bytesRead += _serial->readBytes(&b[0], MIN(avail, sizeof(b)));
+        avail = _serial->available();
+    }
+     _serial->hasRxError(); // This clears the pending error flag
+    return bytesRead;
+}
+
+
+void AmisReaderClass::init(uint8_t serialNo)
+{
+    _baudRateIdentifier = 0; _serialNumber[0] = 0;
+    _serialReadBufferIdx = 0;
+
+    memset(&a_result, 0, sizeof(a_result));
+
+    if (serialNo == 1) {
+        _serial = &Serial;
+    } else if (serialNo == 2) {
+        _serial = &Serial1;
+    } else {
+        _serial = nullptr;
+    }
+}
+
+void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
+{
+    if (_state == initReadSerial) {
+        _baudRateIdentifier = 0; _serialNumber[0] = 0;
+
+        if (_readSerialNumberMode == disabled ) {
+            _state = initReadCounters;
+            return;
+        }
+        if (_serial != nullptr) {
+            _serial->begin(300, SERIAL_7E1); /* Serialnummer wird mit 300 7E1 gelesen */
+            _serial->setTimeout(5);         // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
+            _serial->clearWriteError();
+        }
+        _serialReadBufferIdx = 0;
+        clearSerialRx();
+        amisNotOnline = true;
+        _state = requestReaderSerial;
+        _stateLastSetMs = msNow;
+        _stateTimoutMs = 5000;
+        _stateErrorCnt = 0;
+        _stateErrorMax = 13; // 5 sec * 13 ... we try for 65 seconds
+    } else if (_state == requestReaderSerial) {
+        // Geräteadresse lesen (IEC 62056-21 Mode "C")
+        // Senden des Anforderungstelegramm
+        // /?!\r\n (hex 2F 3F 21 0D 0A)
+        // siehe AMIS TD-351x Benutzerhandbuch
+        _serialReadBufferIdx = 0;
+        clearSerialRx();
+        serialWrite("/?!\r\n");
+        // vor dem nächsten Senden muss zwischen 1500 und 2200ms gewartet werden
+        // Übertragen der Gerätenummer dauert etwa 1200ms
+        // Also: Wir warten 5 Sekunden - wenn dann keine Seriennummer --> nochmal lesen
+        _state = waitForReaderSerial;
+    } else if (_state == waitForReaderSerial) {
+        // wir erwarten uns einen Antwort die wie folgt aussieht:
+        // "/SATx1234567890123\r\n", wobei "x" 0,1,2,3,4,5,6 oder 9 sein darf
+        //     x ... gibt die Baudrate der Datentelegramme im Mode C
+        //     siehe AMIS TD-351x Benutzerhandbuch - Kapitel 5.2.5 ff  bzw.  gesamtes 5.2 Kapitel
+        if (_serialReadBufferIdx > 7) {
+            if (!memcmp(_serialReadBuffer, "/SAT", 4) && memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2)) {
+                // OK wir haben irgwas, das grundsätzlich schon mal gültig aussieht
+                if ((_serialReadBuffer[4] >= '0' && _serialReadBuffer[4] <= '6') || _serialReadBuffer[4] == '9') {
+                    // Wir haben eine "gültige" Zähler-Antwort bekommen!
+
+                    _baudRateIdentifier = _serialReadBuffer[5];
+
+                    char *crlf;
+                    crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
+                    *crlf = 0;
+                    const char *serialNr = (const char *)_serialReadBuffer+5;
+                    strncpy(_serialNumber, serialNr, MIN(AMISREADER_MAX_SERIALNUMER, strlen(serialNr)));
+                    _serialNumber[sizeof(_serialNumber)-1] = 0;
+
+                    _state = initReadCounters;
+                    _stateLastSetMs = msNow;
+                    _stateErrorCnt = 0;
+                    writeEvent("INFO", "amis", "Serialnumber found", _serialNumber);
+                } else {
+                    // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
+                    _state = requestReaderSerial;
+                }
+                return;
+            }
+
+            if (_serialReadBufferIdx >= 4 + 32 + 2) {
+                // das wäre eine ganze Serialnummer gewesen ... alles wegwerfen und nochmals probieren
+                _state = requestReaderSerial;
+            }
+        }
+    }
+}
+
+#if 0
+void AmisReaderClass::eatSerialReadBuffer(size_t n)
+{
+    size_t i;
+    if (n >= _serialReadBufferIdx || n >= std::size(_serialReadBuffer)) {
+        _serialReadBufferIdx = 0;
+        return;
+    }
+
+    for(i=n; i<_serialReadBufferIdx; i++) {
+        _serialReadBuffer[i-n] = _serialReadBuffer[i];
+    }
+    _serialReadBufferIdx -= n;
+}
+#endif
+
+void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
+{
+// Die Daten aus dem Puffer der Seriallen Schnittstelle in den "Arbeitspuffer"
+// zum Zählerstand dekodieren verschieben
+    size_t i;
+
+    if (n > MIN(sizeof(_decodingWorkBuffer),sizeof(_serialReadBuffer))) {
+        n = MIN(sizeof(_decodingWorkBuffer),sizeof(_serialReadBuffer));
+    }
+    if (n > _serialReadBufferIdx) {
+        n = _serialReadBufferIdx;
+    }
+    if (n == 0) {
+        _decodingWorkBufferLength = 0;
+        return;
+    }
+    memcpy(_decodingWorkBuffer, _serialReadBuffer, n);
+    _decodingWorkBufferLength = n;
+    for(i = 0; n < _serialReadBufferIdx;) {
+        _serialReadBuffer[i++] = _serialReadBuffer[n++];
+    }
+    _serialReadBufferIdx = i;
+}
+
+void AmisReaderClass::processStateCounters(const unsigned long msNow)
+{
+    if (_state == initReadCounters) {
+        if (_serial) {
+            _serial->begin(9600, SERIAL_8E1); /* Zählerdaten kommen angeblich mit 9600 8E1 */
+            _serial->setTimeout(5);           // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
+            _serial->clearWriteError();
+        }
+        _serialReadBufferIdx = 0;
+        clearSerialRx();
+        _bytesInBufferExpectd = 0;
+        amisNotOnline = true;
+        _state = readReaderCounters;
+        _stateLastSetMs = msNow;
+        _stateTimoutMs = 4000; // Timeout für das Lesen: 16 * 4 (=64 Sekunden)
+        _stateErrorCnt = 0;
+        _stateErrorMax = 16;
+    } else if (_state == readReaderCounters) {
+        if (_bytesInBufferExpectd == 0) {
+            // we're waiting of starting message
+            /*
+            2.2.2. Suchmodus
+                Der AMIS-Zähler führt im 1-min-Takt eine Suchabfrage (SND_NKE auf die
+                Primäradresse „240“) nach einem geeigneten Endgerät durch. Dieser muss das
+                Telegramm mit einem Acknowledgement („E5h“) quittieren.
+            */
+            if (_serialReadBufferIdx >= 5) {
+                if (!memcmp(_serialReadBuffer, "\x10\x40\xF0\x30\x16", 5)) {
+                    // was it message "<DLE>@ð0<SYN> ??  (= SND_NKE)
+                    //MsgOut.writeTimestamp();
+                    //MsgOut.println("Received SND_NKE");
+                    //writeEvent("INFO", "amis", "Received SND_NKE", "");
+                    serialWrite(0xe5);
+                    for(size_t i=5; i<_serialReadBufferIdx; i++) {
+                        _serialReadBuffer[i-5] = _serialReadBuffer[i];
+                    }
+                    _serialReadBufferIdx -= 5;
+                } else if (_serialReadBuffer[0]==0x68 && _serialReadBuffer[3]==0x68) {
+                    // seems we're already within SND_UD the message - so grab the expected length
+
+                    /* Sample (101 bytes):
+                            68 5F 5F 68 73 F0 5B 00  00 00 00 2D 4C 01 0E 00
+                            00 50 05 1E 68 B1 D1 6E  87 0D AA 09 72 96 2D 60
+                            2C F4 4F 6A 9E C6 FE 78  09 71 CD 49 D9 1B 9E 36
+                            9F 7B 45 AF FB 57 E4 CF  98 DF 04 26 F9 B0 10 B0
+                            BF B0 BE 01 CF 4C 6F F4  DC 65 BF 3B 6A 53 7A C7
+                            CF 35 B5 00 53 E4 7E 33  4F 23 63 31 7F 42 BD 80
+                            36 1A 52 41 16
+                    */
+                    // Expected Length should be 0x5F (see structure enryptedMBUSTelegram_SND_UD)
+                    _bytesInBufferExpectd = _serialReadBuffer[1]+6;
+                    //MsgOut.writeTimestamp();
+                    //MsgOut.printf("Found SND_UD head - expected length: %u\r\n", _bytesInBufferExpectd);
+                    //writeEvent("INFO", "amis", "Found SND_UD head", "Expected length:" + String(_bytesInBufferExpectd));
+
+                    if (_bytesInBufferExpectd != 0x5f + 6) {
+                        _serialReadBufferIdx = 0;
+                        clearSerialRx();
+                        _bytesInBufferExpectd = 0;
+                    }
+                }
+            }
+            return;
+        }
+
+        if (_serialReadBufferIdx >= _bytesInBufferExpectd) {
+            serialWrite(0xe5); // the receifed datas must be confirmed
+
+            //writeEvent("INFO", "amis", "Got expected bytes", "");
+
+            moveSerialBufferToDecodingWorkBuffer(_bytesInBufferExpectd);
+            _bytesInBufferExpectd = 0;
+
+            _serialReadBufferIdx = 0;
+            clearSerialRx();
+
+            _state = decodeReaderCounter;
+        }
+    } else if (_state == decodeReaderCounter) {
+        // wir haben genug Daten empfangen und versuchen diese nun zu decodieren
+        // Da das einiges Zeit in Anspruch nimmt, machen wir da hier in einem eigene State
+        // Es war ja sogar im ursprünglichen amis_decoder() ein Aufruf von yield() enthalten
+        // Anmerkung: Bei mir braucht die Dekodierung etwas 1-2ms
+
+        valid = 0;
+
+        AmisReaderNumResult_t l_result;
+        int r;
+        r = decodeBuffer(_decodingWorkBuffer, _decodingWorkBufferLength,  l_result);
+        if (r == 0) {
+            // TODO: Refactor
+            // Transfer the result into the "old/global" result variables
+            // Vars: valid, timecode, a_result
+            valid = 5;
+            new_data = true;
+            new_data3 = true;
+            if (first_frame == 0) {
+                first_frame = 3; // Erster Datensatz nach Reboot oder verlorenem Sync
+            }
+
+            for (int i=0;i < 8; i++) {
+                a_result[i] = l_result.results[i];
+            }
+            a_result[8] = l_result.results_8;
+            a_result[9] = mktime(&l_result.time); // Seconds since epoch
+            strcpy(timecode, l_result.timecode);
+
+            // TODO: Refactor that "special values" from main.cpp
+
+            dow = l_result.time.tm_wday; // dow: 1..7 (1=MON...7=SUN)
+            if (dow == 0) {              // tm_wday: days since Sunday (0...6)
+                dow = 7;
+            }
+            mon = l_result.time.tm_mon + 1; // mon: 1...12  -   tm_mon: 0...11 (months since January)
+            myyear = l_result.time.tm_year - 100; // myyear: Jahr nur 2 stellig benötigt (seit 2000)
+
+            if (amisNotOnline) {
+                writeEvent("INFO", "amis", "Data synced", "ok");
+                amisNotOnline = false;
+            }
+
+            _stateLastSetMs = msNow;
+            _stateTimoutMs = 5000;  // ab jetzt: Timeout mit 10 Sekunden (2 * 5000)
+            _stateErrorCnt = 0;
+            _stateErrorMax = 2;
+        } else if (r < -7) {
+            // das Zählertelegramm sah prinzipiell gut aus aber nach dem Entschlüsseln passten einige Werte nicht
+            // ==> d.h.: vermutlich stimmt der AMIS-Key nicht !
+            valid = 1;
+            //writeEvent("INFO", "amis", "Decrypting data", "Failed");
+        } else {
+            // Beim Zählertelegram stimmten schon die Eckdatenm (Header, Checksumme, usw nicht)
+            // ==> d.h.: vermutlich ungültige Daten empfangen
+            valid = 0;
+            //writeEvent("INFO", "amis", "Invalid data receifed", "Failed");
+        }
+        _state = readReaderCounters;
+    }
+}
+
+void AmisReaderClass::loop()
+{
+    unsigned long msNow;
+
+    if (!_isEnabled) {
+        return;
+    }
+
+    // always read some bytes from the serial interface
+    pollSerial();
+
+    msNow = millis();
+
+    // Do all releated things querying serialnumber
+    processStateSerialnumber(msNow);
+
+    // Do all releated steps to read the counters
+    processStateCounters(msNow);
+
+    if ( msNow - _stateLastSetMs >= _stateTimoutMs ) {
+        // Timeout: seems something gone wrong and needed too long
+        _stateLastSetMs = msNow;
+        _stateErrorCnt++;
+
+        // Be sure to cleanup the serial interface
+        _serialReadBufferIdx = 0;
+        clearSerialRx();
+        _bytesInBufferExpectd = 0;
+    }
+    if (_stateErrorCnt >= _stateErrorMax) {
+        //writeEvent("INFO", "amis", String(float(msNow)/1000.0) + "Timeout occured", "State:" + String(_state));
+
+        if (!amisNotOnline) {
+            writeEvent("INFO", "amis", "Sync lost", "failure");
+        }
+        amisNotOnline=true;
+        valid = 0;
+
+        _stateErrorCnt = 0;
+
+        _bytesInBufferExpectd = 0;
+
+        _serialReadBufferIdx = 0;
+        clearSerialRx();
+
+        if (_state == initReadSerial || _state == requestReaderSerial ||
+            _state == waitForReaderSerial || _state == decodeReaderSerial ) {
+            if (_readSerialNumberMode == tryRead || _readSerialNumberMode == disabled ) {
+                // we tried to get the serialnumber ... skip that - get the counter numbers
+                // btw: "disabled" should never happend here
+                _state = initReadCounters;
+            } else {
+                _state = initReadSerial;
+            }
+        } else {
+            // we tried to get the counter numbers ... do a fresh start by first querying serial number
+            if (_readSerialNumberMode == tryRead || _readSerialNumberMode == mustRead ) {
+                _state = initReadSerial;
+            } else {
+                _state = initReadCounters;
+            }
+        }
+    }
+}
+
+void AmisReaderClass::setKey(const char *key)
+{
+    size_t i=0;
+    for (size_t j=0; j < strlen(key)-1; i++, j+=2) {
+        if (i >= sizeof(_key)) {
+            break;
+        }
+        _key[i] = UtilsClass::hexchar2Num(key[j]);
+        _key[i] <<= 4;
+        _key[i] |= UtilsClass::hexchar2Num(key[j+1]);
+    }
+    while (i < sizeof(_key)) {
+        _key[i++] = 0; // fill all the rest with 0
+    }
+}
+
+void AmisReaderClass::setKey(const uint8_t *key)
+{
+    memcpy(_key, key, sizeof(_key));
+}
+
+void AmisReaderClass::enable() {
+    _isEnabled = true;
+}
+
+#if 0
+void AmisReaderClass::enableRestart() {
+    if (_isEnabled) {
+        return;
+    }
+    _isEnabled = true;
+    _state = initReadSerial;
+}
+#endif
+
+void AmisReaderClass::disable() {
+    _isEnabled = false;
+}
+
+AmisReaderClass AmisReader;
+
+/* vim:set ts=4 et: */
