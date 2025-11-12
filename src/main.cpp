@@ -49,11 +49,6 @@ int switch_last = 0;
 signed int Saldomittelwert[5];
 
 void setup(){
-  AmisReader.init(1); // Init mit Serieller Schnittstelle #1
-  AmisReader.enable(); // und gleich enablen
-
-  pinMode(AP_PIN,INPUT_PULLUP);
-
   #if DEBUGHW==2
     #if DEBUG_OUTPUT==0
       Serial.begin(115200);
@@ -61,10 +56,19 @@ void setup(){
       Serial1.begin(115200);
     #endif
   #endif // DEBUGHW
+
+  pinMode(AP_PIN,INPUT_PULLUP);
+
+  // Start filesystem early - so we can do some logging
+  LittleFS.begin();
+
+  // Start AMIS-Reader ... it can use the time to get the serailnumber
+  AmisReader.init(1);  // Init mit Serieller Schnittstelle #1
+  AmisReader.enable(); // und gleich enablen
+
   #ifdef OTA
   initOTA();
   #endif // OTA
-  LittleFS.begin();                 // always true! SPIFF.begin does autoformat!!!
 
   if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css"))
   {                     // Nötige html files nicht vorhanden
