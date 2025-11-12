@@ -23,7 +23,7 @@ void WriteU16LE(void *p, uint16_t v)
 {
     size_t pn = (size_t) p;
 
-    if((pn & 0x01u) == 0) { // we're already aligned to 4
+    if((pn & 0x01u) == 0) { // we're already aligned to 2
         *(uint16_t*)p = SWAP_LE2(v);
         return;
     }
