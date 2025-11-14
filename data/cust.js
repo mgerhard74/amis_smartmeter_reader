@@ -202,6 +202,11 @@ function updateElements(obj) {
           value = timeDecoder((value));
       }
     }
+    /*
+    else if (key==='serialnumber') {
+      // nothing to do as 'key' matches the 'name' of the div element
+    }
+    */
     else if (key==='today_in') {   // Nur 1x nach dem Start
       let secsDayStart = secsSinceMidnight(g_lastDT);
       yestd_in=obj.yestd_in;
@@ -215,7 +220,7 @@ function updateElements(obj) {
       else         $("#tdy_diff").css({'color':'#0000FF'});
       $("#tdy_diff").html(toNumberString(diff / 1000, 3));
       setAvgItem("tdy_diff", diff, secsDayStart, true);
-      
+
       if (diff >0) $("#perhour_tdy").css({'color':'#FF0000'});
       else         $("#perhour_tdy").css({'color':'#0000FF'});
       if (secsDayStart > 0) {
@@ -223,7 +228,7 @@ function updateElements(obj) {
       } else {
         $("#perhour_tdy").html(toNumberString(diff / 1000, 3));
       }
-      
+
       for (let i=0;i<7;i++ ) {
         let datax = "data" + i;
         let date = adjustDays(g_lastDT, -1 - i);
@@ -241,7 +246,7 @@ function updateElements(obj) {
           else         $("#wd_diff"+i).css({'color':'#0000FF'});
           $("#wd_diff"+i).html(toNumberString(diff / 1000, 3));
           setAvgItem("wd_diff"+i, diff, secsDay, true);
-          
+
           if (diff >0) $("#perhour_"+i).css({'color':'#FF0000'});
           else         $("#perhour_"+i).css({'color':'#0000FF'});
           $("#perhour_"+i).html(toNumberString((diff * 3600) / secsDay / 1000, 3));

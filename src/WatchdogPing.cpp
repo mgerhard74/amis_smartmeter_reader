@@ -1,0 +1,161 @@
+/* Netzwerk Watchdog mittels Ping
+
+   Es wird alle 'checkIntervalSec' Sekunden einen Ping absetzt.
+   Sollten hintereinander 'failCount' davon fehlschlagen, wird
+   das Reboot-Flag '*rebootFlag' gesetzt.
+*/
+
+#include "WatchdogPing.h"
+
+#include <cstdint>
+
+
+// TODO - reuse refactored classes for logging and debugging
+#include "debug.h"
+#include "config.h"
+extern void writeEvent(String type, String src, String desc, String data);
+
+
+#if 0
+// Doku/Beispiel zu AsyncPing
+// https://github.com/akaJes/AsyncPing
+
+/* callback for each answer/timeout of ping */
+ping.on(true,[](const AsyncPingResponse& response){
+    IPAddress addr(response.addr); //to prevent with no const toString() in 2.3.0
+    if (response.answer)
+        Serial.printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%d ms\n", response.size, addr.toString().c_str(), response.icmp_seq, response.ttl, response.time);
+    else
+        Serial.printf("no answer yet for %s icmp_seq=%d\n", addr.toString().c_str(), response.icmp_seq);
+    return false; //do not stop
+});
+
+/* callback for end of ping */
+ping.on(false,[](const AsyncPingResponse& response){
+  IPAddress addr(response.addr); //to prevent with no const toString() in 2.3.0
+  Serial.printf("total answer from %s sent %d recevied %d time %d ms\n",addr.toString().c_str(),response.total_sent,response.total_recv,response.total_time);
+  if (response.mac)
+    Serial.printf("detected eth address " MACSTR "\n",MAC2STR(response.mac->addr));
+  return true; //doesn't matter
+});
+#endif
+
+
+void WatchdogPingClass::init()
+{
+    using std::placeholders::_1;
+    _ping.on(false, std::bind(&WatchdogPingClass::onPingEndOfPing, this, _1));
+}
+
+void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, unsigned int failCount, bool *rebootFlag)
+{
+    bool wasWaitingForPingResult = _isWaitingForPingResult;
+
+    stopSinglePing();
+
+    _host = String(host);
+    _rebootFlag = rebootFlag;
+
+    _counterFailed = 0;
+    checkIntervalMs = (unsigned long long)checkIntervalSec * 1000ull;
+    restartAfterFailed = failCount;
+
+    if (_isEnabled) {
+        if (wasWaitingForPingResult) {
+            startSinglePing();
+        } else {
+            //_lastPingStartedMs = millis() - checkIntervalMs; // immediate start within next loop() call
+            _lastPingStartedMs = millis();                     // start after waiting one interval
+        }
+    }
+}
+
+void WatchdogPingClass::enable()
+{
+    _isEnabled = true;
+#if 0
+    // This would start the ping immediately!
+    // But if we are booting now, wifi needs first some time to connect.
+    startSinglePing();
+#else
+    // Start watchdog with the next interval
+    _lastPingStartedMs = millis();
+#endif
+}
+
+void WatchdogPingClass::disable()
+{
+    _isEnabled = false;
+    stopSinglePing();
+}
+
+bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
+{
+    if (!_isEnabled) {
+        return false;
+    }
+    if (!_isWaitingForPingResult) {
+        // seems already canceled
+        return false;
+    }
+    DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
+    if (response.answer) {
+        if (_counterFailed > 0 && Config.log_sys) {
+            writeEvent("INFO", "wifi", "Ping " + String(_counterFailed+1) + "/" + String(restartAfterFailed) + " to " + _host + " successful, RTT = " + String(response.total_time), "");
+        }
+        _counterFailed = 0;
+    } else {
+        ++_counterFailed;
+        if (Config.log_sys) {
+            writeEvent("WARN", "wifi", "Ping " + String(_counterFailed) + "/" + String(restartAfterFailed) + " to " + _host + " failed!", "");
+        }
+        if (_counterFailed >= restartAfterFailed) {
+            if (Config.log_sys) {
+                writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
+            }
+            if (_rebootFlag) {
+                *_rebootFlag = true;
+            }
+        }
+    }
+    _isWaitingForPingResult = false;
+    return false; /* returning value does not matter in EndOfPing event */
+}
+
+void WatchdogPingClass::startSinglePing()
+{
+    if (_isWaitingForPingResult) {
+        stopSinglePing();
+    }
+    // bool begin(const IPAddress &addr, u8_t count = 3, u32_t timeout = 1000);
+    // bool begin(const char *host, u8_t count = 3, u32_t timeout = 1000);
+    _lastPingStartedMs = millis();
+    _ping.begin(_host.c_str(), 1, 1500u); // single ping with timeout of 1500ms
+    _isWaitingForPingResult = true;
+}
+
+void WatchdogPingClass::stopSinglePing()
+{
+    _isWaitingForPingResult = false;
+    _ping.cancel();
+}
+
+void WatchdogPingClass::loop()
+{
+    if (!_isEnabled) {
+        return;
+    }
+    if (_isWaitingForPingResult) {
+        // We're still waiting on the ping result
+        return;
+    }
+    unsigned long now = millis();
+    if (now - _lastPingStartedMs < checkIntervalMs) {
+        return;
+    }
+    startSinglePing();
+}
+
+WatchdogPingClass WatchdogPing;
+
+/* vim:set ts=4 et: */

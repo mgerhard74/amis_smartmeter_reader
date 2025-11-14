@@ -1,30 +1,13 @@
 #include "proj.h"
 //#define DEBUG
-#ifndef DEBUG
-  #define eprintf( fmt, args... )
-  #define DBGOUT(...)
-#else
-  #if DEBUGHW>0
-    #define FOO(...) __VA_ARGS__
-    #define DBGOUT dbg_string+= FOO
-    #if (DEBUGHW==2)
-      #define eprintf(fmt, args...) S.printf(fmt, ##args)
-    #elif (DEBUGHW==1 || DEBUGHW==3)
-      #define eprintf(fmt, args...) {sprintf(dbg,fmt, ##args);dbg_string+=dbg;dbg[0]=0;}
-    #endif
-  #else
-    #define eprintf( fmt, args... )
-    #define DBGOUT(...)
-  #endif
-#endif
+#include "debug.h"
 
-/* ping restart config */
-unsigned int pingrestart_tickCounter;
-unsigned int pingrestart_pingFails;
-bool pingrestart_ping_running;
-AsyncPing ping; // non-blocking
-void pingrestart_ping();
-/* ping restart config end */
+
+#include "AmisReader.h"
+#include "LedSingle.h"
+#include "Utils.h"
+#include "WatchdogPing.h"
+
 
 bool pf;
 
@@ -37,24 +20,21 @@ void secTick();
 String strompreis="";
 #endif // strompreis
 Ticker uniTicker,secTicker;
-strConfig config;
+
 //AsyncMqttClient mq_client;                    // ThingsPeak Client
 WiFiClient thp_client;
 unsigned things_cycle;
-uint32_t a_result[10];
-uint8_t key[16];
 String things_up;
 unsigned thingspeak_watch;
-bool new_data,new_data3,ledbit,ledflag;
-unsigned first_frame;
-uint8_t dow_local,dow;
-uint8_t mon,myyear,mon_local;
+bool new_data,new_data3;
+unsigned first_frame=0;
+uint8_t dow_local;
+uint8_t mon_local;
 unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
 unsigned last_mon_out;
 uint32_t clientId;
-unsigned prev_millis;
 int logPage=-1;
 uint8_t updates;
 String lastMonth;
@@ -69,13 +49,11 @@ int switch_last = 0;
 signed int Saldomittelwert[5];
 
 void setup(){
-  Serial.begin(9600,SERIAL_8E1);      // Schnittstelle zu Amis-Z?er
-  Serial.setTimeout(10);              // f. readBytes in amis.cpp
+  AmisReader.init(1); // Init mit Serieller Schnittstelle #1
+  AmisReader.enable(); // und gleich enablen
+
   pinMode(AP_PIN,INPUT_PULLUP);
-  #if LEDPIN
-  digitalWrite(LEDPIN,HIGH);
-  pinMode(LEDPIN, OUTPUT);
-  #endif // if LEDPIN == Serial1.txd: reroute pin function
+
   #if DEBUGHW==2
     #if DEBUG_OUTPUT==0
       Serial.begin(115200);
@@ -87,39 +65,35 @@ void setup(){
   initOTA();
   #endif // OTA
   LittleFS.begin();                 // always true! SPIFF.begin does autoformat!!!
-  bool test=false;
-  File f = LittleFS.open("/index.html", "r");
-  if(f) f.close();
-  else test=true;
-  if (!test) {
-    f = LittleFS.open("/custom.css", "r");
-    if(f) f.close();
-    else test=true;
-  }
-  if (test) {                     // keine html-Files
-    serverInit(1);                // /upgrade.html als /
+
+  if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css"))
+  {                     // Nötige html files nicht vorhanden
+    serverInit(1);      // /upgrade.html als /
     upgrade(0);
     return;
   }
+
   serverInit(0);                  // /init.html als /
   generalInit();
   histInit();
   connectToWifi();  // and MQTT and NTP
   secTicker.attach_scheduled(1,secTick);
-  if (config.smart_mtr)  meter_init();
-  if (config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
+  if (Config.smart_mtr)  meter_init();
 
-  // initiate ping restart check
-  if (config.pingrestart_do) {
-    pingrestart_tickCounter = 0;
-    pingrestart_pingFails = 0;
-    pingrestart_ping_running = false;
-    if (config.log_sys) writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+  // initiate ping watchdog
+  WatchdogPing.init();
+  WatchdogPing.config(Config.pingrestart_ip.c_str(), Config.pingrestart_interval ,Config.pingrestart_max, &shouldReboot);
+  if (Config.pingrestart_do) {
+    WatchdogPing.enable();
+    if (Config.log_sys) {
+      writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+    }
   }
-  shouldReboot = false;
+
+  if (Config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
 }
 
-void loop(){
+void loop() {
   #if DEBUGHW==1
   if (dbg_string.length()) {          // Debug-Ausgaben TCP
     dbg_string+="\n";
@@ -149,15 +123,15 @@ void loop(){
     shouldReboot = false;
     secTicker.detach();
     mqttTimer.detach();
-    if (config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
+    if (Config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
     DBGOUT("Rebooting...");
     delay(300);
     //ESP.wdtDisable();           // bootet 2x ???
     ESP.restart();
     while (1)    delay(1);
   }
-  if (config.thingspeak_aktiv && thingspeak_watch>10) {
-    if (config.log_sys) writeEvent("INFO", "mqtt", "Connection lost long time", "reboot");
+  if (Config.thingspeak_aktiv && thingspeak_watch>10) {
+    if (Config.log_sys) writeEvent("INFO", "mqtt", "Connection lost long time", "reboot");
     DBGOUT("thingspeak_watch reset");
     shouldReboot=true;
   }
@@ -167,21 +141,9 @@ void loop(){
       sendZData();
     }
   }
-  //if (WiFi.isConnected())
-  amis_poll();                 // Rev. 20.4.2023: auch im AP-Modus abfragen
-  #ifdef LEDPIN
-  if (inAPMode) {
-    if (millis() > prev_millis) {
-      prev_millis=millis()+500;
-      digitalWrite(LEDPIN,digitalRead(LEDPIN)^1);
-    }
-  }
-  else {
-    if (ledflag && ledbit) {
-        digitalWrite(LEDPIN,LOW);
-    }
-  }
-  #endif
+
+  AmisReader.loop();  // Zähler auslesen
+
   if (hwTest) {
     for (unsigned i=0;i < 200; i++)  {
       Serial.write(i);
@@ -196,63 +158,11 @@ void loop(){
     pf=false;
 //    prnt();
   }
-  delay(10);
-  #ifdef LEDPIN
-  if (ledflag) {
-    ledflag=false;
-    digitalWrite(LEDPIN,HIGH);
-  }
-  #endif
+
+  LedBlue.loop();
+  WatchdogPing.loop();
 }
 
-
-void pingrestart_ping() {
-  pingrestart_tickCounter++;
-
-  if (!config.pingrestart_do || pingrestart_tickCounter < config.pingrestart_interval) {
-      return; // noch nicht genug Zeit vergangen oder ping deaktiviert
-  }
-
-  pingrestart_tickCounter = 0; // zurücksetzen
-
-  /* callback for each answer/timeout of ping */
-  //ping.on(true,[](const AsyncPingResponse& response){
-  //  return false; //do not stop
-  //});
-  
-  /* callback for end of ping */
-  ping.on(false,[](const AsyncPingResponse& response){
-    DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
-
-    if (response.answer) {
-      if (pingrestart_pingFails > 0) {
-        pingrestart_pingFails++;
-        if (config.log_sys) writeEvent("INFO", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " to " + config.pingrestart_ip + " successful, RTT = " + String(response.total_time), "");
-      }
-      pingrestart_pingFails = 0; // fehlerzähler zurücksetzen
-    } else {
-      pingrestart_pingFails++;
-      if (config.log_sys) writeEvent("WARN", "wifi", "Ping " + String(pingrestart_pingFails) + "/" + String(config.pingrestart_max) + " to " + config.pingrestart_ip + " failed!", "");
-
-      if (pingrestart_pingFails >= config.pingrestart_max) {
-        if (config.log_sys) writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
-        shouldReboot = true; // neustart erforderlich
-      }
-    }
-
-    pingrestart_ping_running = false;
-    return true; //doesn't matter
-  });
-  
-  if (!pingrestart_ping_running) {
-    DBGOUT("Ping to " + config.pingrestart_ip);
-
-    pingrestart_ping_running = true;
-    ping.begin(config.pingrestart_ip.c_str(), 1, 900U); // 1 ping, 900ms timeout
-  } else {
-    DBGOUT("Ping still running");
-  }
-}
 
 void writeHistFileIn(int x, long val) {
   DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
@@ -286,10 +196,9 @@ void writeMonthFile(uint8_t y,uint8_t m) {
 }
 
 void secTick() {
+  // wird jede Sekunde aufgerufen
   things_cycle++;
-  #ifdef LEDPIN
-  if (things_cycle % 4==0) ledflag=true;
-  #endif
+
   if (ws.count()) {        // ws-connections
     if (first_frame==0) {
       sendZDataWait();
@@ -343,14 +252,14 @@ void secTick() {
       writeHistFileIn(x,a_result[0]);
       kwh_day_out[x]=a_result[1];     // 2.8.0
       writeHistFileOut(x,a_result[1]);
-      dow_local=dow;	  
+      dow_local=dow;
       if (mon_local != mon) {         // Monatswechsel
         writeMonthFile(myyear,mon);
         mon_local=mon;
       }
       first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
-      
-     if ((millis()/1000 > 43200) && (config.reboot0))      // Reboot wenn uptime > 12h
+
+     if ((millis()/1000 > 43200) && (Config.reboot0))      // Reboot wenn uptime > 12h
       {
           writeEvent("INFO", "sys", "Reboot uptime>12h", "");
 		  delay(10);
@@ -360,7 +269,7 @@ void secTick() {
   }
 
   // Wifi Switch on/off
-  if ((config.switch_url_on != "") && (config.switch_url_off != ""))
+  if ((Config.switch_url_on != "") && (Config.switch_url_off != ""))
   {
     signed int xsaldo;
     xsaldo = (a_result[4] - a_result[5]);
@@ -376,16 +285,16 @@ void secTick() {
     }
     xsaldo_mw = xsaldo_mw / 5;
     unsigned int sek = (millis() / 1000) % 5;
-    if (config.switch_intervall > 0)
+    if (Config.switch_intervall > 0)
     {
-      sek = (millis() / 1000) % config.switch_intervall;
+      sek = (millis() / 1000) % Config.switch_intervall;
     }
 
-    if ((xsaldo_mw < config.switch_on) && (switch_last != 1) && (sek == 0))
+    if ((xsaldo_mw < Config.switch_on) && (switch_last != 1) && (sek == 0))
     {
       HTTPClient http;
       WiFiClient client;
-      http.begin(client, config.switch_url_on);
+      http.begin(client, Config.switch_url_on);
       int httpCode = http.GET();
       if (httpCode == HTTP_CODE_OK)
       {
@@ -394,11 +303,11 @@ void secTick() {
       http.end();
       switch_last = 1;
     }
-    if ((xsaldo_mw > config.switch_off) && (switch_last != 2) && (sek == 0))
+    if ((xsaldo_mw > Config.switch_off) && (switch_last != 2) && (sek == 0))
     {
       HTTPClient http;
       WiFiClient client;
-      http.begin(client, config.switch_url_off);
+      http.begin(client, Config.switch_url_off);
       int httpCode = http.GET();
       if (httpCode == HTTP_CODE_OK)
       {
@@ -410,14 +319,14 @@ void secTick() {
   }
 
   // Thingspeak aktualisieren
-  if (config.thingspeak_aktiv && things_cycle >= config.thingspeak_iv && new_data && valid==5) {
+  if (Config.thingspeak_aktiv && things_cycle >= Config.thingspeak_iv && new_data && valid==5) {
     things_cycle=0;
     thingspeak_watch++;
     new_data = false;
 
     thp_client.stop();
     if (thp_client.connect("api.thingspeak.com", 80)) {
-      String data="api_key=" + String(config.write_api_key);
+      String data="api_key=" + String(Config.write_api_key);
     #ifdef STROMPREIS
       for (unsigned i=0;i<7;i++)
         data += "&field" + (String(i+1))+"="+(String)(a_result[i]);
@@ -453,9 +362,6 @@ void secTick() {
     }
   }
   ws.cleanupClients();   // beendete Webclients nicht mehr updaten
-
-  // perform ping restart check
-  pingrestart_ping();
 }
 
 void  writeEvent(String type, String src, String desc, String data) {

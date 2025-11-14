@@ -1,28 +1,10 @@
 #include "proj.h"
+#include "AmisReader.h"
+
 //#define DEBUG
-#ifndef DEBUG
-  #define eprintf( fmt, args... )
-  #define DBGOUT(...)
-#else
-  #if DEBUGHW>0
-    #define FOO(...) __VA_ARGS__
-    #define DBGOUT dbg_string+= FOO
-    #if (DEBUGHW==2)
-      #define eprintf(fmt, args...) S.printf(fmt, ##args)
-    #elif (DEBUGHW==1 || DEBUGHW==3)
-      #define eprintf(fmt, args...) {sprintf(dbg,fmt, ##args);dbg_string+=dbg;dbg[0]=0;}
-    #endif
-  #else
-    #define eprintf( fmt, args... )
-    #define DBGOUT(...)
-  #endif
-#endif
+#include "debug.h"
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
-
-String  printIP(IPAddress adress) {
-  return (String)adress[0] + "." + (String)adress[1] + "." + (String)adress[2] + "." + (String)adress[3];
-}
 
 void sendWeekData() {
   File f;
@@ -89,6 +71,7 @@ void sendZDataWait() {
   JsonObject &doc = jsonBuffer.createObject();
   doc["now"] = valid;
   doc["uptime"] = millis()/1000;
+  doc["serialnumber"] = AmisReader.getSerialNumber();
 //  doc["things_up"] = things_up;
   size_t len = doc.measureLength();
   AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
@@ -113,6 +96,7 @@ void sendZData() {
   doc["1_128_0"] = a_result[8];
   doc["uptime"] = millis()/1000;
   doc["things_up"] = things_up;
+  doc["serialnumber"] = AmisReader.getSerialNumber();
 
   size_t len = doc.measureLength();
   AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
@@ -180,7 +164,7 @@ void  sendStatus(uint32_t clientId) {
     struct station_config conf;
     wifi_station_get_config(&conf);
     root[F("ssid")] = String(reinterpret_cast<char *>(conf.ssid));
-    root[F("dns")] = printIP(WiFi.dnsIP());
+    root[F("dns")] = WiFi.dnsIP().toString();
     root[F("mac")] = WiFi.macAddress();
     root[F("channel")] = WiFi.channel();
     root[F("rssi")] = WiFi.RSSI();
@@ -188,9 +172,9 @@ void  sendStatus(uint32_t clientId) {
   IPAddress ipaddr = IPAddress(info.ip.addr);
   IPAddress gwaddr = IPAddress(info.gw.addr);
   IPAddress nmaddr = IPAddress(info.netmask.addr);
-  root[F("deviceip")] = printIP(ipaddr);
-  root[F("gateway")] = printIP(gwaddr);
-  root[F("netmask")] = printIP(nmaddr);
+  root[F("deviceip")] = ipaddr.toString();
+  root[F("gateway")] = gwaddr.toString();
+  root[F("netmask")] = nmaddr.toString();
   //root["loadaverage"] = systemLoadAverage();
   //if (ADC_MODE_VALUE == ADC_VCC) {
   root[F("vcc")] = ESP.getVcc();
@@ -249,7 +233,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
   }
   if(strcmp(command,"weekfiles")==0) {
     long zstand;
-    Serial.end();    //
+    AmisReader.disable();
     clearHist();
     for (unsigned i=0;i<7;i++){
       zstand=root["week"][0][i].as<long>();
@@ -269,8 +253,11 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
         }
       }
     }
+    histInit();
+    AmisReader.enable();
   }
   else if(strcmp(command,"monthlist")==0) {
+    AmisReader.disable();
     LittleFS.remove("/monate");
     File f = LittleFS.open("/monate", "a");
     int arrSize=root["month"].size();
@@ -279,6 +266,8 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
       f.print('\n');
     }
     f.close();
+    histInit();
+    AmisReader.enable();
   }
   else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
     File f = LittleFS.open(command, "w+");

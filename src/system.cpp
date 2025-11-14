@@ -1,22 +1,10 @@
 #include "proj.h"
+
+#include "AmisReader.h"
+#include "LedSingle.h"
+
 //#define DEBUG
-#ifndef DEBUG
-  #define eprintf( fmt, args... )
-  #define DBGOUT(...)
-#else
-  #if DEBUGHW>0
-    #define FOO(...) __VA_ARGS__
-    #define DBGOUT dbg_string+= FOO
-    #if (DEBUGHW==2)
-      #define eprintf(fmt, args...) S.printf(fmt, ##args)
-    #elif (DEBUGHW==1 || DEBUGHW==3)
-      #define eprintf(fmt, args...) {sprintf(dbg,fmt, ##args);dbg_string+=dbg;dbg[0]=0;}
-    #endif
-  #else
-    #define eprintf( fmt, args... )
-    #define DBGOUT(...)
-  #endif
-#endif
+#include "debug.h"
 
 WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
@@ -33,14 +21,12 @@ void printStackSize(String txt){
 }
 
 void onWifiConnect(const WiFiEventStationModeGotIP& event) {
-  #if LEDPIN
-    ledbit=true;
-  #endif // LEDPIN
+  LedBlue.turnBlink(4000, 10);
   String data = WiFi.SSID() + " " + WiFi.localIP().toString();
   eprintf("Connected to %s\n",data.c_str());
-  if (config.log_sys) writeEvent("INFO", "wifi", "WiFi is connected", data);
-  if (config.mdns) {
-    if (MDNS.begin(config.DeviceName)) {              // Start the mDNS responder for esp8266.local
+  if (Config.log_sys) writeEvent("INFO", "wifi", "WiFi is connected", data);
+  if (Config.mdns) {
+    if (MDNS.begin(Config.DeviceName)) {              // Start the mDNS responder for esp8266.local
       DBGOUT("mDNS responder started\n"); }
     else DBGOUT("Error setting up MDNS responder!\n");
   }
@@ -48,18 +34,16 @@ void onWifiConnect(const WiFiEventStationModeGotIP& event) {
   dbg_server.begin();
 //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
 #endif
-  if (config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
+  if (Config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
   mqtt_init();
 
 }
 
 void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
-  #if LEDPIN
-  ledbit=false;
-  #endif // LEDPIN
+  LedBlue.turnOff();
   mqttTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
   wifiReconnectTimer.once_scheduled(5, connectToWifi);
-  if (config.log_sys) writeEvent("INFO", "wifi", "WiFi !!! DISCONNECT !!!", "");
+  if (Config.log_sys) writeEvent("INFO", "wifi", "WiFi !!! DISCONNECT !!!", "");
   DBGOUT("WiFi disconnect\n");
 }
 
@@ -97,43 +81,44 @@ void connectToWifi() {
   configFile.close();
   if(!json.success()) {
     DBGOUT("[ WARN ] Failed to parse config_wifi\n");
-    if (config.log_sys) writeEvent("ERROR", "wifi", "WiFi config error", "");
+    if (Config.log_sys) writeEvent("ERROR", "wifi", "WiFi config error", "");
     err=true;
   }
   //json.prettyPrintTo(S);
   wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
   wifiDisconnectHandler = WiFi.onStationModeDisconnected(onWifiDisconnect);
-  
+
   if (digitalRead(AP_PIN)==LOW || err) {
       WiFi.mode(WIFI_AP);
       WiFi.softAP( "ESP8266_AMIS");
       DBGOUT(F("AP-Mode: 192.168.4.1\n"));
       inAPMode=true;
+      LedBlue.turnBlink(500, 500);
   }
   else {
     WiFi.mode(WIFI_STA);
-    
+
     if (json[F("allow_sleep_mode")] == false) {
       // disable sleep mode
       DBGOUT(F("Wifi sleep mode disabled\n"));
       WiFi.setSleepMode(WIFI_NONE_SLEEP);
-      if (config.log_sys) writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
+      if (Config.log_sys) writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
     }
 
     // configure ping restart check
-    config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
-    config.pingrestart_ip = json[F("pingrestart_ip")].as<String>();
-    config.pingrestart_interval = json[F("pingrestart_interval")].as<int>();;
-    config.pingrestart_max = json[F("pingrestart_max")].as<int>();;
+    Config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
+    Config.pingrestart_ip = json[F("pingrestart_ip")].as<String>();
+    Config.pingrestart_interval = json[F("pingrestart_interval")].as<int>();;
+    Config.pingrestart_max = json[F("pingrestart_max")].as<int>();;
 
     DBGOUT(F("Start Wifi\n"));
     bool dhcp=json[F("dhcp")];
     if (dhcp) DBGOUT("DHCP\n");
-    if (dhcp) WiFi.hostname(config.DeviceName);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
+    if (dhcp) WiFi.hostname(Config.DeviceName);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
     const char *ssid = json[F("ssid")];
     const char *wifipassword = json[F("wifipassword")];
     int rfpower=20;
-    config.mdns=json[F("mdns")];
+    Config.mdns=json[F("mdns")];
     if (json[F("rfpower")]!="") rfpower = json[F("rfpower")];
     WiFi.setOutputPower(rfpower);  // 0..20.5 dBm
     if (!dhcp) {
@@ -158,17 +143,6 @@ void connectToWifi() {
   }
 }
 
-#define CHR2BIN(c) (c-(c>='A'?55:48))
-
-void hex2bin(String s, uint8_t *buf) {
-  unsigned len = s.length();
-  if (len != 32) return;
-
-  for (unsigned i=0; i<len; ++i) {
-    buf[i] = CHR2BIN(s.c_str()[i*2])<<4 | CHR2BIN(s.c_str()[i*2+1]);
-  }
-}
-
 void generalInit() {
   File configFile = LittleFS.open("/config_general", "r");
   if(!configFile) {
@@ -185,31 +159,31 @@ void generalInit() {
     return;
   }
   //json.prettyPrintTo(Serial);
-  config.DeviceName=json[F("devicename")].as<String>();
-  config.use_auth=json[F("use_auth")].as<bool>();
-  config.auth_passwd=json[F("auth_passwd")].as<String>();
-  config.auth_user=json[F("auth_user")].as<String>();
-  config.log_sys=json[F("log_sys")].as<bool>();
-  config.smart_mtr=json[F("smart_mtr")].as<bool>();
+  Config.DeviceName=json[F("devicename")].as<String>();
+  Config.use_auth=json[F("use_auth")].as<bool>();
+  Config.auth_passwd=json[F("auth_passwd")].as<String>();
+  Config.auth_user=json[F("auth_user")].as<String>();
+  Config.log_sys=json[F("log_sys")].as<bool>();
+  Config.smart_mtr=json[F("smart_mtr")].as<bool>();
 
   String akey=json[F("amis_key")].as<String>();
-  hex2bin(akey, (uint8_t*)&key);  // key Variable belegen
-  config.thingspeak_aktiv=json[F("thingspeak_aktiv")].as<bool>();
-  config.channel_id=json[F("channel_id")].as<int>();
-  config.write_api_key=json[F("write_api_key")].as<String>();
-  config.read_api_key=json[F("read_api_key")].as<String>();
-  config.thingspeak_iv=json[F("thingspeak_iv")].as<int>();
-  if (config.thingspeak_iv < 30)  config.thingspeak_iv=30;
-  config.channel_id2=json[F("channel_id2")].as<int>();
-  config.read_api_key2=json[F("read_api_key2")].as<String>();
-  config.rest_var=json[F("rest_var")].as<int>();
-  config.rest_ofs=json[F("rest_ofs")].as<int>();
-  config.rest_neg=json[F("rest_neg")].as<bool>();
-  config.reboot0=json[F("reboot0")].as<bool>();
-  config.switch_on=json[F("switch_on")].as<int>();
-  config.switch_off=json[F("switch_off")].as<int>();
-  config.switch_url_on=json[F("switch_url_on")].as<String>();
-  config.switch_url_off=json[F("switch_url_off")].as<String>();
+  AmisReader.setKey(akey.c_str());
+  Config.thingspeak_aktiv=json[F("thingspeak_aktiv")].as<bool>();
+  Config.channel_id=json[F("channel_id")].as<int>();
+  Config.write_api_key=json[F("write_api_key")].as<String>();
+  Config.read_api_key=json[F("read_api_key")].as<String>();
+  Config.thingspeak_iv=json[F("thingspeak_iv")].as<int>();
+  if (Config.thingspeak_iv < 30)  Config.thingspeak_iv=30;
+  Config.channel_id2=json[F("channel_id2")].as<int>();
+  Config.read_api_key2=json[F("read_api_key2")].as<String>();
+  Config.rest_var=json[F("rest_var")].as<int>();
+  Config.rest_ofs=json[F("rest_ofs")].as<int>();
+  Config.rest_neg=json[F("rest_neg")].as<bool>();
+  Config.reboot0=json[F("reboot0")].as<bool>();
+  Config.switch_on=json[F("switch_on")].as<int>();
+  Config.switch_off=json[F("switch_off")].as<int>();
+  Config.switch_url_on=json[F("switch_url_on")].as<String>();
+  Config.switch_url_off=json[F("switch_url_off")].as<String>();
 }
 
 void histInit () {

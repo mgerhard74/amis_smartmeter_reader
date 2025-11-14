@@ -1,22 +1,6 @@
 #include "proj.h"
-#define DEBUG
-#ifndef DEBUG
-  #define eprintf( fmt, args... )
-  #define DBGOUT(...)
-#else
-  #if DEBUGHW>0
-    #define FOO(...) __VA_ARGS__
-    #define DBGOUT dbg_string+= FOO
-    #if (DEBUGHW==2)
-      #define eprintf(fmt, args...) S.printf(fmt, ##args)
-    #elif (DEBUGHW==1 || DEBUGHW==3)
-      #define eprintf(fmt, args...) {sprintf(dbg,fmt, ##args);dbg_string+=dbg;dbg[0]=0;}
-    #endif
-  #else
-    #define eprintf( fmt, args... )
-    #define DBGOUT(...)
-  #endif
-#endif
+
+#include "AmisReader.h"
 
 /*
   Smartmeter Emulator TCP für Fronius Gen24. Stark vereinfacht auf das tatsächliche Fronius-Polling.
@@ -151,17 +135,17 @@ static void handleData(void* arg, AsyncClient* client, void *data, size_t len) {
         mBuffer[55]=(floatvar.bytes[0]);
 
         //floatvar.value=(float)(xsaldo)/230;
-        //mBuffer[0]=(floatvar.bytes[3]);             // Total AC Current 
+        //mBuffer[0]=(floatvar.bytes[3]);             // Total AC Current
         //mBuffer[1]=(floatvar.bytes[2]);
         //mBuffer[1]=(floatvar.bytes[1]);
         //mBuffer[3]=(floatvar.bytes[0]);
         floatvar.value=(float)(xsaldo)/690;
-        mBuffer[4]=(floatvar.bytes[3]);             // Phase A Current 
+        mBuffer[4]=(floatvar.bytes[3]);             // Phase A Current
         mBuffer[5]=(floatvar.bytes[2]);
         mBuffer[6]=(floatvar.bytes[1]);
         mBuffer[7]=(floatvar.bytes[0]);
-        memcpy(&mBuffer[8], &mBuffer[4], 4);        // Phase B Current 
-        memcpy(&mBuffer[12], &mBuffer[4], 4);       // Phase C Current 
+        memcpy(&mBuffer[8], &mBuffer[4], 4);        // Phase B Current
+        memcpy(&mBuffer[12], &mBuffer[4], 4);       // Phase C Current
         floatvar.value=230;
         mBuffer[16]=(floatvar.bytes[3]);            // Line to Neutral voltage
         mBuffer[17]=(floatvar.bytes[2]);
@@ -179,12 +163,12 @@ static void handleData(void* arg, AsyncClient* client, void *data, size_t len) {
         memcpy(&mBuffer[40], &mBuffer[32], 4);      // Phase Voltage BC
         memcpy(&mBuffer[44], &mBuffer[32], 4);      // Phase Voltage CA
         floatvar.value=(float)(xsaldo)/3;
-        mBuffer[56]=(floatvar.bytes[3]);            // Watt Phase A 
+        mBuffer[56]=(floatvar.bytes[3]);            // Watt Phase A
         mBuffer[57]=(floatvar.bytes[2]);
         mBuffer[58]=(floatvar.bytes[1]);
         mBuffer[59]=(floatvar.bytes[0]);
         memcpy(&mBuffer[60], &mBuffer[56], 4);      // Watt Phase B
-        memcpy(&mBuffer[64], &mBuffer[56], 4);      // Watt Phase C       
+        memcpy(&mBuffer[64], &mBuffer[56], 4);      // Watt Phase C
         floatvar.value=1;
         mBuffer[100]=(floatvar.bytes[3]);           // Power Factor Sum
         mBuffer[101]=(floatvar.bytes[2]);

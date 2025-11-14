@@ -1,4 +1,7 @@
 #include "proj.h"
+
+#include "LedSingle.h"
+
 const char PAGE_upgrade[] PROGMEM = R\
 "=====(
 <!doctype html>
@@ -96,9 +99,7 @@ void ConfigureWifi(bool ap) {
       S.println(F("\r\n[ upgrade ] AP-Mode: 192.168.4.1"));
       #endif
       inAPMode=true;
-//      #if LEDPIN
-//      digitalWrite(LEDPIN,LOW);
-//      #endif // LEDPIN
+      LedBlue.turnBlink(500, 500);
   }
   else {
     #if DEBUGHW==2                                     // Debug-Ausgaben nur über Serielle sinnvoll!
@@ -128,10 +129,7 @@ void ConfigureWifi(bool ap) {
         if (j > 5) {ESP.wdtDisable(); while (1);} //ESP.restart();
     } while(WiFi.status() != WL_CONNECTED);
     WiFi.setOutputPower(config2.rfpower);  // 0..20.5 dBm
-    #if LEDPIN
-    //digitalWrite(LEDPIN,LOW);
-    ledbit=true;
-    #endif // LEDPIN
+    LedBlue.turnBlink(4000, 10);
     #if DEBUGHW==2
     S.print(F("[ upgrade ] Connected to "));
     S.println(WiFi.SSID());

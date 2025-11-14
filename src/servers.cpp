@@ -1,22 +1,8 @@
 #include "proj.h"
+#include "AmisReader.h"
+
 //#define DEBUG
-#ifndef DEBUG
-  #define eprintf( fmt, args... )
-  #define DBGOUT(...)
-#else
-  #if DEBUGHW>0
-    #define FOO(...) __VA_ARGS__
-    #define DBGOUT dbg_string+= FOO
-    #if (DEBUGHW==2)
-      #define eprintf(fmt, args...) S.printf(fmt, ##args)
-    #elif (DEBUGHW==1 || DEBUGHW==3)
-      #define eprintf(fmt, args...) {sprintf(dbg,fmt, ##args);dbg_string+=dbg;dbg[0]=0;}
-    #endif
-  #else
-    #define eprintf( fmt, args... )
-    #define DBGOUT(...)
-  #endif
-#endif
+#include "debug.h"
 
 AsyncWebServer server(80);
 //AsyncWebServer restserver(81);
@@ -72,7 +58,7 @@ void  onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTy
 void serverInit(unsigned mode) {
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
-  if (config.use_auth) ws.setAuthentication(config.auth_user.c_str(), config.auth_passwd.c_str());
+  if (Config.use_auth) ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
   DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), "*");   //CORS-Header allgem.
 
   server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
@@ -84,13 +70,13 @@ void serverInit(unsigned mode) {
   [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
     //Upload handler chunks in data
     if(!index){                                                    // Start der Übertragung: index==0
-      if (config.log_sys) writeEvent("INFO", "updt", "Update started", filename.c_str());
+      if (Config.log_sys) writeEvent("INFO", "updt", "Update started", filename.c_str());
       eprintf("Update Start: %s\n", filename.c_str());
       uint32_t content_len=0;
       if (filename.startsWith(F("firmware"))) {
         cmd=U_FLASH;                       // 0
         content_len= (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if (config.smart_mtr) meter_server->end();
+        if (Config.smart_mtr) meter_server->end();
         valid=6;
         Serial.end();
       }
@@ -124,7 +110,7 @@ void serverInit(unsigned mode) {
     if (cmd < 1000) {                 // Update Flash
       if(!Update.hasError()){
         if(Update.write(data, len) != len){
-          if (config.log_sys) writeEvent("ERRO", "updt", "Writing to flash has failed", filename.c_str());
+          if (Config.log_sys) writeEvent("ERRO", "updt", "Writing to flash has failed", filename.c_str());
           Update.printError(Serial);
         } //else DBGOUT(".");  // eprintf("Progress: %d%%\n", (Update.progress()*100)/Update.size());
       }
@@ -140,9 +126,9 @@ void serverInit(unsigned mode) {
       if (cmd < 1000) {               // Flash Update
         if(Update.end(true)){
           eprintf("Update Success: %uB\n", index+len);
-          if (config.log_sys) writeEvent("INFO", "updt", "Firmware update has finished", "");
+          if (Config.log_sys) writeEvent("INFO", "updt", "Firmware update has finished", "");
         } else {
-          if (config.log_sys) writeEvent("ERRO", "updt", "Update has failed", "");
+          if (Config.log_sys) writeEvent("ERRO", "updt", "Update has failed", "");
           Update.printError(Serial);
           //return request->send(400, "text/plain", "Could not end OTA");
         }
@@ -164,9 +150,9 @@ void serverInit(unsigned mode) {
       AsyncResponseStream *response = request->beginResponseStream(F("application/json;charset=UTF-8"));
       DynamicJsonBuffer jsonBuffer;
       JsonObject &root = jsonBuffer.createObject();
-      signed saldo= (a_result[4]-a_result[5]-config.rest_ofs);
-      if (config.rest_neg) saldo =-saldo;
-      if (config.rest_var==0) {
+      signed saldo= (a_result[4]-a_result[5]-Config.rest_ofs);
+      if (Config.rest_neg) saldo =-saldo;
+      if (Config.rest_var==0) {
         root[F("time")] = a_result[9];
         root[F("1.8.0")] = a_result[0];
         root[F("2.8.0")] = a_result[1];
@@ -192,6 +178,7 @@ void serverInit(unsigned mode) {
         root[F("1_128_0")] = a_result[8];
         root[F("saldo")] = saldo;
       }
+      root[F("serialnumber")] = AmisReader.getSerialNumber();
       //root.prettyPrintTo(*response);
       root.printTo(*response);
       request->send(response);
@@ -199,20 +186,20 @@ void serverInit(unsigned mode) {
   });
 
   server.on("/login", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String remoteIP = printIP(request->client()->remoteIP());
+    String remoteIP = request->client()->remoteIP().toString();
     DBGOUT("login "+remoteIP+"\n");
-    if (!config.use_auth) {
+    if (!Config.use_auth) {
       request->send(200, F("text/plain"), F("Success"));
       return;
     }
-    if(!request->authenticate(config.auth_user.c_str(), config.auth_passwd.c_str())) {
-      if (config.log_sys) writeEvent("WARN", "websrv", "New login attempt", remoteIP);
-      eprintf("login fail %s %s\n",config.auth_user.c_str(), config.auth_passwd.c_str());
-      return request->requestAuthentication(config.DeviceName.c_str());
+    if(!request->authenticate(Config.auth_user.c_str(), Config.auth_passwd.c_str())) {
+      if (Config.log_sys) writeEvent("WARN", "websrv", "New login attempt", remoteIP);
+      eprintf("login fail %s %s\n",Config.auth_user.c_str(), Config.auth_passwd.c_str());
+      return request->requestAuthentication(Config.DeviceName.c_str());
     }
     request->send(200, F("text/plain"), F("Success"));
     DBGOUT(F("login ok\n"));
-    if (config.log_sys) writeEvent("INFO", "websrv", "Login success!", remoteIP);
+    if (Config.log_sys) writeEvent("INFO", "websrv", "Login success!", remoteIP);
   });
 
   //server.onNotFound([](AsyncWebServerRequest *request){request->send(404,"text/plain","404 not found!");});
@@ -266,7 +253,7 @@ void initOTA(){
     DBGOUT("OTA End\n");
     shouldReboot=true;
   });
-  //ArduinoOTA.setHostname(config->host);
+  //ArduinoOTA.setHostname(Config.host);
   ArduinoOTA.begin();
 }
 //*************************************************************
