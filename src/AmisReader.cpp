@@ -4,7 +4,8 @@
 #include "UA.h"
 #include "Utils.h"
 
-#define MIN(A,B) std::min((size_t)(A), (size_t)(B))  // std:min() can not compare (size_t) and (unsigned int)
+
+#define MIN(A,B) std::min((size_t)(A), (size_t)(B))  // std:min() can not compare (size_t) with (unsigned int) or (int)
 
 
 
