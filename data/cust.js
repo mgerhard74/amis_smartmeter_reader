@@ -615,9 +615,9 @@ function doUpdateMQTT() {
 }
 
 function doReboot(msg) {
-  if(window.confirm(msg+"Neustart mit OK bestätigen, dann 10s warten...")) {
+  if(window.confirm(msg+"Neustart mit OK bestätigen, dann 25s warten...")) {
     websock.send('{"command":"restart"}');
-    doReload(7000);
+    doReload(25000);
   }
 }
 
@@ -642,7 +642,7 @@ function doUpgrade () {               // firmware update
   var data = new FormData();
   data.append("update",file,file.name);       // www.mediaevent.de/javascript/ajax-2-xmlhttprequest.html
   var xhr = new XMLHttpRequest();     // https://javascript.info/xmlhttprequest
-  var msg_ok = "Firmware geladen, Gerät wird neu gestartet. Die Verbindung wird in 15 Sekunden neu aufgebaut.";
+  var msg_ok = "Firmware geladen, Gerät wird neu gestartet. Die Verbindung wird in 25 Sekunden neu aufgebaut.";
   var msg_err = "Fehler beim Laden der Datei. Bitte wiederholen. ";
 
   var network_error = function(e) {
@@ -653,9 +653,15 @@ function doUpgrade () {               // firmware update
   xhr.addEventListener("load", function(e) {
     if(xhr.status===200) {
         if (file.name.startsWith("firmware") || file.name.startsWith("littlefs")) {
+          const milliseconds_s = Date.now();
           $("#prgbar_update").hide();
           alert(msg_ok);
-          doReload(20000);
+          const alertTimeNeededMs = Date.now() - milliseconds_s;
+          if (alertTimeNeededMs >= 25000) {
+              doReload(0);
+          } else {
+              doReload(25000 - alertTimeNeededMs);
+          }
         }
     }
     else alert(msg_err + xhr.status.toString() + " " + xhr.statusText + ", " + xhr.responseText);
