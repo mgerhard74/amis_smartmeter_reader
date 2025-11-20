@@ -5,7 +5,6 @@
 
 // TODO: Refactor this global vars
 extern uint32_t a_result[10];
-extern bool amisNotOnline;
 extern int valid;
 extern char timecode[13];
 extern uint8_t dow;
@@ -19,7 +18,6 @@ typedef struct {
     uint32_t results[8];
     int32_t results_8;
 } AmisReaderNumResult_t;
-
 
 
 enum AmisReadSerialnumberMode_t {
@@ -101,6 +99,7 @@ private:
     AmisReadSerialnumberMode_t _readSerialNumberMode = tryRead;
 
     bool _isEnabled = false;
+    bool _readerIsOnline = false;
 };
 
 extern AmisReaderClass AmisReader;

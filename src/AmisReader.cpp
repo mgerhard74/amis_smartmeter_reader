@@ -13,11 +13,10 @@
 
 // TODO: Refactor this global vars and external function
 uint32_t a_result[10] = {};
-bool amisNotOnline = true;
 int valid = 0;
 char timecode[13] = {}; // "0x" + 5*2 + '\0'
 extern void writeEvent(String type, String src, String desc, String data);
-extern bool new_data,new_data3;
+extern bool new_data_for_thingspeak, new_data_for_websocket;
 extern unsigned first_frame;
 uint8_t dow;
 uint8_t mon, myyear;
@@ -422,7 +421,7 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
         }
         _serialReadBufferIdx = 0;
         clearSerialRx();
-        amisNotOnline = true;
+        _readerIsOnline = false;
         _state = requestReaderSerial;
         _stateLastSetMs = msNow;
         _stateTimoutMs = 5000;
@@ -530,7 +529,7 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
         _serialReadBufferIdx = 0;
         clearSerialRx();
         _bytesInBufferExpectd = 0;
-        amisNotOnline = true;
+        _readerIsOnline = false;
         _state = readReaderCounters;
         _stateLastSetMs = msNow;
         _stateTimoutMs = 4000; // Timeout für das Lesen: 16 * 4 (=64 Sekunden)
@@ -616,8 +615,8 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             // Transfer the result into the "old/global" result variables
             // Vars: valid, timecode, a_result
             valid = 5;
-            new_data = true;
-            new_data3 = true;
+            new_data_for_thingspeak = true;
+            new_data_for_websocket = true;
             if (first_frame == 0) {
                 first_frame = 3; // Erster Datensatz nach Reboot oder verlorenem Sync
             }
@@ -638,10 +637,10 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             mon = l_result.time.tm_mon + 1; // mon: 1...12  -   tm_mon: 0...11 (months since January)
             myyear = l_result.time.tm_year - 100; // myyear: Jahr nur 2 stellig benötigt (seit 2000)
 
-            if (amisNotOnline) {
+            if (!_readerIsOnline) {
                 setTime(l_result);
                 writeEvent("INFO", "amis", "Data synced", "ok");
-                amisNotOnline = false;
+                _readerIsOnline = true;
             }
 
             _stateLastSetMs = msNow;
@@ -700,10 +699,10 @@ void AmisReaderClass::loop()
     if (_stateErrorCnt >= _stateErrorMax) {
         //writeEvent("INFO", "amis", String(float(msNow)/1000.0) + "Timeout occured", "State:" + String(_state));
 
-        if (!amisNotOnline) {
+        if (_readerIsOnline) {
             writeEvent("INFO", "amis", "Sync lost", "failure");
         }
-        amisNotOnline=true;
+        _readerIsOnline = false;
         valid = 0;
         ModbusSmartmeterEmulation.setCurrentValues(false);
 

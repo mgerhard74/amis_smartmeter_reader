@@ -147,7 +147,7 @@ void serverInit(unsigned mode) {
   });
 
   server.on("/rest", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (amisNotOnline==false && valid==5) {
+    if (valid == 5) {
       AsyncResponseStream *response = request->beginResponseStream(F("application/json;charset=UTF-8"));
       DynamicJsonBuffer jsonBuffer;
       JsonObject &root = jsonBuffer.createObject();

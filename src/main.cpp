@@ -25,17 +25,17 @@ void secTick();
 #ifdef STROMPREIS
 String strompreis="";
 #endif // strompreis
-Ticker uniTicker,secTicker;
+Ticker secTicker;
 
 //AsyncMqttClient mq_client;                    // ThingsPeak Client
 WiFiClient thp_client;
 unsigned things_cycle;
 String things_up;
 unsigned thingspeak_watch;
-bool new_data,new_data3;
+bool new_data_for_thingspeak,new_data_for_websocket;
 unsigned first_frame=0;
-uint8_t dow_local;
-uint8_t mon_local;
+static uint8_t dow_local;
+static uint8_t mon_local;
 unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
@@ -179,8 +179,8 @@ void loop() {
     shouldReboot=true;
   }
   if (ws.count()) {      // ws-connections
-    if (new_data3) {
-      new_data3=false;
+    if (new_data_for_websocket) {
+      new_data_for_websocket=false;
       sendZData();
     }
   }
@@ -295,10 +295,10 @@ void secTick() {
   }
 
   // Thingspeak aktualisieren
-  if (Config.thingspeak_aktiv && things_cycle >= Config.thingspeak_iv && new_data && valid==5) {
+  if (Config.thingspeak_aktiv && things_cycle >= Config.thingspeak_iv && new_data_for_thingspeak && valid==5) {
     things_cycle=0;
     thingspeak_watch++;
-    new_data = false;
+    new_data_for_thingspeak = false;
 
     thp_client.stop();
     if (thp_client.connect("api.thingspeak.com", 80)) {
