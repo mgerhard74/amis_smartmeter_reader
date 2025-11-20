@@ -137,13 +137,23 @@ void test_ua(void) {
 
 #if 0
 #include "unions.h"
-#include <string.h>
-#include <WString.h>
+#include <Arduino.h>
 void writeEvent(String type, String src, String desc, String data);
 void validate_ua(void) {
     bool r = true;
     unsigned char buffer[32];
     unsigned char *p;
+
+    // Do test just once after running 80sec
+    static bool test_done=false;
+    if (test_done) {
+        return;
+    }
+    if (millis() < 80000) {
+        return;
+    }
+    test_done = true;
+    writeEvent("INFO", "UA", "validate_ua()", "started");
 
     // Also check union "conversation" float<->bytes<->integers
     // Just to be sure the compiler does it the right way
@@ -162,10 +172,11 @@ void validate_ua(void) {
         r = false;
     }
 
+    writeEvent("INFO", "UA", "validate_ua() 16bit tests", "started");
     for (size_t offset = 0; offset < 16; offset++) { // run thru alignments 0...15
-        memset(buffer, 0, sizeof(buffer));
         p = &buffer[offset];
 
+        memset(buffer, 0, sizeof(buffer));
         UA::WriteU16LE(p, 0xDCBA);
         if (memcmp(p, "\xBA\xDC", 2)) {
             writeEvent("INFO", "UA", "UA::WriteU16LE()", "failed");
@@ -195,8 +206,13 @@ void validate_ua(void) {
             writeEvent("INFO", "UA", "UA::ReadU16BE()" + String(UA::ReadU16BE(p)), "failed");
             r = false;
         }
+    }
+    writeEvent("INFO", "UA", "validate_ua() 16bit tests", "ended");
 
 
+    writeEvent("INFO", "UA", "validate_ua() 32bit tests", "started");
+    for (size_t offset = 0; offset < 16; offset++) { // run thru alignments 0...15
+        p = &buffer[offset];
         memset(buffer, 0, sizeof(buffer));
         UA::WriteU32LE(p, 0xA1B7C2D3);
         if (memcmp(p, "\xD3\xC2\xB7\xA1", 4)) {
@@ -231,8 +247,9 @@ void validate_ua(void) {
             r = false;
         }
         */
-
     }
+    writeEvent("INFO", "UA", "validate_ua() 32bit tests", "ended");
+
     if (r) {
         writeEvent("INFO", "UA", "validate_ua()", "success");
     } else {

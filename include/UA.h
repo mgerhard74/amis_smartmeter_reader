@@ -24,8 +24,8 @@
 #endif
 
 
-// It seems there are some 8266 ESP12F out they allow unaligned access ?
-// For now: Don't trust all the devices support it
+// It seems there are some 8266 ESP12F out they allow unaligned access?
+// But: Test have shown this project uses one without unaligned access!
 #define HAVE_UA2_ACCESS 0
 #define HAVE_UA4_ACCESS 0
 
