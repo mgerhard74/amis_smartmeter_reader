@@ -1,5 +1,6 @@
 #include "proj.h"
 #include "AmisReader.h"
+#include "ModbusSmartmeterEmulation.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -76,7 +77,7 @@ void serverInit(unsigned mode) {
       if (filename.startsWith(F("firmware"))) {
         cmd=U_FLASH;                       // 0
         content_len= (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        if (Config.smart_mtr) meter_server->end();
+        ModbusSmartmeterEmulation.disable();
         valid=6;
         Serial.end();
       }

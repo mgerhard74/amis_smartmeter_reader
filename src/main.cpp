@@ -5,6 +5,7 @@
 
 #include "AmisReader.h"
 #include "LedSingle.h"
+#include "ModbusSmartmeterEmulation.h"
 #include "RebootAtMidnight.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
@@ -87,7 +88,12 @@ void setup(){
   histInit();
   connectToWifi();  // and MQTT and NTP
   secTicker.attach_scheduled(1,secTick);
-  if (Config.smart_mtr)  meter_init();
+
+  // Smart Meter Simulator
+  ModbusSmartmeterEmulation.init();
+  if (Config.smart_mtr) {
+    ModbusSmartmeterEmulation.enable();
+  }
 
   // initiate ping watchdog
   WatchdogPing.init();
@@ -141,6 +147,7 @@ void loop() {
     shouldReboot = false;
     secTicker.detach();
     mqttTimer.detach();
+    ModbusSmartmeterEmulation.disable();
     if (Config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
     DBGOUT("Rebooting...");
     delay(150);

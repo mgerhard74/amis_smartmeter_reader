@@ -61,7 +61,6 @@ extern const char PAGE_upgrade[];
 extern char *stack_start;
 extern void printStackSize(String txt);
 extern String lastMonth;
-extern AsyncServer* meter_server;
 
 extern kwhstruct kwh_hist[7];
 extern void mqtt_publish_state();
@@ -92,5 +91,4 @@ extern void postUpgrade ();
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 extern void writeMonthFile(uint8_t y,uint8_t m);
-extern void meter_init();
 #endif
