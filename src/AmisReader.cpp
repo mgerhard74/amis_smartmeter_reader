@@ -100,6 +100,12 @@ static_assert(sizeof(struct decryptedTelegramData_SND_UD) == 80);
 
 // ---------------------------------------------------------------------------------------------------------------------------
 
+static void setTime(AmisReaderNumResult_t &result) {
+    struct timeval ti;
+    ti.tv_sec = mktime(&result.time);
+    ti.tv_usec = 0;
+    settimeofday(&ti, NULL);
+}
 
 int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)
 {
@@ -628,6 +634,7 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             myyear = l_result.time.tm_year - 100; // myyear: Jahr nur 2 stellig benötigt (seit 2000)
 
             if (amisNotOnline) {
+                setTime(l_result);
                 writeEvent("INFO", "amis", "Data synced", "ok");
                 amisNotOnline = false;
             }
