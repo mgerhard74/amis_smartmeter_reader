@@ -153,6 +153,7 @@ void  sendStatus(uint32_t clientId) {
   root[F("flashsize")] = ESP.getFlashChipSize();
   root[F("flashmode")] = String(ESP.getFlashChipMode());
   root[F("cpu")] = ESP.getCpuFreqMHz();
+  root[F("reset_reason")] = ESP.getResetReason();
   if(inAPMode) {
     wifi_get_ip_info(SOFTAP_IF, &info);
     struct softap_config conf;
