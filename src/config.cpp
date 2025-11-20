@@ -19,7 +19,7 @@ void ConfigClass::LoadGeneral()
 
     if (!configFile) {
         DBGOUT("[ WARN ] Failed to open config_general\n");
-        writeEvent("ERROR", "Allgemein", "config fail", "");
+        writeEvent("ERROR", "Allgemein", "Could not open /config_general", "");
         return;
     }
 
@@ -29,7 +29,7 @@ void ConfigClass::LoadGeneral()
 
     if (!json.success()) {
         DBGOUT("[ WARN ] Failed to parse config_general\n");
-        writeEvent("ERROR", "Allgemein", "config error", "");
+        writeEvent("ERROR", "Allgemein", "Error parsing /config_general", "");
         return;
     }
     //json.prettyPrintTo(Serial);
@@ -73,7 +73,7 @@ void ConfigClass::LoadGeneral()
 void ConfigClass::ApplySettingsGeneral()
 {
     AmisReader.setKey(Config.amis_key.c_str());
-    // TODO: Apply more settings but we must first check setup() as there are prior somx MODULE.init() calls
+    // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 
     // RemoteOnOffClass

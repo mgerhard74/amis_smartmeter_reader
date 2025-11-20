@@ -14,6 +14,7 @@ public:
     void LoadGeneral();
     void ApplySettingsGeneral();
 
+
     String DeviceName;
 
     bool mqtt_retain;
@@ -23,8 +24,6 @@ public:
     String mqtt_sub;
     bool mqtt_ha_discovery;
 
-    uint8_t rfpower;
-    bool mdns;
     bool use_auth;
     bool log_sys;
 
@@ -54,11 +53,6 @@ public:
     unsigned switch_intervall;
 
     String amis_key;
-
-    bool pingrestart_do;
-    String pingrestart_ip;
-    unsigned pingrestart_interval;
-    unsigned pingrestart_max;
 };
 
 extern ConfigClass Config;

@@ -1,5 +1,6 @@
 #include "proj.h"
 #include "AmisReader.h"
+#include "Network.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -158,13 +159,12 @@ void  sendStatus(uint32_t clientId) {
   root[F("flashmode")] = String(ESP.getFlashChipMode());
   root[F("cpu")] = ESP.getCpuFreqMHz();
   root[F("reset_reason")] = ESP.getResetReason();
-  if(inAPMode) {
+  if (Network.inAPMode()) {
     wifi_get_ip_info(SOFTAP_IF, &info);
     struct softap_config conf;
     wifi_softap_get_config(&conf);
     root[F("mac")] = WiFi.softAPmacAddress();
-  }
-  else {
+  } else {
     wifi_get_ip_info(STATION_IF, &info);
     struct station_config conf;
     wifi_station_get_config(&conf);

@@ -6,6 +6,7 @@
 #include "AmisReader.h"
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "Network.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
 #include "Utils.h"
@@ -49,7 +50,7 @@ String lastMonth;
   String dbg_string;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
-bool inAPMode,mqttStatus;
+bool mqttStatus;
 ADC_MODE(ADC_VCC);
 
 
@@ -62,7 +63,8 @@ void setup(){
     #endif
   #endif // DEBUGHW
 
-  pinMode(AP_PIN,INPUT_PULLUP);
+  pinMode(AP_PIN, INPUT_PULLUP);
+  // pinMode(AP_PIN, INPUT); digitalWrite(AP_PIN, HIGH);
 
   // Start filesystem early - so we can do some logging
   LittleFS.begin();
@@ -94,10 +96,17 @@ void setup(){
   }
 
   serverInit(0);                  // /init.html als /
+
   Config.LoadGeneral();
   Config.ApplySettingsGeneral();
+
   histInit();
-  connectToWifi();  // and MQTT and NTP
+
+ // Start Network
+  Network.init(digitalRead(AP_PIN) == LOW);
+  NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
+  Network.connect();
+
   secTicker.attach_scheduled(1,secTick);
 
   // Smart Meter Simulator
@@ -108,8 +117,8 @@ void setup(){
 
   // initiate ping watchdog
   WatchdogPing.init();
-  WatchdogPing.config(Config.pingrestart_ip.c_str(), Config.pingrestart_interval ,Config.pingrestart_max, &shouldReboot);
-  if (Config.pingrestart_do) {
+  WatchdogPing.config(networkConfigWifi.pingrestart_ip.c_str(), networkConfigWifi.pingrestart_interval ,networkConfigWifi.pingrestart_max, &shouldReboot);
+  if (networkConfigWifi.pingrestart_do) {
     WatchdogPing.enable();
     if (Config.log_sys) {
       writeEvent("INFO", "wifi", "Ping restart check enabled", "");
