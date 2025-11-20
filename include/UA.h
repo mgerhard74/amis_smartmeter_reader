@@ -57,7 +57,7 @@ public:
 
 #if (HAVE_UA4_ACCESS)
     static int32_t  ReadS32LE(const void *p) { return SWAP_LE4(*(const int32_t*)p); }
-    static uint32_t ReadU32LE(const void *p) { return SWAP_BE4(*(const uint32_t*)p); }
+    static uint32_t ReadU32LE(const void *p) { return SWAP_LE4(*(const uint32_t*)p); }
     static void WriteU32LE(void *p, uint32_t v) { *(uint32_t*)p = SWAP_LE4(v); }
     static void WriteU32BE(void *p, uint32_t v) { *(uint32_t*)p = SWAP_BE4(v); }
 #else
