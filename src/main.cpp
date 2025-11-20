@@ -12,8 +12,6 @@
 #include "WatchdogPing.h"
 
 
-bool pf;
-
 void secTick();
 #if DEBUGHW==1
   WiFiServer dbg_server(10000);
@@ -46,7 +44,7 @@ String lastMonth;
   String dbg_string;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
-bool inAPMode,mqttStatus,hwTest;
+bool inAPMode,mqttStatus;
 ADC_MODE(ADC_VCC);
 
 
@@ -176,19 +174,9 @@ void loop() {
 
   AmisReader.loop();  // Zähler auslesen
 
-  if (hwTest) {
-    for (unsigned i=0;i < 200; i++)  {
-      Serial.write(i);
-      delay(1);
-    }
-  }
   if (logPage >=0) {
     sendEventLog(clientId,logPage);
     logPage=-1;
-  }
-  if (pf) {
-    pf=false;
-//    prnt();
   }
 
   LedBlue.loop();

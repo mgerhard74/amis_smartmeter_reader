@@ -79,7 +79,7 @@ extern AsyncMqttClient mqttClient;
 extern Ticker mqttTimer;
 extern void mqtt_init();
 extern Ticker uniTicker,secTicker;
-extern bool inAPMode,mqttStatus,hwTest;
+extern bool inAPMode,mqttStatus;
 extern void generalInit();
 extern void sendZData();
 extern void sendZDataWait();

@@ -345,8 +345,6 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     LittleFS.remove(F("/config_mqtt"));
 //    LittleFS.remove(F("/.idea"));
   }
-  else if(strcmp(command, "test") == 0) hwTest=true;
-
   else if(strcmp(command, "print") == 0) {
     const char *uid = root["file"];
     ws.text(clientId,uid); // ws.text
