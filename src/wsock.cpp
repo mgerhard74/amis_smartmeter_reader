@@ -5,6 +5,8 @@
 #include "debug.h"
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
+extern const char *__COMPILED_GIT_HASH__;
+extern const char *__COMPILED_GIT_BRANCH__;
 
 void sendWeekData() {
   File f;
@@ -140,6 +142,8 @@ void  sendStatus(uint32_t clientId) {
   root[F("version")] = VERSION;
   root[F("app_name")] = APP_NAME;
   root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
+  root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
+  root[F("app_compiled_git_hash")] = __COMPILED_GIT_HASH__;
   root[F("core")] = ESP.getCoreVersion();
   root[F("sketchsize")] = ESP.getSketchSize();
   root[F("freesize")] = ESP.getFreeSketchSpace();

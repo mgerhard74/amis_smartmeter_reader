@@ -12,6 +12,11 @@
 #include "WatchdogPing.h"
 
 
+extern const char *__COMPILED_DATE_TIME_UTC_STR__;
+extern const char *__COMPILED_GIT_HASH__;
+extern const char *__COMPILED_GIT_BRANCH__;
+
+
 void secTick();
 #if DEBUGHW==1
   WiFiServer dbg_server(10000);
@@ -61,6 +66,13 @@ void setup(){
 
   // Start filesystem early - so we can do some logging
   LittleFS.begin();
+
+  // Log some booting information
+  writeEvent("INFO", "sys", "System starting...", "");
+  writeEvent("INFO", "sys", "  Version", VERSION);
+  writeEvent("INFO", "sys", "  Compiled [UTC]", __COMPILED_DATE_TIME_UTC_STR__);
+  writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
+  writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
 
   // Set timezone to CET/CEST
   setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
