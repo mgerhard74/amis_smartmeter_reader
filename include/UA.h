@@ -48,9 +48,13 @@ public:
     static uint32_t swap4(uint32_t v);
 
 #if (HAVE_UA2_ACCESS)
+    static uint16_t ReadU16LE(const void *p) { return SWAP_LE2(*(const uint16_t*)p); }
+    static uint16_t ReadU16BE(const void *p) { return SWAP_BE2(*(const uint16_t*)p); }
     static void WriteU16LE(void *p, uint16_t v) { *(uint16_t*)p = SWAP_LE2(v); }
     static void WriteU16BE(void *p, uint16_t v) { *(uint16_t*)p = SWAP_BE2(v); }
 #else
+    static uint16_t ReadU16LE(const void *p);
+    static uint16_t ReadU16BE(const void *p) { return SWAP_BE2(ReadU16LE(p));}
     static void WriteU16LE(void *p, uint16_t v);
     static void WriteU16BE(void *p, uint16_t v) { WriteU16LE(p, SWAP_BE2(v)); };
 #endif
