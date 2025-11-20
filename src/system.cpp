@@ -9,16 +9,6 @@
 WiFiEventHandler wifiConnectHandler;
 WiFiEventHandler wifiDisconnectHandler;
 Ticker wifiReconnectTimer;
-bool ms100_flag;
-char *stack_start;
-
-void printStackSize(String txt){
-    char stack;
-    Serial1.println(txt);
-    Serial1.print (F("stack size "));
-    Serial1.println (stack_start - &stack);
-    Serial1.println(ESP.getFreeHeap());
-}
 
 void onWifiConnect(const WiFiEventStationModeGotIP& event) {
   LedBlue.turnBlink(4000, 10);
@@ -47,27 +37,11 @@ void onWifiDisconnect(const WiFiEventStationModeDisconnected& event) {
   DBGOUT("WiFi disconnect\n");
 }
 
-//void printConfig() {
-//  File file = LittleFS.open("/config_wifi","r");
-//  if (!file) {
-//    Serial.println(F("Failed to read file"));
-//    return;
-//  }
-//  while (file.available()) {
-//    Serial.print((char)file.read());
-//  }
-//  Serial.println();
-//  file.close();
-//}
-
 void connectToWifi() {
   bool err=false;
   DynamicJsonBuffer jsonBuffer;
   File configFile;
-//    // Update mit neuer FW
-//    configFile = LittleFS.open("/config_wifi", "w+");
-//    configFile.print("{\"ssid\": \"NETGEAR\",\"wifipassword\": \"passwordphrase\",\"dhcp\": 0,\"ip_static\": \"192.168.2.20\",\"ip_netmask\": \"255.255.255.0\",\"ip_gateway\": \"192.168.2.1\",\"ip_nameserver\": \"192.168.2.1\",\"rfpower\":\"\",\"mdns\": 0}");
-//    configFile.close();
+
   DBGOUT("Connecting to Wi-Fi...\n");
   configFile = LittleFS.open("/config_wifi", "r");
   if(!configFile) {

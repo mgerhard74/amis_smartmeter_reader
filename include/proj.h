@@ -58,7 +58,6 @@ extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
 extern uint32_t clientId;
 extern const char PAGE_upgrade[];
-extern char *stack_start;
 extern void printStackSize(String txt);
 extern String lastMonth;
 
