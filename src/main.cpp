@@ -129,7 +129,9 @@ void loop() {
     mqttTimer.detach();
     if (Config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
     DBGOUT("Rebooting...");
-    delay(300);
+    delay(150);
+    LittleFS.end();
+    delay(150);
     //ESP.wdtDisable();           // bootet 2x ???
     ESP.restart();
     while (1)    delay(1);
