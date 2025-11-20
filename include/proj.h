@@ -80,7 +80,6 @@ extern Ticker mqttTimer;
 extern void mqtt_init();
 extern Ticker uniTicker,secTicker;
 extern bool inAPMode,mqttStatus;
-extern void generalInit();
 extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);

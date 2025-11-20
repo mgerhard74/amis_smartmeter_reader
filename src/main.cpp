@@ -94,7 +94,8 @@ void setup(){
   }
 
   serverInit(0);                  // /init.html als /
-  generalInit();
+  Config.LoadGeneral();
+  Config.ApplySettingsGeneral();
   histInit();
   connectToWifi();  // and MQTT and NTP
   secTicker.attach_scheduled(1,secTick);

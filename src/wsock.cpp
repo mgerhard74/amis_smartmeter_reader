@@ -282,7 +282,10 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
       //root.prettyPrintTo(dbg_string);
       f.close();
       eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n",command,len);
-      if (strcmp(command, "/config_general")==0) generalInit();
+      if (strcmp(command, "/config_general")==0) {
+        Config.LoadGeneral();
+        Config.ApplySettingsGeneral();
+      }
     }
   }
   else if(strcmp(command, "status") == 0) {

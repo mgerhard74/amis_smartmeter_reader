@@ -143,49 +143,6 @@ void connectToWifi() {
   }
 }
 
-void generalInit() {
-  File configFile = LittleFS.open("/config_general", "r");
-  if(!configFile) {
-    DBGOUT("[ WARN ] Failed to open config_general\n");
-    writeEvent("ERROR", "Allgemein", "config fail", "");
-    return;
-  }
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject &json = jsonBuffer.parseObject(configFile);
-  configFile.close();
-  if(!json.success()) {
-    DBGOUT("[ WARN ] Failed to parse config_general\n");
-    writeEvent("ERROR", "Allgemein", "config error", "");
-    return;
-  }
-  //json.prettyPrintTo(Serial);
-  Config.DeviceName=json[F("devicename")].as<String>();
-  Config.use_auth=json[F("use_auth")].as<bool>();
-  Config.auth_passwd=json[F("auth_passwd")].as<String>();
-  Config.auth_user=json[F("auth_user")].as<String>();
-  Config.log_sys=json[F("log_sys")].as<bool>();
-  Config.smart_mtr=json[F("smart_mtr")].as<bool>();
-
-  String akey=json[F("amis_key")].as<String>();
-  AmisReader.setKey(akey.c_str());
-  Config.thingspeak_aktiv=json[F("thingspeak_aktiv")].as<bool>();
-  Config.channel_id=json[F("channel_id")].as<int>();
-  Config.write_api_key=json[F("write_api_key")].as<String>();
-  Config.read_api_key=json[F("read_api_key")].as<String>();
-  Config.thingspeak_iv=json[F("thingspeak_iv")].as<int>();
-  if (Config.thingspeak_iv < 30)  Config.thingspeak_iv=30;
-  Config.channel_id2=json[F("channel_id2")].as<int>();
-  Config.read_api_key2=json[F("read_api_key2")].as<String>();
-  Config.rest_var=json[F("rest_var")].as<int>();
-  Config.rest_ofs=json[F("rest_ofs")].as<int>();
-  Config.rest_neg=json[F("rest_neg")].as<bool>();
-  Config.reboot0=json[F("reboot0")].as<bool>();
-  Config.switch_on=json[F("switch_on")].as<int>();
-  Config.switch_off=json[F("switch_off")].as<int>();
-  Config.switch_url_on=json[F("switch_url_on")].as<String>();
-  Config.switch_url_off=json[F("switch_url_off")].as<String>();
-}
-
 void histInit () {
   File f;
   uint8_t j,ibuffer[10];
