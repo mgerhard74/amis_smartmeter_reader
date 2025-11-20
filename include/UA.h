@@ -30,15 +30,15 @@
 #define HAVE_UA4_ACCESS 0
 
 #if (BYTE_ORDER == LITTLE_ENDIAN) // ESP8266 should be little endian!
-#define SWAP_LE2(V) V
-#define SWAP_LE4(V) V
+#define SWAP_LE2(V) (V)
+#define SWAP_LE4(V) (V)
 #define SWAP_BE2(V) UA::swap2(V)
 #define SWAP_BE4(V) UA::swap4(V)
 #else
 #define SWAP_LE2(V) UA::swap2(V)
 #define SWAP_LE4(V) UA::swap4(V)
-#define SWAP_BE2(V) V
-#define SWAP_BE4(V) V
+#define SWAP_BE2(V) (V)
+#define SWAP_BE4(V) (V)
 #endif
 
 
