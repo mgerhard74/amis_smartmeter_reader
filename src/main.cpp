@@ -7,6 +7,7 @@
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "RebootAtMidnight.h"
+#include "RemoteOnOff.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
 
@@ -47,8 +48,7 @@ String lastMonth;
 kwhstruct kwh_hist[7];
 bool inAPMode,mqttStatus,hwTest;
 ADC_MODE(ADC_VCC);
-int switch_last = 0;
-signed int Saldomittelwert[5];
+
 
 void setup(){
   #if DEBUGHW==2
@@ -105,7 +105,11 @@ void setup(){
     }
   }
 
-// Reboot um Mitternacht?
+  // Netzwerksteckdose (On/Off via Netzwerk)
+  RemoteOnOff.init();
+  RemoteOnOff.configOnce(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
+
+  // Reboot um Mitternacht?
   RebootAtMidnight.init();
   RebootAtMidnight.config(&shouldReboot);
   if (Config.reboot0) {
@@ -145,6 +149,7 @@ void loop() {
 
   if(shouldReboot){
     shouldReboot = false;
+    RemoteOnOff.prepareReboot();
     secTicker.detach();
     mqttTimer.detach();
     ModbusSmartmeterEmulation.disable();
@@ -285,56 +290,6 @@ void secTick() {
         mon_local=mon;
       }
       first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
-    }
-  }
-
-  // Wifi Switch on/off
-  if ((Config.switch_url_on != "") && (Config.switch_url_off != ""))
-  {
-    signed int xsaldo;
-    xsaldo = (a_result[4] - a_result[5]);
-    for (unsigned i = 4; i > 0; i--)
-    {
-      Saldomittelwert[i] = Saldomittelwert[i - 1];
-    }
-    Saldomittelwert[0] = xsaldo;
-    signed int xsaldo_mw = 0;
-    for (unsigned i = 0; i < 5; i++)
-    {
-      xsaldo_mw = xsaldo_mw + Saldomittelwert[i];
-    }
-    xsaldo_mw = xsaldo_mw / 5;
-    unsigned int sek = (millis() / 1000) % 5;
-    if (Config.switch_intervall > 0)
-    {
-      sek = (millis() / 1000) % Config.switch_intervall;
-    }
-
-    if ((xsaldo_mw < Config.switch_on) && (switch_last != 1) && (sek == 0))
-    {
-      HTTPClient http;
-      WiFiClient client;
-      http.begin(client, Config.switch_url_on);
-      int httpCode = http.GET();
-      if (httpCode == HTTP_CODE_OK)
-      {
-        // writeEvent("INFO", "sys", "Switch on Url sent", "");
-      }
-      http.end();
-      switch_last = 1;
-    }
-    if ((xsaldo_mw > Config.switch_off) && (switch_last != 2) && (sek == 0))
-    {
-      HTTPClient http;
-      WiFiClient client;
-      http.begin(client, Config.switch_url_off);
-      int httpCode = http.GET();
-      if (httpCode == HTTP_CODE_OK)
-      {
-        // writeEvent("INFO", "sys", "Switch off Url sent", "");
-      }
-      http.end();
-      switch_last = 2;
     }
   }
 

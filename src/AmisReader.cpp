@@ -2,6 +2,7 @@
 
 #include "aes.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "RemoteOnOff.h"
 #include "UA.h"
 #include "Utils.h"
 
@@ -608,6 +609,9 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
         int r;
         r = decodeBuffer(_decodingWorkBuffer, _decodingWorkBufferLength,  l_result);
         if (r == 0) {
+            // OK, we got new valid data
+            RemoteOnOff.onNewValidData(l_result.results[4]/* 1.7.0 */, l_result.results[5] /* 2.7.0 */);
+
             // TODO: Refactor
             // Transfer the result into the "old/global" result variables
             // Vars: valid, timecode, a_result
