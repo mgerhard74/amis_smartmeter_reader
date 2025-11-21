@@ -21,7 +21,7 @@ public:
     void loop();
     void turnOn();
     void turnOff();
-    void turnBlink(unsigned long onIntervalMs, unsigned long offIntervalMs);
+    void turnBlink(unsigned long offIntervalMs, unsigned long onIntervalMs);
     void invert();
     void setBrightness(uint8_t percent);
 

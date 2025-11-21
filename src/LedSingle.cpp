@@ -39,9 +39,9 @@ void LedSingleClass::turnOff() {
     _state = LedState_t::Off;
 }
 
-void LedSingleClass::turnBlink(unsigned long onIntervalMs, unsigned long offIntervalMs) {
-    _blinkIntervalsMs[0] = onIntervalMs;
-    _blinkIntervalsMs[1] = offIntervalMs;
+void LedSingleClass::turnBlink(unsigned long offIntervalMs, unsigned long onIntervalMs) {
+    _blinkIntervalsMs[0] = offIntervalMs;
+    _blinkIntervalsMs[1] = onIntervalMs;
     if (_state == LedState_t::Off) {
         _state = LedState_t::BlinkOff;
         _blinkIntervalsIdx = 0;
