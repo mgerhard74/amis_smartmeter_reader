@@ -6,6 +6,8 @@
 //#define DEBUG
 #include "debug.h"
 
+extern void historyInit(void);
+
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 extern const char *__COMPILED_GIT_HASH__;
 extern const char *__COMPILED_GIT_BRANCH__;
@@ -259,20 +261,22 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
         }
       }
     }
-    histInit();
+    historyInit();
     AmisReader.enable();
   }
   else if(strcmp(command,"monthlist")==0) {
     AmisReader.disable();
     LittleFS.remove("/monate");
     File f = LittleFS.open("/monate", "a");
-    int arrSize=root["month"].size();
-    for (int i=0;i<arrSize;i++) {
-      f.print(root["month"][i].as<String>());
-      f.print('\n');
+    if (f) {
+      int arrSize=root["month"].size();
+      for (int i=0;i<arrSize;i++) {
+        f.print(root["month"][i].as<String>());
+        f.print('\n');
+      }
+      f.close();
+      historyInit();
     }
-    f.close();
-    histInit();
     AmisReader.enable();
   }
   else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {

@@ -18,8 +18,6 @@ extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 extern const char *__COMPILED_GIT_HASH__;
 extern const char *__COMPILED_GIT_BRANCH__;
 
-
-void secTick();
 #if DEBUGHW==1
   WiFiServer dbg_server(10000);
   WiFiClient dbg_client;
@@ -27,8 +25,13 @@ void secTick();
 #ifdef STROMPREIS
 String strompreis="";
 #endif // strompreis
-Ticker secTicker;
 
+
+extern void historyInit();
+
+static void secTick();
+
+Ticker secTicker;
 //AsyncMqttClient mq_client;                    // ThingsPeak Client
 WiFiClient thp_client;
 unsigned things_cycle;
@@ -45,15 +48,16 @@ unsigned last_mon_out;
 uint32_t clientId;
 int logPage=-1;
 uint8_t updates;
-String lastMonth;
+String latestYYMMInHistfile;
 #if DEBUGHW>0
   char dbg[128];
   String dbg_string;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
 bool mqttStatus;
-ADC_MODE(ADC_VCC);
 
+
+// ADC_MODE(ADC_VCC);
 
 void setup(){
   #if DEBUGHW==2
@@ -103,7 +107,8 @@ void setup(){
   Config.loadConfigGeneral();
   Config.applySettingsConfigGeneral();
 
-  histInit();
+  // Load history of last 7 days and get YYMM of last entry in
+  historyInit();
 
  // Start Network
   Network.init(digitalRead(AP_PIN) == LOW);
@@ -199,7 +204,7 @@ void loop() {
 void writeHistFileIn(int x, long val) {
   DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
   File f = LittleFS.open("/hist_in"+String(x), "w");
-  if(f) {
+  if (f) {
     f.print(val);
     f.close();
   }
@@ -207,27 +212,48 @@ void writeHistFileIn(int x, long val) {
 void writeHistFileOut(int x, long val) {
   DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
   File f = LittleFS.open("/hist_out"+String(x), "w");
-  if(f) {
+  if (f) {
     f.print(val);
     f.close();
   }
 }
 
-void writeMonthFile(uint8_t y,uint8_t m) {
-  String s=String(m);
+
+static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32_t v_2_8_0)
+{
+// Hängt die ersten in Monat verfügbaren Zählerstände (1.8.0 und 2.8.0)
+// einfach an die Datei an.
+#if 1
+  size_t len;
+  char dataLine[28];
+  //     4  1   10   1  10   1 1   = 28
+  //   "yymm  NUMBER1 NUMBER2\n\0"
+  len = sprintf(dataLine, "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
+
+  File f = LittleFS.open("/monate", "a");
+  if (f) {
+    f.write(dataLine, len);
+    f.close();
+  }
+  dataLine[5] = 0;
+  return String(dataLine);
+#else
+  String mm = "0" + String(m);
   if (s.length()<2) s="0"+s;
   s=String(y)+s;
-  eprintf("F: %u %u %s",myyear, mon, s.c_str());
+  eprintf("F: %u %u %s", y, m, s.c_str());
   File f = LittleFS.open("/monate", "a");
   f.print(s+" ");
-  f.print(a_result[0]);
+  f.print(v_1_8_0);
   f.print(" ");
-  f.print(a_result[1]);
+  f.print(v_2_8_0);
   f.print('\n');          // f.println würde \r anfügen!
   f.close();
+  return s;
+#endif
 }
 
-void secTick() {
+static void secTick() {
   // wird jede Sekunde aufgerufen
   things_cycle++;
 
@@ -254,7 +280,9 @@ void secTick() {
       String s=String(mon);
       if (s.length()<2) s="0"+s;
       s=String(myyear)+s;
-      if (s.compareTo(lastMonth)!=0) writeMonthFile(myyear,mon);  // Monat noch nicht im File
+      if (s.compareTo(latestYYMMInHistfile)!=0) {
+        latestYYMMInHistfile = appendToMonthFile(myyear,mon, a_result[0], a_result[1]);  // Monat noch nicht im File
+      }
       mon_local=mon;
     }
     else if (first_frame==2) {        // Wochentabelle Energie erzeugen
@@ -286,7 +314,7 @@ void secTick() {
       writeHistFileOut(x,a_result[1]);
       dow_local=dow;
       if (mon_local != mon) {         // Monatswechsel
-        writeMonthFile(myyear,mon);
+        latestYYMMInHistfile = appendToMonthFile(myyear, mon, a_result[0], a_result[1]);
         mon_local=mon;
       }
       first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
@@ -339,7 +367,7 @@ void secTick() {
   ws.cleanupClients();   // beendete Webclients nicht mehr updaten
 }
 
-void  writeEvent(String type, String src, String desc, String data) {
+void writeEvent(String type, String src, String desc, String data) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject &root = jsonBuffer.createObject();
   root[F("type")] = type;
