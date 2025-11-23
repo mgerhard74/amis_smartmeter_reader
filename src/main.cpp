@@ -100,8 +100,8 @@ void setup(){
 
   serverInit(0);                  // /init.html als /
 
-  Config.LoadGeneral();
-  Config.ApplySettingsGeneral();
+  Config.loadConfigGeneral();
+  Config.applySettingsConfigGeneral();
 
   histInit();
 

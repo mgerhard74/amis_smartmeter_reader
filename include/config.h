@@ -11,8 +11,8 @@
 class ConfigClass {
 
 public:
-    void LoadGeneral();
-    void ApplySettingsGeneral();
+    void loadConfigGeneral();
+    void applySettingsConfigGeneral();
 
 
     String DeviceName;

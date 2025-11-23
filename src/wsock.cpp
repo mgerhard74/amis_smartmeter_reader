@@ -131,7 +131,7 @@ void printScanResult(int nFound) {
   WiFi.scanDelete();
 }
 
-void  sendStatus(uint32_t clientId) {
+void sendStatus(uint32_t clientId) {
   struct ip_info info;
   FSInfo fsinfo;
   if(!LittleFS.info(fsinfo)) {
@@ -284,8 +284,8 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
       f.close();
       eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n",command,len);
       if (strcmp(command, "/config_general")==0) {
-        Config.LoadGeneral();
-        Config.ApplySettingsGeneral();
+        Config.loadConfigGeneral();
+        Config.applySettingsConfigGeneral();
       }
     }
   }

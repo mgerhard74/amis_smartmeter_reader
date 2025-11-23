@@ -12,7 +12,7 @@
 
 extern void writeEvent(String type, String src, String desc, String data);
 
-void ConfigClass::LoadGeneral()
+void ConfigClass::loadConfigGeneral()
 {
     File configFile;
     configFile = LittleFS.open("/config_general", "r");
@@ -70,7 +70,7 @@ void ConfigClass::LoadGeneral()
     switch_intervall=json[F("switch_intervall")].as<unsigned int>();
 }
 
-void ConfigClass::ApplySettingsGeneral()
+void ConfigClass::applySettingsConfigGeneral()
 {
     AmisReader.setKey(Config.amis_key.c_str());
     // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
