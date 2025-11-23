@@ -7,7 +7,7 @@
 //#define DEBUG
 #include "debug.h"
 
-#include <AsyncJson.h>
+#include <ArduinoJson.h>
 #include <AsyncMqttClient.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>

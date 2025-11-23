@@ -7,7 +7,7 @@
 #include "ModbusSmartmeterEmulation.h"
 #include "RebootAtMidnight.h"
 
-#include <AsyncJson.h>
+#include <ArduinoJson.h>
 #include <LittleFS.h>
 
 extern void writeEvent(String type, String src, String desc, String data);
