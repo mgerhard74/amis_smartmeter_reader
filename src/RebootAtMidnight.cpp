@@ -65,8 +65,12 @@ void RebootAtMidnightClass::adjustTicker(void)
     } while (today.tm_mday == tomorrow.tm_mday); // bis wir einen neuen Tag erreicht haben
     nextDay -= tomorrow.tm_hour * 3600ll; // Und noch die Stunden vom nächsten Tag wieder abziehen
 
+    // Damit wir nicht ganz genau um 00:00:00 rebooten, sondern den Tages bzw Monatswechsel
+    // noch in die History-Files schreiben geben wir einfach 5 Sekunden dazu
+    time_t nextDayPlus5Sec = nextDay + 5;
+
     _ticker.detach();
-    _ticker.attach_scheduled(nextDay - now, std::bind(&RebootAtMidnightClass::doReboot, this));
+    _ticker.attach_scheduled(nextDayPlus5Sec - now, std::bind(&RebootAtMidnightClass::doReboot, this));
     writeEvent("INFO", "RebootAtMidnight", "Scheduling reboot in seconds ...", String(nextDay - now));
 }
 
