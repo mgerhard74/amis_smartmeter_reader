@@ -1,5 +1,7 @@
 #include "RebootAtMidnight.h"
 
+#include "Reboot.h"
+
 // TODO: Refactor writeEvent
 extern void writeEvent(String ,String ,String ,String );
 
@@ -12,14 +14,8 @@ void RebootAtMidnightClass::init()
 {
 }
 
-void RebootAtMidnightClass::config(bool *rebootFlag)
+void RebootAtMidnightClass::config(void)
 {
-    _rebootFlag = rebootFlag;
-    if (_rebootFlag != nullptr && _enabled) {
-        adjustTicker();
-    } else {
-        _ticker.detach();
-    }
 }
 void RebootAtMidnightClass::enable(void)
 {
@@ -27,9 +23,7 @@ void RebootAtMidnightClass::enable(void)
         return;
     }
     _enabled = true;
-    if (_rebootFlag != nullptr) {
-        adjustTicker();
-    }
+    adjustTicker();
 }
 void RebootAtMidnightClass::disable(void)
 {
@@ -51,11 +45,9 @@ void RebootAtMidnightClass::adjustTicker(void)
         if (millis()/1000ul > 86400ul) {
             // Das Sytem läuft jetzt aber schon seit über 24 Stunden
             // Also auch in diesem Fall: rebooten!
-            if (_rebootFlag) {
-                writeEvent("INFO", "RebootAtMidnight", "Starting reboot due runtime > 1 day ...", "");
-                *_rebootFlag = true;
-                return;
-            }
+            writeEvent("INFO", "RebootAtMidnight", "Starting reboot due runtime > 1 day ...", "");
+            Reboot.startReboot();
+            return;
         }
         _ticker.attach_scheduled(60, std::bind(&RebootAtMidnightClass::adjustTicker, this));
         return;
@@ -80,10 +72,8 @@ void RebootAtMidnightClass::adjustTicker(void)
 
 void RebootAtMidnightClass::doReboot() {
     // OK wir hatten einen Tageswechsel ... also rebooten
-    if (_rebootFlag) {
-        writeEvent("INFO", "RebootAtMidnight", "Starting scheduled reboot ...", "");
-        *_rebootFlag = true;
-    }
+    writeEvent("INFO", "RebootAtMidnight", "Starting scheduled reboot ...", "");
+    Reboot.startReboot();
 }
 
 RebootAtMidnightClass RebootAtMidnight;

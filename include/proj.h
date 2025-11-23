@@ -68,7 +68,6 @@ extern String get_ha_availability_topic();
 extern void mqtt_publish_ha_discovery();
 extern void serverInit(unsigned mode);
 extern void amisInit();
-extern bool shouldReboot;
 extern void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
 extern void printConfig();
 extern const char flashOk[];

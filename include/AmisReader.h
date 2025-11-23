@@ -42,6 +42,7 @@ public:
     const char *getSerialNumber();
     void enable();
     void disable();
+    void end();
     // void enableRestart(); // enables and restart fresh readings
 
 private:

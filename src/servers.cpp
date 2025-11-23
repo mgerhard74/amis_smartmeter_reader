@@ -1,6 +1,7 @@
 #include "proj.h"
 #include "AmisReader.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "Reboot.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -9,7 +10,6 @@ AsyncWebServer server(80);
 //AsyncWebServer restserver(81);
 AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 //flag to use from web update to reboot the ESP
-bool shouldReboot = false;
 int cmd;
 File fsUploadFile;
 
@@ -77,9 +77,7 @@ void serverInit(unsigned mode) {
       if (filename.startsWith(F("firmware"))) {
         cmd=U_FLASH;                       // 0
         content_len= (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        ModbusSmartmeterEmulation.disable();
-        valid=6;
-        Serial.end();
+        Reboot.startUpdateFirmware();
       }
       else if (filename==F("spiffs.bin")) {
         DBGOUT("SPIFFS is deprecated\n");
@@ -88,6 +86,7 @@ void serverInit(unsigned mode) {
       else if (filename==F("littlefs.bin")) {
         cmd= U_FS;                         // 100
         content_len=((size_t) &_FS_end - (size_t) &_FS_start);        // eigentlich Größe d. Flash-Partition
+        Reboot.startUpdateLittleFS();
       }
       else {
         cmd=1000;                       // anderes File
@@ -133,7 +132,11 @@ void serverInit(unsigned mode) {
           Update.printError(Serial);
           //return request->send(400, "text/plain", "Could not end OTA");
         }
-        shouldReboot = true;
+        if (cmd == U_FLASH) {
+          Reboot.endUpdateFirmware();
+        } else { // CMD == U_FS}
+          Reboot.endUpdateLittleFS();
+        }
       }
       else {                          // File write
         fsUploadFile.close();

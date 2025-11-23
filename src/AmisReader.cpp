@@ -405,6 +405,20 @@ void AmisReaderClass::init(uint8_t serialNo)
     }
 }
 
+void AmisReaderClass::end()
+{
+    disable();
+    if (_serial != nullptr) {
+        _serial->end();
+        _serial = nullptr;
+    }
+
+    valid = 0;
+    new_data_for_thingspeak = false;
+    new_data_for_websocket = false;
+    _readerIsOnline = false;
+}
+
 void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
 {
     if (_state == initReadSerial) {

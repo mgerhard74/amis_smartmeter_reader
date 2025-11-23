@@ -7,6 +7,7 @@
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "Network.h"
+#include "Reboot.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
 #include "Utils.h"
@@ -84,6 +85,8 @@ void setup(){
   AmisReader.init(1);  // Init mit Serieller Schnittstelle #1
   AmisReader.enable(); // und gleich enablen
 
+  Reboot.init();
+
   #ifdef OTA
   initOTA();
   #endif // OTA
@@ -117,7 +120,7 @@ void setup(){
 
   // initiate ping watchdog
   WatchdogPing.init();
-  WatchdogPing.config(networkConfigWifi.pingrestart_ip.c_str(), networkConfigWifi.pingrestart_interval ,networkConfigWifi.pingrestart_max, &shouldReboot);
+  WatchdogPing.config(networkConfigWifi.pingrestart_ip.c_str(), networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
   if (networkConfigWifi.pingrestart_do) {
     WatchdogPing.enable();
     if (Config.log_sys) {
@@ -131,7 +134,7 @@ void setup(){
 
   // Reboot um Mitternacht?
   RebootAtMidnight.init();
-  RebootAtMidnight.config(&shouldReboot);
+  RebootAtMidnight.config();
   if (Config.reboot0) {
     RebootAtMidnight.enable();
   }
@@ -167,25 +170,12 @@ void loop() {
   ArduinoOTA.handle();
   #endif
 
-  if(shouldReboot){
-    shouldReboot = false;
-    RemoteOnOff.prepareReboot();
-    secTicker.detach();
-    mqttTimer.detach();
-    ModbusSmartmeterEmulation.disable();
-    if (Config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
-    DBGOUT("Rebooting...");
-    delay(150);
-    LittleFS.end();
-    delay(150);
-    //ESP.wdtDisable();           // bootet 2x ???
-    ESP.restart();
-    while (1)    delay(1);
-  }
+  Reboot.loop();
+
   if (Config.thingspeak_aktiv && thingspeak_watch>10) {
     if (Config.log_sys) writeEvent("INFO", "mqtt", "Connection lost long time", "reboot");
     DBGOUT("thingspeak_watch reset");
-    shouldReboot=true;
+    Reboot.startReboot();
   }
   if (ws.count()) {      // ws-connections
     if (new_data_for_websocket) {

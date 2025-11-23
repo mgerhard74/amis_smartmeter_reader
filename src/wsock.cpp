@@ -1,6 +1,7 @@
 #include "proj.h"
 #include "AmisReader.h"
 #include "Network.h"
+#include "Reboot.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -296,7 +297,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     //eprintf("ping\n");
   }
   else if(strcmp(command, "restart") == 0) {
-    shouldReboot = true;
+    Reboot.startReboot();
   }
   else if(strcmp(command, "geteventlog") == 0) {
     logPage = root["page"];

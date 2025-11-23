@@ -7,6 +7,8 @@
 
 #include "WatchdogPing.h"
 
+#include "Reboot.h"
+
 #include <cstdint>
 
 
@@ -47,14 +49,13 @@ void WatchdogPingClass::init()
     _ping.on(false, std::bind(&WatchdogPingClass::onPingEndOfPing, this, _1));
 }
 
-void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, unsigned int failCount, bool *rebootFlag)
+void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, unsigned int failCount)
 {
     bool wasWaitingForPingResult = _isWaitingForPingResult;
 
     stopSinglePing();
 
     _host = String(host);
-    _rebootFlag = rebootFlag;
 
     _counterFailed = 0;
     checkIntervalMs = (unsigned long long)checkIntervalSec * 1000ull;
@@ -113,9 +114,7 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
             if (Config.log_sys) {
                 writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
             }
-            if (_rebootFlag) {
-                *_rebootFlag = true;
-            }
+            Reboot.startReboot();
         }
     }
     _isWaitingForPingResult = false;

@@ -5,14 +5,13 @@
 class RebootAtMidnightClass {
 public:
     void init(void);
-    void config(bool *rebootFlag);
+    void config(void);
     void enable(void);
     void disable(void);
 private:
     void doReboot(void);
     void adjustTicker(void);
     bool _enabled = false;
-    bool *_rebootFlag = nullptr;
     Ticker _ticker;
 };
 extern RebootAtMidnightClass RebootAtMidnight;

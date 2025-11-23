@@ -6,7 +6,7 @@
 class WatchdogPingClass {
 public:
     void init();
-    void config(const char *host, unsigned int checkIntervalSec, unsigned int failCount, bool *rebootFlag);
+    void config(const char *host, unsigned int checkIntervalSec, unsigned int failCount);
     void loop();
     unsigned int restartAfterFailed;
     unsigned long checkIntervalMs;
@@ -22,7 +22,6 @@ private:
     unsigned int _counterFailed;
     bool _isWaitingForPingResult = false;
     bool _isEnabled = false;
-    bool *_rebootFlag = nullptr;
     String _host;
 };
 
