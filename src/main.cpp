@@ -135,7 +135,8 @@ void setup(){
 
   // Netzwerksteckdose (On/Off via Netzwerk)
   RemoteOnOff.init();
-  RemoteOnOff.configOnce(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
+  RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
+  RemoteOnOff.enable();
 
   // Reboot um Mitternacht?
   RebootAtMidnight.init();

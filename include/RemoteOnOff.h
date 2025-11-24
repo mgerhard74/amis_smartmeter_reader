@@ -7,13 +7,12 @@ class RemoteOnOffClass {
 public:
     RemoteOnOffClass();
     void init();
-    void configOnce(String &urlOn, String &urlOff,
-                    int switchOnSaldoW, int switchOffSaldoW,
-                    unsigned int switchIntervalSec,
-                    bool honorHttpResult=false);
-    void config(int switchOnSaldoW, int switchOffSaldoW,
+    void config(String &urlOn, String &urlOff,
+                int switchOnSaldoW, int switchOffSaldoW,
                 unsigned int switchIntervalSec,
-                bool honorHttpResult);
+                bool honorHttpResult=false);
+    bool enable();
+    void disable();
     void onNewValidData(uint32_t v1_7_0, uint32_t v2_7_0);
     void prepareReboot();
 

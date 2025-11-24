@@ -64,44 +64,51 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     }
 }
 
-void RemoteOnOffClass::config(int switchOnSaldoW, int switchOffSaldoW,
-                              unsigned int switchIntervalSec,
-                              bool honorHttpResult)
+bool RemoteOnOffClass::enable()
 {
-    // Die On/Off Urls will ich zur Laufzeit nicht ändern lassen, da ja
-    // nach dem Restart/vor dem Reboot ein Off gesendet wird
+    if (_enabled) {
+        return true;
+    }
+    if (_urlOn.length() == 0 || _urlOff.length() == 0) {
+        return false;
+    }
+    _lastSentStateMs = millis() - _switchIntervalMs; // Allow changing status immediately
+    _ticker.attach_scheduled(LOOP_INTERVAL_SEC, std::bind(&RemoteOnOffClass::loop, this));
+    _enabled = true;
+    return true;
+
+}
+
+void RemoteOnOffClass::disable()
+{
     if (!_enabled) {
         return;
     }
-    if (switchOnSaldoW >= switchOffSaldoW) {
-        return;
-    }
-    _honorHttpResult = honorHttpResult;
-
-    _switchIntervalMs = (unsigned long)switchIntervalSec * 1000ul;
-    if (_switchIntervalMs == 0) {
-        _switchIntervalMs = 5000ul;
-    }
-
-    _switchOnSaldoW = switchOnSaldoW;
-    _switchOffSaldoW = switchOffSaldoW;
-    _lastSentStateMs = millis() - _switchIntervalMs; // Allow changing status immediately
+    sendURL(off);
+    _ticker.detach();
+    _enabled = false;
 }
 
-void RemoteOnOffClass::configOnce(String &urlOn, String &urlOff,
-                                  int switchOnSaldoW, int switchOffSaldoW,
-                                  unsigned int switchIntervalSec,
-                                  bool honorHttpResult)
+void RemoteOnOffClass::config(String &urlOn, String &urlOff,
+                              int switchOnSaldoW, int switchOffSaldoW,
+                              unsigned int switchIntervalSec,
+                              bool honorHttpResult)
 {
-    if (_enabled) {
-        return; // Den URLs können nur einmalig konfiguriert werden
-    }
-
     if (switchOnSaldoW >= switchOffSaldoW) {
         return;
     }
-    if (urlOn.length() == 0 || urlOff.length() == 0) {
-        return;
+
+    bool urlChanged;
+    if (urlOn.compareTo(_urlOn) == 0 && urlOff.compareTo(_urlOff) == 0) {
+        urlChanged = false;
+    } else {
+        urlChanged = true;
+    }
+
+    // Ggf noch schnell ein "Off" senden
+    bool wasEnabled = _enabled;
+    if (_enabled && urlChanged) {
+        disable();
     }
 
     _urlOn = urlOn;
@@ -116,11 +123,20 @@ void RemoteOnOffClass::configOnce(String &urlOn, String &urlOff,
     _switchOnSaldoW = switchOnSaldoW;
     _switchOffSaldoW = switchOffSaldoW;
 
-    _enabled = true;
-    _lastSentStateMs = millis() - _switchIntervalMs; // Allow changing status immediately
+    if (urlChanged) {
+        _lastSentState = undefined;
+    }
 
-    _ticker.attach_scheduled(LOOP_INTERVAL_SEC, std::bind(&RemoteOnOffClass::loop, this));
+    if (wasEnabled && urlChanged) {
+        enable();
+    }
+
+    if (_enabled) {
+        // Allow honoring changes of saldos and switchInterval even we've not changed the URLs
+        _lastSentStateMs = millis() - _switchIntervalMs;
+    }
 }
+
 
 void RemoteOnOffClass::prepareReboot()
 {
