@@ -43,6 +43,10 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
 {
     // TODO: Prüfen, ob wir überhaupt mit dem Netzwerk verbunden sind
 
+    if (_rebooting) {
+        newState = off;
+    }
+
     if (_lastSentState == newState) {
         return;
     }
@@ -50,7 +54,8 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     int httpResultCode;
     HTTPClient http;
     WiFiClient client;
-    http.begin(client, (newState == on) ?_urlOn :_urlOff);
+    String *url = (newState == on) ?&_urlOn :&_urlOff;
+    http.begin(client, *url);
     http.setReuse(false);
     //http.setTimeout(4000);
     httpResultCode = http.GET();
@@ -58,10 +63,13 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     _lastSentStateMs = millis();
     if (httpResultCode == HTTP_CODE_OK || !_honorHttpResult) {
         _lastSentState = newState;
+
     } else {
         // Failure
         _lastSentStateMs += 5000ul - _switchIntervalMs; // Try again in 5 secs
     }
+   // writeEvent("I", "", *url, String(httpResultCode));
+
 }
 
 bool RemoteOnOffClass::enable()
@@ -98,16 +106,13 @@ void RemoteOnOffClass::config(String &urlOn, String &urlOff,
         return;
     }
 
-    bool urlChanged;
-    if (urlOn.compareTo(_urlOn) == 0 && urlOff.compareTo(_urlOff) == 0) {
-        urlChanged = false;
-    } else {
-        urlChanged = true;
-    }
+    bool urlOffChanged;
+    urlOffChanged = (urlOff.compareTo(_urlOff) == 0) ?false :true;
+
 
     // Ggf noch schnell ein "Off" senden
     bool wasEnabled = _enabled;
-    if (_enabled && urlChanged) {
+    if (_enabled && urlOffChanged) {
         disable();
     }
 
@@ -123,11 +128,11 @@ void RemoteOnOffClass::config(String &urlOn, String &urlOff,
     _switchOnSaldoW = switchOnSaldoW;
     _switchOffSaldoW = switchOffSaldoW;
 
-    if (urlChanged) {
+    if (urlOffChanged) {
         _lastSentState = undefined;
     }
 
-    if (wasEnabled && urlChanged) {
+    if (wasEnabled && urlOffChanged) {
         enable();
     }
 
@@ -146,8 +151,7 @@ void RemoteOnOffClass::prepareReboot()
         return;
     }
 
-    // set _switchOffSaldoW to -2147483648
-    _switchOffSaldoW = 0x80000000; // any new state calculation gives now "off"
+    _rebooting = true;
 
     if (_lastSentState == off) {
         _ticker.detach();
@@ -155,8 +159,10 @@ void RemoteOnOffClass::prepareReboot()
         return;
     }
 
+    _lastSentState = undefined;
     _switchIntervalMs = 0; // Allow changing status immediately
-    _ticker.attach_ms_scheduled(50, std::bind(&RemoteOnOffClass::loop, this));  // try calling URL in 50ms
+    _saldoHistorySum = _saldoHistoryLen = 0; // Start a fresh calculation which saves uns some time in loop()
+    _ticker.attach_ms_scheduled(10, std::bind(&RemoteOnOffClass::loop, this));  // try calling Off-URL in 10ms
 }
 
 void RemoteOnOffClass::loop() // Wird vom _ticker jede Sekunde aufgerufen falls enabled

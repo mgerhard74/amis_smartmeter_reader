@@ -41,6 +41,8 @@ private:
     void sendURL(switchState_t state);
     void loop();
     Ticker _ticker;
+
+    bool _rebooting;
 };
 
 extern RemoteOnOffClass RemoteOnOff;
