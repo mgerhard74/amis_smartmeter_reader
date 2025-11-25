@@ -108,6 +108,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
     config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
     config.pingrestart_ip = json[F("pingrestart_ip")].as<String>();
+    config.pingrestart_ip.trim();
     config.pingrestart_interval = json[F("pingrestart_interval")].as<unsigned int>();
     config.pingrestart_max = json[F("pingrestart_max")].as<unsigned int>();
 
@@ -123,16 +124,23 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     config.rfpower = 20;
     if (json[F("rfpower")] != "") {
         config.rfpower = json[F("rfpower")].as<int>();
+        if (config.rfpower > 21) {
+            config.rfpower = 21;
+        }
     }
 
-    const char *v;
-    v = json[F("ip_static")].as<const char *>();
+    String v;
+    v = json[F("ip_static")].as<String>();
+    v.trim();
     config.ip_static.fromString(v);
-    v = json[F("ip_netmask")].as<const char *>();
+    v = json[F("ip_netmask")].as<String>();
+    v.trim();
     config.ip_netmask.fromString(v);
-    v = json[F("ip_nameserver")].as<const char *>();
+    v = json[F("ip_nameserver")].as<String>();
+    v.trim();
     config.ip_nameserver.fromString(v);
-    v = json[F("ip_gateway")].as<const char *>();
+    v = json[F("ip_gateway")].as<String>();
+    v.trim();
     config.ip_gateway.fromString(v);
 
     return true;

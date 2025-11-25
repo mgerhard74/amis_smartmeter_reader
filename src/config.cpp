@@ -36,6 +36,7 @@ void ConfigClass::loadConfigGeneral()
     //json.prettyPrintTo(Serial);
 
     DeviceName=json[F("devicename")].as<String>();
+    DeviceName.trim();
 
     use_auth=json[F("use_auth")].as<bool>();
     auth_passwd=json[F("auth_passwd")].as<String>();
@@ -46,17 +47,21 @@ void ConfigClass::loadConfigGeneral()
     smart_mtr=json[F("smart_mtr")].as<bool>();
 
     amis_key=json[F("amis_key")].as<String>();
+    amis_key.trim();
 
     thingspeak_aktiv=json[F("thingspeak_aktiv")].as<bool>();
     channel_id=json[F("channel_id")].as<unsigned int>();
     write_api_key=json[F("write_api_key")].as<String>();
+    write_api_key.trim();
     read_api_key=json[F("read_api_key")].as<String>();
+    read_api_key.trim();
     thingspeak_iv=json[F("thingspeak_iv")].as<unsigned int>();
     if (Config.thingspeak_iv < 30)  {
         Config.thingspeak_iv=30;
     }
     channel_id2=json[F("channel_id2")].as<unsigned int>();
     read_api_key2=json[F("read_api_key2")].as<String>();
+    read_api_key2.trim();
 
     rest_var=json[F("rest_var")].as<unsigned int>();
     rest_ofs=json[F("rest_ofs")].as<int>();
@@ -67,7 +72,9 @@ void ConfigClass::loadConfigGeneral()
     switch_on=json[F("switch_on")].as<int>();
     switch_off=json[F("switch_off")].as<int>();
     switch_url_on=json[F("switch_url_on")].as<String>();
+    switch_url_on.trim();
     switch_url_off=json[F("switch_url_off")].as<String>();
+    switch_url_off.trim();
     switch_intervall=json[F("switch_intervall")].as<unsigned int>();
 }
 
