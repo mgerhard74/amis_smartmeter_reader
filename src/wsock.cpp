@@ -6,6 +6,8 @@
 //#define DEBUG
 #include "debug.h"
 
+//#include "MiniAsyncHttpClient.h"
+
 extern void historyInit(void);
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
@@ -396,7 +398,23 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
           eprintf("no file\n");
       }
     }
+  } else if (!strcmp(command, "dev-tools-button1")) {
+#if 0
+    auto as = new MiniAsyncHttpClient();
+    as->initGET("https://www.google.at");
+    as->initGET("https://www.google.at:90");
+    as->initGET("http://benutzer1:passwort1@www.google.at:90");
+    as->initGET("http://benutzer2:passwort2@www.google.at:90/@hh");
+    as->initGET("http://benutzer3:passwort3@www.google.at:90/@hh");
+    as->initGET("benutzer4:passwort4@www.google.at:90/@hh");
+    as->initGET("benutzer5:passwort5@www.google.at/index.html");
+    delete as;
+#endif
+  } else if (!strcmp(command, "dev-tools-button2")) {
+
   }
+
+
   free(client->_tempObject);
   client->_tempObject = NULL;
 }

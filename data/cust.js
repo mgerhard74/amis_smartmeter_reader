@@ -897,6 +897,12 @@ $(function() {            // main
   $(".button-graf").on("click", function (){
     highchartDestroy(true);
   });
+  $(".button-dev-tools-button1").on("click", function () {
+    websock.send('{"command":"dev-tools-button1"}');
+  });
+  $(".button-dev-tools-button2").on("click", function () {
+    websock.send('{"command":"dev-tools-button2"}');
+  });
   $("input[name='mqtt_enabled']").on("click", mqttDetails);
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
