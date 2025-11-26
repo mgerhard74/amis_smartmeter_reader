@@ -36,7 +36,6 @@ Ticker secTicker;
 WiFiClient thp_client;
 unsigned things_cycle;
 String things_up;
-unsigned thingspeak_watch;
 bool new_data_for_thingspeak,new_data_for_websocket;
 unsigned first_frame=0;
 static uint8_t dow_local;
@@ -178,11 +177,6 @@ void loop() {
 
   Reboot.loop();
 
-  if (Config.thingspeak_aktiv && thingspeak_watch>10) {
-    if (Config.log_sys) writeEvent("INFO", "mqtt", "Connection lost long time", "reboot");
-    DBGOUT("thingspeak_watch reset");
-    Reboot.startReboot();
-  }
   if (ws.count()) {      // ws-connections
     if (new_data_for_websocket) {
       new_data_for_websocket=false;
@@ -325,7 +319,6 @@ static void secTick() {
   // Thingspeak aktualisieren
   if (Config.thingspeak_aktiv && things_cycle >= Config.thingspeak_iv && new_data_for_thingspeak && valid==5) {
     things_cycle=0;
-    thingspeak_watch++;
     new_data_for_thingspeak = false;
 
     thp_client.stop();
@@ -350,7 +343,6 @@ static void secTick() {
       things_up=timecode;
     }
     else things_up="failed";
-    thingspeak_watch=0;
   }
   else {
     if (updates){
