@@ -415,9 +415,12 @@ void AmisReaderClass::end()
     }
 
     valid = 0;
-    ThingSpeak.onNewData(false);
     new_data_for_websocket = false;
+
     _readerIsOnline = false;
+
+    ModbusSmartmeterEmulation.setCurrentValues(false);
+    ThingSpeak.onNewData(false);
 }
 
 void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
@@ -465,7 +468,10 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
                 if ((_serialReadBuffer[4] >= '0' && _serialReadBuffer[4] <= '6') || _serialReadBuffer[4] == '9') {
                     // Wir haben eine "gültige" Zähler-Antwort bekommen!
 
+                    // "0" ...  300 Bd, "1" ...  600 Bd, "2" ...  1200 Bd, "3" ...   2400 Bd
+                    // "4" ... 4800 Bd, "5" ... 9600 Bd, "6" ... 19200 Bd. "9" ... 115200 Bd
                     _baudRateIdentifier = _serialReadBuffer[5];
+
 
                     char *crlf;
                     crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
@@ -478,6 +484,8 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
                     _stateLastSetMs = msNow;
                     _stateErrorCnt = 0;
                     writeEvent("INFO", "amis", "Serialnumber found", _serialNumber);
+
+                    //serialWrite("\x06" "060\r\n");
                 } else {
                     // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
                     _state = requestReaderSerial;
