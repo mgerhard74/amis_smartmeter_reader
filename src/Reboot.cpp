@@ -7,6 +7,7 @@
 #include "config.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "RemoteOnOff.h"
+#include "ThingSpeak.h"
 
 #include <LittleFS.h>
 #include <Ticker.h>
@@ -74,30 +75,33 @@ void RebootClass::loop()
             RemoteOnOff.prepareReboot();
             break;
         case 3:
-            secTicker.detach();
+            ThingSpeak.disable();
             break;
         case 4:
-            mqttTimer.detach();
+            secTicker.detach();
             break;
         case 5:
-            ModbusSmartmeterEmulation.disable();
+            mqttTimer.detach();
             break;
         case 6:
+            ModbusSmartmeterEmulation.disable();
+            break;
+        case 7:
             if (Config.log_sys) {
                 writeEvent("INFO", "sys", "System is going to reboot", "");
             }
             DBGOUT("Rebooting...");
             break;
-        case 7:
-            delay(150);
-            break;
         case 8:
-            LittleFS.end();
+            delay(150);
             break;
         case 9:
-            delay(150);
+            LittleFS.end();
             break;
         case 10:
+            delay(150);
+            break;
+        case 11:
             //ESP.wdtDisable();           // bootet 2x ???
             ESP.restart();
             while (1) {
