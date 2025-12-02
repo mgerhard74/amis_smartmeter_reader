@@ -3,6 +3,7 @@
 #include "aes.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "RemoteOnOff.h"
+#include "ThingSpeak.h"
 #include "UA.h"
 #include "Utils.h"
 
@@ -16,7 +17,7 @@ uint32_t a_result[10] = {};
 int valid = 0;
 char timecode[13] = {}; // "0x" + 5*2 + '\0'
 extern void writeEvent(String type, String src, String desc, String data);
-extern bool new_data_for_thingspeak, new_data_for_websocket;
+extern bool new_data_for_websocket;
 extern unsigned first_frame;
 uint8_t dow;
 uint8_t mon, myyear;
@@ -414,7 +415,7 @@ void AmisReaderClass::end()
     }
 
     valid = 0;
-    new_data_for_thingspeak = false;
+    ThingSpeak.onNewData(false);
     new_data_for_websocket = false;
     _readerIsOnline = false;
 }
@@ -629,7 +630,6 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             // Transfer the result into the "old/global" result variables
             // Vars: valid, timecode, a_result
             valid = 5;
-            new_data_for_thingspeak = true;
             new_data_for_websocket = true;
             if (first_frame == 0) {
                 first_frame = 3; // Erster Datensatz nach Reboot oder verlorenem Sync
@@ -678,6 +678,8 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
         ModbusSmartmeterEmulation.setCurrentValues((bool)(valid == 5),
                                                    l_result.results[4], l_result.results[5],
                                                    l_result.results[0], l_result.results[1]);
+
+        ThingSpeak.onNewData((bool)(valid == 5), &l_result.results[0], l_result.timecode);
      }
 }
 
@@ -719,6 +721,7 @@ void AmisReaderClass::loop()
         _readerIsOnline = false;
         valid = 0;
         ModbusSmartmeterEmulation.setCurrentValues(false);
+        ThingSpeak.onNewData(false);
 
         _stateErrorCnt = 0;
 

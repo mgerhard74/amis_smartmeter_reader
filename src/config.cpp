@@ -7,6 +7,7 @@
 #include "ModbusSmartmeterEmulation.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
+#include "ThingSpeak.h"
 
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -82,6 +83,10 @@ void ConfigClass::applySettingsConfigGeneral()
 {
     AmisReader.setKey(Config.amis_key.c_str());
     RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
+
+    ThingSpeak.setInterval(Config.thingspeak_iv);
+    ThingSpeak.setApiKeyWriite(Config.write_api_key);
+    ThingSpeak.setEnabled(Config.thingspeak_aktiv);
     // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 

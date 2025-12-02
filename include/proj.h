@@ -47,8 +47,6 @@ extern AsyncWebServer server;
 extern AsyncWebSocket ws;
 extern WiFiClient dbg_client;
 extern WiFiServer dbg_server;
-extern unsigned things_cycle;
-extern String things_up;
 
 extern unsigned first_frame;
 extern uint8_t dow;

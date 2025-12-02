@@ -10,6 +10,7 @@
 #include "Reboot.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
+#include "ThingSpeak.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
 
@@ -32,11 +33,7 @@ extern void historyInit();
 static void secTick();
 
 Ticker secTicker;
-//AsyncMqttClient mq_client;                    // ThingsPeak Client
-WiFiClient thp_client;
-unsigned things_cycle;
-String things_up;
-bool new_data_for_thingspeak,new_data_for_websocket;
+bool new_data_for_websocket;
 unsigned first_frame=0;
 static uint8_t dow_local;
 static uint8_t mon_local;
@@ -114,8 +111,6 @@ void setup(){
   NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
   Network.connect();
 
-  secTicker.attach_scheduled(1,secTick);
-
   // Smart Meter Simulator
   ModbusSmartmeterEmulation.init();
   if (Config.smart_mtr) {
@@ -137,12 +132,20 @@ void setup(){
   RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
   RemoteOnOff.enable();
 
+  // ThingSpeak Datenupload
+  ThingSpeak.init();
+  ThingSpeak.setInterval(Config.thingspeak_iv);
+  ThingSpeak.setApiKeyWriite(Config.write_api_key);
+  ThingSpeak.setEnabled(Config.thingspeak_aktiv);
+
   // Reboot um Mitternacht?
   RebootAtMidnight.init();
   RebootAtMidnight.config();
   if (Config.reboot0) {
     RebootAtMidnight.enable();
   }
+
+  secTicker.attach_scheduled(1,secTick);
 
   if (Config.log_sys) {
     writeEvent("INFO", "sys", "System setup completed, running", "");
@@ -250,7 +253,6 @@ static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32
 
 static void secTick() {
   // wird jede Sekunde aufgerufen
-  things_cycle++;
 
   if (ws.count()) {        // ws-connections
     if (first_frame==0) {
@@ -316,46 +318,17 @@ static void secTick() {
     }
   }
 
-  // Thingspeak aktualisieren
-  if (Config.thingspeak_aktiv && things_cycle >= Config.thingspeak_iv && new_data_for_thingspeak && valid==5) {
-    things_cycle=0;
-    new_data_for_thingspeak = false;
 
-    thp_client.stop();
-    if (thp_client.connect("api.thingspeak.com", 80)) {
-      String data="api_key=" + String(Config.write_api_key);
-    #ifdef STROMPREIS
-      for (unsigned i=0;i<7;i++)
-        data += "&field" + (String(i+1))+"="+(String)(a_result[i]);
-        data += "&field8="+strompreis;
-    #else
-      for (unsigned i=0;i<8;i++)
-        data += "&field" + (String(i+1))+"="+(String)(a_result[i]);
-    #endif // strompreis
-      thp_client.println( "POST /update HTTP/1.1" );
-      thp_client.println( "Host: api.thingspeak.com" );
-      thp_client.println( "Connection: close" );
-      thp_client.println( "Content-Type: application/x-www-form-urlencoded" );
-      thp_client.println( "Content-Length: " + String( data.length() ) );
-      thp_client.println();
-      thp_client.println( data );
-      //DBGOUT(data+"\n");
-      things_up=timecode;
+  if (updates){
+    switch (updates) {
+      case 2:
+        energieWeekUpdate();                   // Wochentabelle Energie senden
+        break;
+      case 1:
+        energieMonthUpdate();                   // Wochentabelle Energie senden
+        break;
     }
-    else things_up="failed";
-  }
-  else {
-    if (updates){
-      switch (updates) {
-        case 2:
-          energieWeekUpdate();                   // Wochentabelle Energie senden
-          break;
-        case 1:
-          energieMonthUpdate();                   // Wochentabelle Energie senden
-          break;
-      }
-      updates--;
-    }
+    updates--;
   }
   ws.cleanupClients();   // beendete Webclients nicht mehr updaten
 }

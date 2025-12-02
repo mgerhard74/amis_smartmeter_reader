@@ -2,6 +2,7 @@
 #include "AmisReader.h"
 #include "Network.h"
 #include "Reboot.h"
+#include "ThingSpeak.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -49,7 +50,7 @@ void sendWeekData() {
   ws.text(clientId,s);
 }
 
-void  sendEventLog(uint32_t clientId,int page) {
+void sendEventLog(uint32_t clientId,int page) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject &root = jsonBuffer.createObject();
   root["page"] = page;                                     // Key name JS
@@ -80,7 +81,7 @@ void sendZDataWait() {
   doc["now"] = valid;
   doc["uptime"] = millis()/1000;
   doc["serialnumber"] = AmisReader.getSerialNumber();
-//  doc["things_up"] = things_up;
+//  doc["things_up"] = ThingSpeak.getLastResult();
   size_t len = doc.measureLength();
   AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
   if(buffer) {
@@ -103,7 +104,7 @@ void sendZData() {
   doc["4_7_0"] = a_result[7];
   doc["1_128_0"] = a_result[8];
   doc["uptime"] = millis()/1000;
-  doc["things_up"] = things_up;
+  doc["things_up"] = ThingSpeak.getLastResult();
   doc["serialnumber"] = AmisReader.getSerialNumber();
 
   size_t len = doc.measureLength();
