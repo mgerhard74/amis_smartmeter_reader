@@ -29,8 +29,6 @@ NOTE:   String length must be evenly divisible by 16byte (str_len % 16 == 0)
 
 */
 
-#define EBC 0
-//#define CBC 0
 /*****************************************************************************/
 /* Includes:                                                                 */
 /*****************************************************************************/
@@ -273,6 +271,7 @@ static void AddRoundKey(uint8_t round)
   }
 }
 
+#if (WANT_AES128_ENCRYPT)
 // The SubBytes Function Substitutes the values in the
 // state matrix with values in an S-box.
 static void SubBytes(void)
@@ -322,12 +321,14 @@ static void ShiftRows(void)
   (*state)[2][3] = (*state)[1][3];
   (*state)[1][3] = temp;
 }
+#endif // WANT_AES128_ENCRYPT
 
 static uint8_t xtime(uint8_t x)
 {
   return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
 }
 
+#if (WANT_AES128_ENCRYPT)
 // MixColumns function mixes the columns of the state matrix
 static void MixColumns(void)
 {
@@ -343,6 +344,7 @@ static void MixColumns(void)
     Tm  = (*state)[i][3] ^ t ;        Tm = xtime(Tm);  (*state)[i][3] ^= Tm ^ Tmp ;
   }
 }
+#endif // WANT_AES128_ENCRYPT
 
 // Multiply is used to multiply numbers in the field GF(2^8)
 #if MULTIPLY_AS_A_FUNCTION
@@ -364,6 +366,7 @@ static uint8_t Multiply(uint8_t x, uint8_t y)
 
 #endif
 
+#if (WANT_AES128_DECRYPT)
 // MixColumns function mixes the columns of the state matrix.
 // The method used to multiply may be difficult to understand for the inexperienced.
 // Please use the references to gain more information.
@@ -432,8 +435,10 @@ static void InvShiftRows(void)
   (*state)[2][3]=(*state)[3][3];
   (*state)[3][3]=temp;
 }
+#endif // WANT_AES128_DECRYPT
 
 
+#if (WANT_AES128_ENCRYPT)
 // Cipher is the main function that encrypts the PlainText.
 static void Cipher(void)
 {
@@ -459,7 +464,9 @@ static void Cipher(void)
   ShiftRows();
   AddRoundKey(Nr);
 }
+#endif // WANT_AES128_ENCRYPT
 
+#if (WANT_AES128_DECRYPT)
 static void InvCipher(void)
 {
   uint8_t round=0;
@@ -484,6 +491,7 @@ static void InvCipher(void)
   InvSubBytes();
   AddRoundKey(0);
 }
+#endif // WANT_AES128_DECRYPT
 
 static void BlockCopy(uint8_t* output, const uint8_t* input)
 {
@@ -504,6 +512,7 @@ static void BlockCopy(uint8_t* output, const uint8_t* input)
 /*****************************************************************************/
 #if defined(ECB) && ECB
 
+#if (WANT_AES128_ENCRYPT)
 void AES128_ECB_encrypt(uint8_t* input, const uint8_t* key, uint8_t* output)
 {
   // Copy input to output, and work in-memory on output
@@ -516,7 +525,9 @@ void AES128_ECB_encrypt(uint8_t* input, const uint8_t* key, uint8_t* output)
   // The next function call encrypts the PlainText with the Key using AES algorithm.
   Cipher();
 }
+#endif
 
+#if (WANT_AES128_DECRYPT)
 void AES128_ECB_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
 {
   // Copy input to output, and work in-memory on output
@@ -529,6 +540,7 @@ void AES128_ECB_decrypt(uint8_t* input, const uint8_t* key, uint8_t *output)
 
   InvCipher();
 }
+#endif
 #endif // #if defined(ECB) && ECB
 
 
@@ -543,6 +555,7 @@ static void XorWithIv(uint8_t* buf)
   }
 }
 
+#if (WANT_AES128_ENCRYPT)
 void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uintptr_t i;
@@ -582,7 +595,9 @@ void AES128_CBC_encrypt_buffer(uint8_t* output, uint8_t* input, uint32_t length,
     Cipher();
   }
 }
+#endif
 
+#if (WANT_AES128_DECRYPT)
 void AES128_CBC_decrypt_buffer(uint8_t* output, const uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
 {
   uintptr_t i;
@@ -623,6 +638,8 @@ void AES128_CBC_decrypt_buffer(uint8_t* output, const uint8_t* input, uint32_t l
     InvCipher();
   }
 }
+#endif
+
 #endif // #if defined(CBC) && CBC
 
 //274480	   7456	  32952	 314888	  4ce08
