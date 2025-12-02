@@ -4,9 +4,9 @@ class RebootClass {
 public:
     void init(void);
     void startReboot();
-    void startUpdateFirmware();
+    bool startUpdateFirmware();
     void endUpdateFirmware();
-    void startUpdateLittleFS();
+    bool startUpdateLittleFS();
     void endUpdateLittleFS();
     void loop();
 

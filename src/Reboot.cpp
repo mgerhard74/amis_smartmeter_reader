@@ -28,43 +28,59 @@ void RebootClass::startReboot()
     _state = 1;
 }
 
-void RebootClass::startUpdateFirmware()
+bool RebootClass::startUpdateFirmware()
 {
 // Start a firmware update
 // End or disable all things stressing the cpu
 // That would be:
 // AmisReader, WatchdogPing, MQTT, MDNS, ModbusSmartmeterEmulation, RemoteOnOff, RebootAtMidnight, Thingspeak
+    if (_state != 0) {
+        return false;
+    }
+    _state = -1;
     AmisReader.end();
     valid = 6;
     ModbusSmartmeterEmulation.disable();
+    ThingSpeak.disable();
+    return true;
 }
 void RebootClass::endUpdateFirmware()
 {
 // Firmware has been updatet -> Now end the Webserver, Websocket and reboot
-    startReboot();
+    if (_state == -1) {
+        _state = 1;
+    }
 }
 
-void RebootClass::startUpdateLittleFS()
+bool RebootClass::startUpdateLittleFS()
 {
 // Start a updating LittleFS filesystem
 // End or disable all things stressing the cpu
 // That would be:
 // AmisReader, WatchdogPing, MQTT, MDNS, ModbusSmartmeterEmulation, RemoteOnOff, RebootAtMidnight, Thingspeak, LittleFS
+    if (_state != 0) {
+        return false;
+    }
+    _state = -2;
     AmisReader.end();
     valid = 6;
     ModbusSmartmeterEmulation.disable();
+    ThingSpeak.disable();
     LittleFS.end(); // we can also end the filesystem as it will be overwritten
+    return true;
 }
 void RebootClass::endUpdateLittleFS()
 {
 // LittleFS has been updatet -> Now end the Webserver, Websocket and reboot
-    startReboot();
+    if (_state == -2) {
+        _state = 1;
+    }
 }
 
 
 void RebootClass::loop()
 {
-    if (_state == 0) {
+    if (_state <= 0) {
         return;
     }
     switch(_state++) {

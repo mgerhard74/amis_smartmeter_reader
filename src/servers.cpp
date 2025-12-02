@@ -77,7 +77,9 @@ void serverInit(unsigned mode) {
       if (filename.startsWith(F("firmware"))) {
         cmd=U_FLASH;                       // 0
         content_len= (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        Reboot.startUpdateFirmware();
+        if (!Reboot.startUpdateFirmware()) {
+          return;
+        }
       }
       else if (filename==F("spiffs.bin")) {
         DBGOUT("SPIFFS is deprecated\n");
@@ -86,7 +88,9 @@ void serverInit(unsigned mode) {
       else if (filename==F("littlefs.bin")) {
         cmd= U_FS;                         // 100
         content_len=((size_t) &_FS_end - (size_t) &_FS_start);        // eigentlich Größe d. Flash-Partition
-        Reboot.startUpdateLittleFS();
+        if (!Reboot.startUpdateLittleFS()) {
+          return;
+        }
       }
       else {
         cmd=1000;                       // anderes File
