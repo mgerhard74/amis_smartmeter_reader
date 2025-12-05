@@ -28,7 +28,7 @@
 #define AP_PIN 14
 //#define OTA
 //#define STROMPREIS
-#define VERSION "1.4.7"
+#define VERSION "1.5.0"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
