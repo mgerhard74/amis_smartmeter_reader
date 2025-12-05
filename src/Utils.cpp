@@ -59,6 +59,7 @@ bool Utils::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
     if ((mbusdata[1] & 0x40) == 0) {
         daylightDeviation = -daylightDeviation;
     }
+    // tm.tm_isdst
 #endif
     if (t.tm_hour > 23) {
         return false;

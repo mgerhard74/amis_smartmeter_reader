@@ -37,7 +37,7 @@ struct strConfig2 {
 };
 strConfig2 config2;
 
-String  ReadStringFromEEPROM(int beginaddress) {
+String ReadStringFromEEPROM(int beginaddress) {
   byte counter=0;
   char rChar;
   String retString = "";
@@ -85,6 +85,7 @@ boolean ReadConfig() {
 }
 
 void ConfigureWifi(bool ap) {
+#if 0
   int i=40;
   int j=0;
   WiFi.disconnect();
@@ -137,9 +138,11 @@ void ConfigureWifi(bool ap) {
     S.println(WiFi.localIP());
     #endif
   }
+#endif
 }
 
 void upgrade (bool save) {
+#if 0
   EEPROM.begin(256);
 	if (!ReadConfig()) {
     ConfigureWifi(1);
@@ -168,4 +171,5 @@ void upgrade (bool save) {
       #endif
     }
 	}
+#endif
 }

@@ -1,10 +1,19 @@
 #include "proj.h"
 #include "AmisReader.h"
+#include "Network.h"
+#include "Reboot.h"
+#include "ThingSpeak.h"
 
 //#define DEBUG
 #include "debug.h"
 
+//#include "MiniAsyncHttpClient.h"
+
+extern void historyInit(void);
+
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
+extern const char *__COMPILED_GIT_HASH__;
+extern const char *__COMPILED_GIT_BRANCH__;
 
 void sendWeekData() {
   File f;
@@ -41,7 +50,7 @@ void sendWeekData() {
   ws.text(clientId,s);
 }
 
-void  sendEventLog(uint32_t clientId,int page) {
+void sendEventLog(uint32_t clientId,int page) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject &root = jsonBuffer.createObject();
   root["page"] = page;                                     // Key name JS
@@ -72,7 +81,7 @@ void sendZDataWait() {
   doc["now"] = valid;
   doc["uptime"] = millis()/1000;
   doc["serialnumber"] = AmisReader.getSerialNumber();
-//  doc["things_up"] = things_up;
+//  doc["things_up"] = ThingSpeak.getLastResult();
   size_t len = doc.measureLength();
   AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
   if(buffer) {
@@ -95,7 +104,7 @@ void sendZData() {
   doc["4_7_0"] = a_result[7];
   doc["1_128_0"] = a_result[8];
   doc["uptime"] = millis()/1000;
-  doc["things_up"] = things_up;
+  doc["things_up"] = ThingSpeak.getLastResult();
   doc["serialnumber"] = AmisReader.getSerialNumber();
 
   size_t len = doc.measureLength();
@@ -127,7 +136,7 @@ void printScanResult(int nFound) {
   WiFi.scanDelete();
 }
 
-void  sendStatus(uint32_t clientId) {
+void sendStatus(uint32_t clientId) {
   struct ip_info info;
   FSInfo fsinfo;
   if(!LittleFS.info(fsinfo)) {
@@ -140,6 +149,8 @@ void  sendStatus(uint32_t clientId) {
   root[F("version")] = VERSION;
   root[F("app_name")] = APP_NAME;
   root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
+  root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
+  root[F("app_compiled_git_hash")] = __COMPILED_GIT_HASH__;
   root[F("core")] = ESP.getCoreVersion();
   root[F("sketchsize")] = ESP.getSketchSize();
   root[F("freesize")] = ESP.getFreeSketchSpace();
@@ -153,13 +164,13 @@ void  sendStatus(uint32_t clientId) {
   root[F("flashsize")] = ESP.getFlashChipSize();
   root[F("flashmode")] = String(ESP.getFlashChipMode());
   root[F("cpu")] = ESP.getCpuFreqMHz();
-  if(inAPMode) {
+  root[F("reset_reason")] = ESP.getResetReason();
+  if (Network.inAPMode()) {
     wifi_get_ip_info(SOFTAP_IF, &info);
     struct softap_config conf;
     wifi_softap_get_config(&conf);
     root[F("mac")] = WiFi.softAPmacAddress();
-  }
-  else {
+  } else {
     wifi_get_ip_info(STATION_IF, &info);
     struct station_config conf;
     wifi_station_get_config(&conf);
@@ -253,20 +264,22 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
         }
       }
     }
-    histInit();
+    historyInit();
     AmisReader.enable();
   }
   else if(strcmp(command,"monthlist")==0) {
     AmisReader.disable();
     LittleFS.remove("/monate");
     File f = LittleFS.open("/monate", "a");
-    int arrSize=root["month"].size();
-    for (int i=0;i<arrSize;i++) {
-      f.print(root["month"][i].as<String>());
-      f.print('\n');
+    if (f) {
+      int arrSize=root["month"].size();
+      for (int i=0;i<arrSize;i++) {
+        f.print(root["month"][i].as<String>());
+        f.print('\n');
+      }
+      f.close();
+      historyInit();
     }
-    f.close();
-    histInit();
     AmisReader.enable();
   }
   else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
@@ -277,7 +290,10 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
       //root.prettyPrintTo(dbg_string);
       f.close();
       eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n",command,len);
-      if (strcmp(command, "/config_general")==0) generalInit();
+      if (strcmp(command, "/config_general")==0) {
+        Config.loadConfigGeneral();
+        Config.applySettingsConfigGeneral();
+      }
     }
   }
   else if(strcmp(command, "status") == 0) {
@@ -288,7 +304,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     //eprintf("ping\n");
   }
   else if(strcmp(command, "restart") == 0) {
-    shouldReboot = true;
+    Reboot.startReboot();
   }
   else if(strcmp(command, "geteventlog") == 0) {
     logPage = root["page"];
@@ -344,8 +360,6 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     LittleFS.remove(F("/config_mqtt"));
 //    LittleFS.remove(F("/.idea"));
   }
-  else if(strcmp(command, "test") == 0) hwTest=true;
-
   else if(strcmp(command, "print") == 0) {
     const char *uid = root["file"];
     ws.text(clientId,uid); // ws.text
@@ -385,7 +399,23 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
           eprintf("no file\n");
       }
     }
+  } else if (!strcmp(command, "dev-tools-button1")) {
+#if 0
+    auto as = new MiniAsyncHttpClient();
+    as->initGET("https://www.google.at");
+    as->initGET("https://www.google.at:90");
+    as->initGET("http://benutzer1:passwort1@www.google.at:90");
+    as->initGET("http://benutzer2:passwort2@www.google.at:90/@hh");
+    as->initGET("http://benutzer3:passwort3@www.google.at:90/@hh");
+    as->initGET("benutzer4:passwort4@www.google.at:90/@hh");
+    as->initGET("benutzer5:passwort5@www.google.at/index.html");
+    delete as;
+#endif
+  } else if (!strcmp(command, "dev-tools-button2")) {
+
   }
+
+
   free(client->_tempObject);
   client->_tempObject = NULL;
 }

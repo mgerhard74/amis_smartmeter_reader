@@ -1,20 +1,23 @@
 #include "AmisReader.h"
 
 #include "aes.h"
+#include "ModbusSmartmeterEmulation.h"
+#include "RemoteOnOff.h"
+#include "ThingSpeak.h"
 #include "UA.h"
 #include "Utils.h"
 
-#define MIN(A,B) std::min((size_t)(A), (size_t)(B))  // std:min() can not compare (size_t) and (unsigned int)
+
+#define MIN(A,B) std::min((size_t)(A), (size_t)(B))  // std:min() can not compare (size_t) with (unsigned int) or (int)
 
 
 
 // TODO: Refactor this global vars and external function
 uint32_t a_result[10] = {};
-bool amisNotOnline = true;
 int valid = 0;
 char timecode[13] = {}; // "0x" + 5*2 + '\0'
 extern void writeEvent(String type, String src, String desc, String data);
-extern bool new_data,new_data3;
+extern bool new_data_for_websocket;
 extern unsigned first_frame;
 uint8_t dow;
 uint8_t mon, myyear;
@@ -99,6 +102,12 @@ static_assert(sizeof(struct decryptedTelegramData_SND_UD) == 80);
 
 // ---------------------------------------------------------------------------------------------------------------------------
 
+static void setTime(AmisReaderNumResult_t &result) {
+    struct timeval ti;
+    ti.tv_sec = mktime(&result.time);
+    ti.tv_usec = 0;
+    settimeofday(&ti, NULL);
+}
 
 int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)
 {
@@ -397,6 +406,23 @@ void AmisReaderClass::init(uint8_t serialNo)
     }
 }
 
+void AmisReaderClass::end()
+{
+    disable();
+    if (_serial != nullptr) {
+        _serial->end();
+        _serial = nullptr;
+    }
+
+    valid = 0;
+    new_data_for_websocket = false;
+
+    _readerIsOnline = false;
+
+    ModbusSmartmeterEmulation.setCurrentValues(false);
+    ThingSpeak.onNewData(false);
+}
+
 void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
 {
     if (_state == initReadSerial) {
@@ -413,7 +439,7 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
         }
         _serialReadBufferIdx = 0;
         clearSerialRx();
-        amisNotOnline = true;
+        _readerIsOnline = false;
         _state = requestReaderSerial;
         _stateLastSetMs = msNow;
         _stateTimoutMs = 5000;
@@ -442,7 +468,10 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
                 if ((_serialReadBuffer[4] >= '0' && _serialReadBuffer[4] <= '6') || _serialReadBuffer[4] == '9') {
                     // Wir haben eine "gültige" Zähler-Antwort bekommen!
 
+                    // "0" ...  300 Bd, "1" ...  600 Bd, "2" ...  1200 Bd, "3" ...   2400 Bd
+                    // "4" ... 4800 Bd, "5" ... 9600 Bd, "6" ... 19200 Bd. "9" ... 115200 Bd
                     _baudRateIdentifier = _serialReadBuffer[5];
+
 
                     char *crlf;
                     crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
@@ -455,6 +484,8 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
                     _stateLastSetMs = msNow;
                     _stateErrorCnt = 0;
                     writeEvent("INFO", "amis", "Serialnumber found", _serialNumber);
+
+                    //serialWrite("\x06" "060\r\n");
                 } else {
                     // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
                     _state = requestReaderSerial;
@@ -521,7 +552,7 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
         _serialReadBufferIdx = 0;
         clearSerialRx();
         _bytesInBufferExpectd = 0;
-        amisNotOnline = true;
+        _readerIsOnline = false;
         _state = readReaderCounters;
         _stateLastSetMs = msNow;
         _stateTimoutMs = 4000; // Timeout für das Lesen: 16 * 4 (=64 Sekunden)
@@ -600,12 +631,14 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
         int r;
         r = decodeBuffer(_decodingWorkBuffer, _decodingWorkBufferLength,  l_result);
         if (r == 0) {
+            // OK, we got new valid data
+            RemoteOnOff.onNewValidData(l_result.results[4]/* 1.7.0 */, l_result.results[5] /* 2.7.0 */);
+
             // TODO: Refactor
             // Transfer the result into the "old/global" result variables
             // Vars: valid, timecode, a_result
             valid = 5;
-            new_data = true;
-            new_data3 = true;
+            new_data_for_websocket = true;
             if (first_frame == 0) {
                 first_frame = 3; // Erster Datensatz nach Reboot oder verlorenem Sync
             }
@@ -626,9 +659,10 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             mon = l_result.time.tm_mon + 1; // mon: 1...12  -   tm_mon: 0...11 (months since January)
             myyear = l_result.time.tm_year - 100; // myyear: Jahr nur 2 stellig benötigt (seit 2000)
 
-            if (amisNotOnline) {
+            if (!_readerIsOnline) {
+                setTime(l_result);
                 writeEvent("INFO", "amis", "Data synced", "ok");
-                amisNotOnline = false;
+                _readerIsOnline = true;
             }
 
             _stateLastSetMs = msNow;
@@ -647,7 +681,14 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             //writeEvent("INFO", "amis", "Invalid data receifed", "Failed");
         }
         _state = readReaderCounters;
-    }
+
+        // TODO: Refactor - Create events on changed data
+        ModbusSmartmeterEmulation.setCurrentValues((bool)(valid == 5),
+                                                   l_result.results[4], l_result.results[5],
+                                                   l_result.results[0], l_result.results[1]);
+
+        ThingSpeak.onNewData((bool)(valid == 5), &l_result.results[0], l_result.timecode);
+     }
 }
 
 void AmisReaderClass::loop()
@@ -682,11 +723,13 @@ void AmisReaderClass::loop()
     if (_stateErrorCnt >= _stateErrorMax) {
         //writeEvent("INFO", "amis", String(float(msNow)/1000.0) + "Timeout occured", "State:" + String(_state));
 
-        if (!amisNotOnline) {
+        if (_readerIsOnline) {
             writeEvent("INFO", "amis", "Sync lost", "failure");
         }
-        amisNotOnline=true;
+        _readerIsOnline = false;
         valid = 0;
+        ModbusSmartmeterEmulation.setCurrentValues(false);
+        ThingSpeak.onNewData(false);
 
         _stateErrorCnt = 0;
 

@@ -222,6 +222,16 @@ div.state {
     width: 120px;
 }
 
+.button-dev-tools-button1,
+.button-dev-tools-button2
+{
+    background: rgb(146, 146, 147);
+    color: black;
+    text-shadow: 1;
+    float: left;
+    width: 300px;
+}
+
 /* -----------------------------------------------------------------------------
     Sliders
    -------------------------------------------------------------------------- */

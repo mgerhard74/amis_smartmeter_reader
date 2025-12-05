@@ -28,7 +28,7 @@
 #define AP_PIN 14
 //#define OTA
 //#define STROMPREIS
-#define VERSION "1.4.6"
+#define VERSION "1.4.7"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
@@ -47,21 +47,15 @@ extern AsyncWebServer server;
 extern AsyncWebSocket ws;
 extern WiFiClient dbg_client;
 extern WiFiServer dbg_server;
-extern unsigned things_cycle;
-extern String things_up;
-extern unsigned thingspeak_watch;
-extern bool new_data,new_data3;
+
 extern unsigned first_frame;
-extern uint8_t dow,dow_local;
-extern uint8_t mon,myyear,mon_local;
+extern uint8_t dow;
+extern uint8_t mon,myyear;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
 extern uint32_t clientId;
 extern const char PAGE_upgrade[];
-extern char *stack_start;
-extern void printStackSize(String txt);
-extern String lastMonth;
-extern AsyncServer* meter_server;
+//extern String lastMonth;
 
 extern kwhstruct kwh_hist[7];
 extern void mqtt_publish_state();
@@ -69,28 +63,19 @@ extern void mqtt_publish_ha_availability(bool);
 extern String get_ha_availability_topic();
 extern void mqtt_publish_ha_discovery();
 extern void serverInit(unsigned mode);
-extern void amisInit();
-extern bool shouldReboot;
 extern void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
-extern void printConfig();
-extern void connectToWifi();
 extern const char flashOk[];
 extern void initOTA();
 extern AsyncMqttClient mqttClient;
 extern Ticker mqttTimer;
 extern void mqtt_init();
-extern Ticker uniTicker,secTicker;
-extern bool inAPMode,mqttStatus,hwTest;
-extern void generalInit();
+extern Ticker secTicker;
+extern bool mqttStatus;
 extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);
 extern void sendEventLog(uint32_t clientId,int page);
-extern void  histInit();
 extern void upgrade (bool save);
-extern void postUpgrade ();
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
-extern void writeMonthFile(uint8_t y,uint8_t m);
-extern void meter_init();
 #endif

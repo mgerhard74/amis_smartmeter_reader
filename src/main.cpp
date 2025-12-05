@@ -5,13 +5,20 @@
 
 #include "AmisReader.h"
 #include "LedSingle.h"
+#include "ModbusSmartmeterEmulation.h"
+#include "Network.h"
+#include "Reboot.h"
+#include "RebootAtMidnight.h"
+#include "RemoteOnOff.h"
+#include "ThingSpeak.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
 
 
-bool pf;
+extern const char *__COMPILED_DATE_TIME_UTC_STR__;
+extern const char *__COMPILED_GIT_HASH__;
+extern const char *__COMPILED_GIT_BRANCH__;
 
-void secTick();
 #if DEBUGHW==1
   WiFiServer dbg_server(10000);
   WiFiClient dbg_client;
@@ -19,17 +26,17 @@ void secTick();
 #ifdef STROMPREIS
 String strompreis="";
 #endif // strompreis
-Ticker uniTicker,secTicker;
 
-//AsyncMqttClient mq_client;                    // ThingsPeak Client
-WiFiClient thp_client;
-unsigned things_cycle;
-String things_up;
-unsigned thingspeak_watch;
-bool new_data,new_data3;
+
+extern void historyInit();
+
+static void secTick();
+
+Ticker secTicker;
+bool new_data_for_websocket;
 unsigned first_frame=0;
-uint8_t dow_local;
-uint8_t mon_local;
+static uint8_t dow_local;
+static uint8_t mon_local;
 unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
@@ -37,23 +44,18 @@ unsigned last_mon_out;
 uint32_t clientId;
 int logPage=-1;
 uint8_t updates;
-String lastMonth;
+String latestYYMMInHistfile;
 #if DEBUGHW>0
   char dbg[128];
   String dbg_string;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
-bool inAPMode,mqttStatus,hwTest;
-ADC_MODE(ADC_VCC);
-int switch_last = 0;
-signed int Saldomittelwert[5];
+bool mqttStatus;
+
+
+// ADC_MODE(ADC_VCC);
 
 void setup(){
-  AmisReader.init(1); // Init mit Serieller Schnittstelle #1
-  AmisReader.enable(); // und gleich enablen
-
-  pinMode(AP_PIN,INPUT_PULLUP);
-
   #if DEBUGHW==2
     #if DEBUG_OUTPUT==0
       Serial.begin(115200);
@@ -61,10 +63,33 @@ void setup(){
       Serial1.begin(115200);
     #endif
   #endif // DEBUGHW
+
+  pinMode(AP_PIN, INPUT_PULLUP);
+  // pinMode(AP_PIN, INPUT); digitalWrite(AP_PIN, HIGH);
+
+  // Start filesystem early - so we can do some logging
+  LittleFS.begin();
+
+  // Log some booting information
+  writeEvent("INFO", "sys", "System starting...", "");
+  writeEvent("INFO", "sys", "  Version", VERSION);
+  writeEvent("INFO", "sys", "  Compiled [UTC]", __COMPILED_DATE_TIME_UTC_STR__);
+  writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
+  writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
+
+  // Set timezone to CET/CEST
+  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+  tzset();
+
+  // Start AMIS-Reader ... it can use the time to get the serailnumber
+  AmisReader.init(1);  // Init mit Serieller Schnittstelle #1
+  AmisReader.enable(); // und gleich enablen
+
+  Reboot.init();
+
   #ifdef OTA
   initOTA();
   #endif // OTA
-  LittleFS.begin();                 // always true! SPIFF.begin does autoformat!!!
 
   if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css"))
   {                     // Nötige html files nicht vorhanden
@@ -74,23 +99,57 @@ void setup(){
   }
 
   serverInit(0);                  // /init.html als /
-  generalInit();
-  histInit();
-  connectToWifi();  // and MQTT and NTP
-  secTicker.attach_scheduled(1,secTick);
-  if (Config.smart_mtr)  meter_init();
+
+  Config.loadConfigGeneral();
+  Config.applySettingsConfigGeneral();
+
+  // Load history of last 7 days and get YYMM of last entry in
+  historyInit();
+
+ // Start Network
+  Network.init(digitalRead(AP_PIN) == LOW);
+  NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
+  Network.connect();
+
+  // Smart Meter Simulator
+  ModbusSmartmeterEmulation.init();
+  if (Config.smart_mtr) {
+    ModbusSmartmeterEmulation.enable();
+  }
 
   // initiate ping watchdog
   WatchdogPing.init();
-  WatchdogPing.config(Config.pingrestart_ip.c_str(), Config.pingrestart_interval ,Config.pingrestart_max, &shouldReboot);
-  if (Config.pingrestart_do) {
+  WatchdogPing.config(networkConfigWifi.pingrestart_ip.c_str(), networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
+  if (networkConfigWifi.pingrestart_do) {
     WatchdogPing.enable();
     if (Config.log_sys) {
       writeEvent("INFO", "wifi", "Ping restart check enabled", "");
     }
   }
 
-  if (Config.log_sys) writeEvent("INFO", "sys", "System setup completed, running", "");
+  // Netzwerksteckdose (On/Off via Netzwerk)
+  RemoteOnOff.init();
+  RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
+  RemoteOnOff.enable();
+
+  // ThingSpeak Datenupload
+  ThingSpeak.init();
+  ThingSpeak.setInterval(Config.thingspeak_iv);
+  ThingSpeak.setApiKeyWriite(Config.write_api_key);
+  ThingSpeak.setEnabled(Config.thingspeak_aktiv);
+
+  // Reboot um Mitternacht?
+  RebootAtMidnight.init();
+  RebootAtMidnight.config();
+  if (Config.reboot0) {
+    RebootAtMidnight.enable();
+  }
+
+  secTicker.attach_scheduled(1,secTick);
+
+  if (Config.log_sys) {
+    writeEvent("INFO", "sys", "System setup completed, running", "");
+  }
 }
 
 void loop() {
@@ -119,44 +178,20 @@ void loop() {
   ArduinoOTA.handle();
   #endif
 
-  if(shouldReboot){
-    shouldReboot = false;
-    secTicker.detach();
-    mqttTimer.detach();
-    if (Config.log_sys) writeEvent("INFO", "sys", "System is going to reboot", "");
-    DBGOUT("Rebooting...");
-    delay(300);
-    //ESP.wdtDisable();           // bootet 2x ???
-    ESP.restart();
-    while (1)    delay(1);
-  }
-  if (Config.thingspeak_aktiv && thingspeak_watch>10) {
-    if (Config.log_sys) writeEvent("INFO", "mqtt", "Connection lost long time", "reboot");
-    DBGOUT("thingspeak_watch reset");
-    shouldReboot=true;
-  }
+  Reboot.loop();
+
   if (ws.count()) {      // ws-connections
-    if (new_data3) {
-      new_data3=false;
+    if (new_data_for_websocket) {
+      new_data_for_websocket=false;
       sendZData();
     }
   }
 
   AmisReader.loop();  // Zähler auslesen
 
-  if (hwTest) {
-    for (unsigned i=0;i < 200; i++)  {
-      Serial.write(i);
-      delay(1);
-    }
-  }
   if (logPage >=0) {
     sendEventLog(clientId,logPage);
     logPage=-1;
-  }
-  if (pf) {
-    pf=false;
-//    prnt();
   }
 
   LedBlue.loop();
@@ -167,7 +202,7 @@ void loop() {
 void writeHistFileIn(int x, long val) {
   DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
   File f = LittleFS.open("/hist_in"+String(x), "w");
-  if(f) {
+  if (f) {
     f.print(val);
     f.close();
   }
@@ -175,29 +210,49 @@ void writeHistFileIn(int x, long val) {
 void writeHistFileOut(int x, long val) {
   DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
   File f = LittleFS.open("/hist_out"+String(x), "w");
-  if(f) {
+  if (f) {
     f.print(val);
     f.close();
   }
 }
 
-void writeMonthFile(uint8_t y,uint8_t m) {
-  String s=String(m);
+
+static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32_t v_2_8_0)
+{
+// Hängt die ersten in Monat verfügbaren Zählerstände (1.8.0 und 2.8.0)
+// einfach an die Datei an.
+#if 1
+  size_t len;
+  char dataLine[28];
+  //     4  1   10   1  10   1 1   = 28
+  //   "yymm  NUMBER1 NUMBER2\n\0"
+  len = sprintf(dataLine, "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
+
+  File f = LittleFS.open("/monate", "a");
+  if (f) {
+    f.write(dataLine, len);
+    f.close();
+  }
+  dataLine[5] = 0;
+  return String(dataLine);
+#else
+  String mm = "0" + String(m);
   if (s.length()<2) s="0"+s;
   s=String(y)+s;
-  eprintf("F: %u %u %s",myyear, mon, s.c_str());
+  eprintf("F: %u %u %s", y, m, s.c_str());
   File f = LittleFS.open("/monate", "a");
   f.print(s+" ");
-  f.print(a_result[0]);
+  f.print(v_1_8_0);
   f.print(" ");
-  f.print(a_result[1]);
+  f.print(v_2_8_0);
   f.print('\n');          // f.println würde \r anfügen!
   f.close();
+  return s;
+#endif
 }
 
-void secTick() {
+static void secTick() {
   // wird jede Sekunde aufgerufen
-  things_cycle++;
 
   if (ws.count()) {        // ws-connections
     if (first_frame==0) {
@@ -222,7 +277,9 @@ void secTick() {
       String s=String(mon);
       if (s.length()<2) s="0"+s;
       s=String(myyear)+s;
-      if (s.compareTo(lastMonth)!=0) writeMonthFile(myyear,mon);  // Monat noch nicht im File
+      if (s.compareTo(latestYYMMInHistfile)!=0) {
+        latestYYMMInHistfile = appendToMonthFile(myyear,mon, a_result[0], a_result[1]);  // Monat noch nicht im File
+      }
       mon_local=mon;
     }
     else if (first_frame==2) {        // Wochentabelle Energie erzeugen
@@ -254,117 +311,29 @@ void secTick() {
       writeHistFileOut(x,a_result[1]);
       dow_local=dow;
       if (mon_local != mon) {         // Monatswechsel
-        writeMonthFile(myyear,mon);
+        latestYYMMInHistfile = appendToMonthFile(myyear, mon, a_result[0], a_result[1]);
         mon_local=mon;
       }
       first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
-
-     if ((millis()/1000 > 43200) && (Config.reboot0))      // Reboot wenn uptime > 12h
-      {
-          writeEvent("INFO", "sys", "Reboot uptime>12h", "");
-		  delay(10);
-          ESP.restart();
-      }
     }
   }
 
-  // Wifi Switch on/off
-  if ((Config.switch_url_on != "") && (Config.switch_url_off != ""))
-  {
-    signed int xsaldo;
-    xsaldo = (a_result[4] - a_result[5]);
-    for (unsigned i = 4; i > 0; i--)
-    {
-      Saldomittelwert[i] = Saldomittelwert[i - 1];
-    }
-    Saldomittelwert[0] = xsaldo;
-    signed int xsaldo_mw = 0;
-    for (unsigned i = 0; i < 5; i++)
-    {
-      xsaldo_mw = xsaldo_mw + Saldomittelwert[i];
-    }
-    xsaldo_mw = xsaldo_mw / 5;
-    unsigned int sek = (millis() / 1000) % 5;
-    if (Config.switch_intervall > 0)
-    {
-      sek = (millis() / 1000) % Config.switch_intervall;
-    }
 
-    if ((xsaldo_mw < Config.switch_on) && (switch_last != 1) && (sek == 0))
-    {
-      HTTPClient http;
-      WiFiClient client;
-      http.begin(client, Config.switch_url_on);
-      int httpCode = http.GET();
-      if (httpCode == HTTP_CODE_OK)
-      {
-        // writeEvent("INFO", "sys", "Switch on Url sent", "");
-      }
-      http.end();
-      switch_last = 1;
+  if (updates){
+    switch (updates) {
+      case 2:
+        energieWeekUpdate();                   // Wochentabelle Energie senden
+        break;
+      case 1:
+        energieMonthUpdate();                   // Wochentabelle Energie senden
+        break;
     }
-    if ((xsaldo_mw > Config.switch_off) && (switch_last != 2) && (sek == 0))
-    {
-      HTTPClient http;
-      WiFiClient client;
-      http.begin(client, Config.switch_url_off);
-      int httpCode = http.GET();
-      if (httpCode == HTTP_CODE_OK)
-      {
-        // writeEvent("INFO", "sys", "Switch off Url sent", "");
-      }
-      http.end();
-      switch_last = 2;
-    }
-  }
-
-  // Thingspeak aktualisieren
-  if (Config.thingspeak_aktiv && things_cycle >= Config.thingspeak_iv && new_data && valid==5) {
-    things_cycle=0;
-    thingspeak_watch++;
-    new_data = false;
-
-    thp_client.stop();
-    if (thp_client.connect("api.thingspeak.com", 80)) {
-      String data="api_key=" + String(Config.write_api_key);
-    #ifdef STROMPREIS
-      for (unsigned i=0;i<7;i++)
-        data += "&field" + (String(i+1))+"="+(String)(a_result[i]);
-        data += "&field8="+strompreis;
-    #else
-      for (unsigned i=0;i<8;i++)
-        data += "&field" + (String(i+1))+"="+(String)(a_result[i]);
-    #endif // strompreis
-      thp_client.println( "POST /update HTTP/1.1" );
-      thp_client.println( "Host: api.thingspeak.com" );
-      thp_client.println( "Connection: close" );
-      thp_client.println( "Content-Type: application/x-www-form-urlencoded" );
-      thp_client.println( "Content-Length: " + String( data.length() ) );
-      thp_client.println();
-      thp_client.println( data );
-      //DBGOUT(data+"\n");
-      things_up=timecode;
-    }
-    else things_up="failed";
-    thingspeak_watch=0;
-  }
-  else {
-    if (updates){
-      switch (updates) {
-        case 2:
-          energieWeekUpdate();                   // Wochentabelle Energie senden
-          break;
-        case 1:
-          energieMonthUpdate();                   // Wochentabelle Energie senden
-          break;
-      }
-      updates--;
-    }
+    updates--;
   }
   ws.cleanupClients();   // beendete Webclients nicht mehr updaten
 }
 
-void  writeEvent(String type, String src, String desc, String data) {
+void writeEvent(String type, String src, String desc, String data) {
   DynamicJsonBuffer jsonBuffer;
   JsonObject &root = jsonBuffer.createObject();
   root[F("type")] = type;
