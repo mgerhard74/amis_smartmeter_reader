@@ -221,9 +221,9 @@ void mqtt_publish_ha_discovery() {
   HASensor entries[] = {
     {"1.8.0","Bezug","kWh","energy","total_increasing"},
     {"2.8.0","Lieferung","kWh","energy","total_increasing"},
-    {"1.7.0","Leistung Bezug","W","power",NULL},
-    {"2.7.0","Leistung Lieferung","W","power",NULL},
-    {"saldo","Saldo","W", "power",NULL},
+    {"1.7.0","Leistung Bezug","W","power","measurement"},
+    {"2.7.0","Leistung Lieferung","W","power","measurement"},
+    {"saldo","Saldo","W", "power","measurement"},
   };
   // Helper that accepts the whole HASensor and builds the discovery payload,
   // including rest_var handling and value_template logic.
