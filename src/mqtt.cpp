@@ -11,6 +11,37 @@ extern String strompreis;
 AsyncMqttClient mqttClient;
 Ticker mqttTimer;
 
+static bool loadConfigMqtt()
+{
+  File configFile = LittleFS.open("/config_mqtt", "r");
+  if (!configFile) {
+    DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
+    return false;
+  }
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject &json = jsonBuffer.parseObject(configFile);
+  configFile.close();
+  if (!json.success()) {
+    DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
+    return false;
+  }
+  ///json.prettyPrintTo(Serial);
+  Config.mqtt_qos = json[F("mqtt_qos")].as<unsigned int>();
+  Config.mqtt_retain = json[F("mqtt_retain")].as<bool>();
+  Config.mqtt_sub = json[F("mqtt_sub")].as<String>();
+  Config.mqtt_pub = json[F("mqtt_pub")].as<String>();
+  Config.mqtt_keep = json[F("mqtt_keep")].as<unsigned int>();
+  Config.mqtt_ha_discovery = json[F("mqtt_ha_discovery")].as<bool>();
+  Config.mqtt_will = json[F("mqtt_will")].as<String>();
+  Config.mqtt_user = json[F("mqtt_user")].as<String>();
+  Config.mqtt_password = json[F("mqtt_password")].as<String>();
+  Config.mqtt_client_id = json[F("mqtt_clientid")].as<String>();
+  Config.mqtt_enabled = json[F("mqtt_enabled")].as<bool>();
+  Config.mqtt_broker = json[F("mqtt_broker")].as<String>();
+  Config.mqtt_port = json[F("mqtt_port")].as<uint16_t>();
+  return true;
+}
+
 void mqttAliveTicker() {
   if (valid==5)  mqtt_publish_state();
 }
@@ -37,48 +68,31 @@ void onMqttConnect(bool sessionPresent) {
 #ifdef STROMPREIS
   mqttClient.subscribe("strompreis",0);
 #endif // STROMPREIS
-
 }
 
 void connectToMqtt() {
-  File configFile = LittleFS.open("/config_mqtt", "r");
-  if(!configFile) {
-    DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
+  if (!loadConfigMqtt()) {
     return;
   }
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject &json = jsonBuffer.parseObject(configFile);
-  configFile.close();
-  if(!json.success()) {
-    DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
-    return;
-  }
-  ///json.prettyPrintTo(Serial);
-  Config.mqtt_qos=json[F("mqtt_qos")];
-  Config.mqtt_retain=json[F("mqtt_retain")];
-  Config.mqtt_sub=json[F("mqtt_sub")].as<String>();
-  Config.mqtt_pub=json[F("mqtt_pub")].as<String>();
-  Config.mqtt_keep=json[F("mqtt_keep")].as<int>();
-  Config.mqtt_ha_discovery = json[F("mqtt_ha_discovery")];
-  if (json[F("mqtt_will")]!="") {
-    mqttClient.setWill(json[F("mqtt_will")].as<char*>(),Config.mqtt_qos,Config.mqtt_retain,Config.DeviceName.c_str());
-    eprintf("MQTT SetWill: %s %u %u %s\n",json[F("mqtt_will")].as<char*>(),Config.mqtt_qos,Config.mqtt_retain,Config.DeviceName.c_str());
-  }
-  else if (Config.mqtt_ha_discovery){
+
+  if (!Config.mqtt_will.isEmpty()) {
+    mqttClient.setWill(Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
+    eprintf("MQTT SetWill: %s %u %u %s\n",Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
+  } else if (Config.mqtt_ha_discovery) {
     // Set LWT to availability topic for HA discovery in case the user did not define a custom one
     String avail_topic = get_ha_availability_topic();
     // mqttClient.setWill(avail_topic.c_str(), Config.mqtt_qos, true, String("offline").c_str());
-    eprintf("MQTT SetWill (HA): %s %u %u offline\n",avail_topic.c_str(),Config.mqtt_qos, true);
+    eprintf("MQTT SetWill (HA): %s %u %u offline\n", avail_topic.c_str(), Config.mqtt_qos, true);
   }
-  if (json[F("mqtt_user")]!="") {
-    mqttClient.setCredentials(json[F("mqtt_user")].as<char*>(),json[F("mqtt_password")].as<char*>());
-    eprintf("MQTT User: %s %s\n",json[F("mqtt_user")].as<char*>(),json[F("mqtt_password")].as<char*>());
+  if (!Config.mqtt_user.isEmpty()) {
+    mqttClient.setCredentials(Config.mqtt_user.c_str(), Config.mqtt_password.c_str());
+    eprintf("MQTT User: %s %s\n", Config.mqtt_user.c_str(), Config.mqtt_password.c_str());
   }
-  if (json[F("mqtt_clientid")]!="") {
-    mqttClient.setClientId(json[F("mqtt_clientid")].as<char*>());
-    eprintf("MQTT ClientId: %s\n",json[F("mqtt_clientid")].as<char*>());
+  if (!Config.mqtt_client_id.isEmpty()) {
+    mqttClient.setClientId(Config.mqtt_client_id.c_str());
+    eprintf("MQTT ClientId: %s\n", Config.mqtt_client_id.c_str());
   }
-  if (json[F("mqtt_enabled")]) {
+  if (Config.mqtt_enabled) {
     DBGOUT("MQTT connect\n");
     mqttClient.connect();
   }
@@ -287,22 +301,11 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 }
 
 void mqtt_init() {
-  File configFile = LittleFS.open("/config_mqtt", "r");
-  if(!configFile) {
-    DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
-    writeEvent("ERROR", "mqtt", "MQTT config fail", "");
+  if (!loadConfigMqtt()) {
     return;
   }
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject &json = jsonBuffer.parseObject(configFile);
-  configFile.close();
-  if(!json.success()) {
-    DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
-    writeEvent("ERROR", "mqtt", "MQTT config error", "");
-    return;
-  }
-  //json.prettyPrintTo(Serial);
-  if (json[F("mqtt_enabled")]) {
+
+  if (Config.mqtt_enabled) {
 //    mqttClient.onSubscribe(onMqttSubscribe);
 //    mqttClient.onUnsubscribe(onMqttUnsubscribe);
     mqttClient.onMessage(onMqttMessage);
@@ -310,9 +313,9 @@ void mqtt_init() {
     mqttClient.onDisconnect(onMqttDisconnect);
     mqttClient.onPublish(onMqttPublish);
     IPAddress mqttIP;
-    mqttIP.fromString(json[F("mqtt_broker")].as<String>());
-    eprintf("MQTT init: %s %d\n",mqttIP.toString().c_str(),json["mqtt_port"].as<int>());
-    mqttClient.setServer(mqttIP,json[F("mqtt_port")]);
+    mqttIP.fromString(Config.mqtt_broker);
+    eprintf("MQTT init: %s %d\n", mqttIP.toString().c_str(), Config.mqtt_port);
+    mqttClient.setServer(mqttIP, Config.mqtt_port);
     mqttTimer.once_scheduled(15, connectToMqtt);
   }
 }
