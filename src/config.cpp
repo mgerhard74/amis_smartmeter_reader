@@ -92,6 +92,7 @@ void ConfigClass::applySettingsConfigGeneral()
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
+    Webserver.setTryGzipFirst(!Config.developerModeEnabled);
     // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 

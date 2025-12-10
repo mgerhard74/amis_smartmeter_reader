@@ -15,6 +15,7 @@ class WebserverClass
         void init(bool upgradeMode);
         void setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password);
         bool checkCredentials(AsyncWebServerRequest* request);
+        void setTryGzipFirst(bool tryGzipFirst=true);
 
     private:
         void onNotFound(AsyncWebServerRequest *request);
@@ -22,6 +23,7 @@ class WebserverClass
         void reload();
 
         AsyncWebServer _server;
+        AsyncStaticWebHandler *_staticFilesServer;
 
         WebserverLoginClass _websrvLogin;
         WebserverRestClass _websrvRest;

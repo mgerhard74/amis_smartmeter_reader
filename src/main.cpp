@@ -124,6 +124,7 @@ void setup(){
     Webserver.init(false);    // /init.html als /
   }
   Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
+  Webserver.setTryGzipFirst(!Config.developerModeEnabled); // im developermode wollen wir das nicht
 
   // Smart Meter Simulator
   ModbusSmartmeterEmulation.init();

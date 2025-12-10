@@ -592,8 +592,11 @@ function doUpdateGeneral() {                 // button save config
   });
   if (config_general.thingspeak_aktiv) $(".menu-graf").show();
   else $(".menu-graf").hide();
-  if (config_general.developerModeEnabled) $(".menu-developer").show();
-  else $(".menu-developer").hide();
+  if (config_general.developerModeEnabled) {
+    $(".menu-developer").show();
+  } else {
+    $(".menu-developer").hide();
+  }
   websock.send(JSON.stringify(config_general));
   //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
@@ -701,8 +704,13 @@ function authDetails() {  // display settings only if auth active
 }
 
 function developerModeEnabled() {  // display settings only if auth active
-  if ($(this).prop('checked')) $(".menu-developer").show();
-  else $(".menu-developer").hide();
+  if ($(this).prop('checked')) {
+    $(".menu-developer").show();
+    websock.send('{"command":"set-developer-mode", "value":"on"}');
+  } else {
+    $(".menu-developer").hide();
+    websock.send('{"command":"set-developer-mode", "value":"off"}');
+  }
 }
 
 function sel_api(i) {

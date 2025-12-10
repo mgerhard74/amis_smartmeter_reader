@@ -3,9 +3,11 @@
 */
 
 #include "Webserver_ws_Data.h"
+
 #include "config.h"
 #include "Network.h"
 #include "Reboot.h"
+#include "Webserver.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -328,6 +330,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             else {
                 eprintf("no file\n");
             }
+        }
+    } else if (!strcmp(command, "set-developer-mode")) {
+        const char *onOff = root[F("value")].as<const char*>();
+        if (onOff) {
+            Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
+            Webserver.setTryGzipFirst(!Config.developerModeEnabled);
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 

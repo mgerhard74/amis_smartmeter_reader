@@ -7,6 +7,9 @@
 WebserverClass::WebserverClass()
     : _server(WEBSERVER_HTTP_PORT)
 {
+    // Grundsätzlich kommt alles aus dem Filesystem
+    _staticFilesServer = &_server.serveStatic("/", LittleFS, "/", "public, must-revalidate");  // /*.* wird aut. geservt, alle Files die keine Daten anfordern (GET, POST...)
+    //_staticFilesServer->setTryGzipFirst(true); // ist default bereits enabled
 }
 
 void WebserverClass::init(bool upgradeMode)
@@ -24,14 +27,13 @@ void WebserverClass::init(bool upgradeMode)
     _websrvWsConsole.init(_server);
     _websrvWsData.init(_server);
 
+    // Eine 404 (Not Found) Site
     _server.onNotFound(std::bind(&WebserverClass::onNotFound, this, _1));
 
-    // Spezielle statische Seite "/upgrade"
+    // Spezielle statische Seite "/upgrade" einbinden (Seite kommt aus dem RAM)
     _server.on("/upgrade", HTTP_GET, std::bind(&WebserverClass::onRequest_Upgrade, this, _1));
 
-    // Der Rest kommt aus dem Filesystem
-    _server.serveStatic("/", LittleFS, "/", "public, must-revalidate");  // /*.* wird aut. geservt, alle Files die keine Daten anfordern (GET, POST...)
-
+    // Noch den Upgrademode behandeln
     if (upgradeMode) {
         _server.rewrite("/", "/upgrade");
     } else {
@@ -39,6 +41,11 @@ void WebserverClass::init(bool upgradeMode)
     }
 
     _server.begin();
+}
+
+void WebserverClass::setTryGzipFirst(bool tryGzipFirst)
+{
+    _staticFilesServer->setTryGzipFirst(tryGzipFirst);
 }
 
 bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
