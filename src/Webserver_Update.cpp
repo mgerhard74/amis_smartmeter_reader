@@ -1,3 +1,9 @@
+/*
+    Handle updates of firmware, littlefs or any other fileupload (POST requests)
+    at http://<espiIp>/update
+
+    Configuration changes get updated via the websochet and a command
+*/
 #include "Webserver_Update.h"
 
 #include "AmisReader.h"
@@ -31,26 +37,28 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             writeEvent("INFO", "updt", "Update started", filename);
         }
         eprintf("Update Start: %s\n", filename.c_str());
-
+        if (filename.isEmpty()) {
+            return;
+        }
         _uploadFilename = filename;
 
         size_t content_len = 0;
 
         if (_uploadFilename.startsWith(F("firmware"))) {
-            _uploadfiletype = firmware;
-            content_len = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
             if (!Reboot.startUpdateFirmware()) {
                 return;
             }
+            _uploadfiletype = firmware;
+            content_len = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
         } else if (_uploadFilename == F("spiffs.bin")) {
             DBGOUT("SPIFFS is deprecated\n");
             ESP.restart();
         } else if (_uploadFilename == F("littlefs.bin")) {
-            _uploadfiletype = littlefs;
-            content_len = ((size_t) &_FS_end - (size_t) &_FS_start);        // eigentlich Größe d. Flash-Partition
             if (!Reboot.startUpdateLittleFS()) {
                 return;
             }
+            _uploadfiletype = littlefs;
+            content_len = ((size_t) &_FS_end - (size_t) &_FS_start);        // eigentlich Größe d. Flash-Partition
         } else {
             _uploadfiletype = anyOther;// anderes File
         }
@@ -87,7 +95,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
                 DBGOUT(".");  // eprintf("Progress: %d%%\n", (Update.progress()*100)/Update.size());
             }
         }
-    } else { // write "any other file" content
+    } else if (_uploadfiletype == anyOther) { // write "any other file" content
         if (_uploadFile) {
             if (_uploadFile.write(data, len) != len) {
                 writeEvent("ERRO", "updt", "Writing to file failed", filename.c_str());

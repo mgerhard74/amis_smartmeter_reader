@@ -9,6 +9,7 @@
 
 #include <ArduinoJson.h>
 #include <AsyncMqttClient.h>
+#include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
@@ -95,7 +96,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     if (!configFile) {
         DBGOUT("[ ERR ] Failed to open config_wifi\n");
         writeEvent("ERROR", "wifi", "WiFi config fail", "");
-        return false;
+        return loadConfigWifiFromEEPROM(config);
     }
 
     JsonObject &json = jsonBuffer.parseObject(configFile);
@@ -166,7 +167,7 @@ void NetworkClass::connect(void)
             writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
         }
     } else {
-        // TODO ... sollte hier nicht aus was gemacht werden?
+        // TODO ... sollte hier nicht auch was gemacht werden?
     }
 
     DBGOUT(F("Start Wifi\n"));
@@ -201,6 +202,93 @@ bool NetworkClass::isConnected(void)
 const NetworkConfigWifi_t &NetworkClass::getConfigWifi(void)
 {
     return _configWifi;
+}
+
+static String readStringFromEEPROM(int beginaddress)
+{
+    size_t cnt;
+    char buffer[33];
+    for(cnt = 0; cnt < sizeof(buffer)-1; cnt++) {
+        char ch;
+        ch = EEPROM.read(beginaddress + cnt);
+        buffer[cnt] = ch;
+        if (ch == 0) {
+            break;
+        }
+    }
+    buffer[sizeof(buffer) - 1] = 0;
+    return String(buffer);
+}
+
+bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
+{
+    // Irgendwann zu Beginn des Projektes, dürfte die
+    // Config im EEPROM abgelegt worden sein.
+    // Also: Wenn keine /config_wifi vorhanden ist, versuchen
+    // wir die Config aus dem EEPROM zu lesen und gleich
+    // als /config_wifi zu speichern
+    //
+    // TODO: Brauchen wir das wirklich noch?
+
+    EEPROM.begin(256);
+    if(EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {
+        EEPROM.end();
+        return false;
+    }
+
+    uint8_t ip_addr[4];
+    ip_addr[0] = EEPROM.read(12);
+    ip_addr[1] = EEPROM.read(13);
+    ip_addr[2] = EEPROM.read(14);
+    ip_addr[3] = EEPROM.read(15);
+    config.ip_nameserver = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+
+    config.dhcp = EEPROM.read(16) ?true :false;
+    config.rfpower = EEPROM.read(26);
+    if (config.rfpower > 21) {
+        config.rfpower = 21;
+    }
+
+    ip_addr[0] = EEPROM.read(32);
+    ip_addr[1] = EEPROM.read(33);
+    ip_addr[2] = EEPROM.read(34);
+    ip_addr[3] = EEPROM.read(35);
+    config.ip_static = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+
+    ip_addr[0] = EEPROM.read(36);
+    ip_addr[1] = EEPROM.read(37);
+    ip_addr[2] = EEPROM.read(38);
+    ip_addr[3] = EEPROM.read(39);
+    config.ip_netmask = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+
+    ip_addr[0] = EEPROM.read(40);
+    ip_addr[1] = EEPROM.read(41);
+    ip_addr[2] = EEPROM.read(42);
+    ip_addr[3] = EEPROM.read(43);
+    config.ip_gateway = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+
+    config.ssid = readStringFromEEPROM(62);
+    config.wifipassword = readStringFromEEPROM(94);
+
+    EEPROM.end();
+
+    File f = LittleFS.open("/config_wifi", "w");
+    if (f) {
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject &root = jsonBuffer.createObject();
+        root["dhcp"] = config.dhcp;
+        root["ip_gateway"] = config.ip_gateway.toString();
+        root["ip_nameserver"] = config.ip_nameserver.toString();
+        root["ip_netmask"] = config.ip_netmask.toString();
+        root["ip_static"] = config.ip_static.toString();
+        root["rfpower"] = config.rfpower;
+        root["ssid"] = config.ssid;
+        root["wifipassword"] = config.wifipassword;
+        root["command"] = "/config_wifi";
+        root.printTo(f);
+        f.close();
+    }
+    return true;
 }
 
 NetworkClass Network;

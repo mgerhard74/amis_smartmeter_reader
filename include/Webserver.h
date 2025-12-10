@@ -12,7 +12,7 @@ class WebserverClass
 {
     public:
         WebserverClass();
-        void init();
+        void init(bool upgradeMode);
         void reload();
 
     private:

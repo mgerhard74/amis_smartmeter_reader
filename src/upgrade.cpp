@@ -1,3 +1,4 @@
+#if 0
 #include "proj.h"
 
 #include "LedSingle.h"
@@ -141,35 +142,4 @@ void ConfigureWifi(bool ap) {
 #endif
 }
 
-void upgrade (bool save) {
-#if 0
-  EEPROM.begin(256);
-	if (!ReadConfig()) {
-    ConfigureWifi(1);
-    save=false;
-	}
-	else ConfigureWifi(0);
-	if (save) {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    root["dhcp"] = config2.dhcp;
-    root["ip_gateway"]=String(config2.Gateway[0])+"."+String(config2.Gateway[1])+"."+String(config2.Gateway[2])+"."+String(config2.Gateway[3]);
-    root["ip_nameserver"]=String(config2.Nameserver[0])+"."+String(config2.Nameserver[1])+"."+String(config2.Nameserver[2])+"."+String(config2.Nameserver[3]);
-    root["ip_netmask"]=String(config2.Netmask[0])+"."+String(config2.Netmask[1])+"."+String(config2.Netmask[2])+"."+String(config2.Netmask[3]);
-    root["ip_static"]=String(config2.IP[0])+"."+String(config2.IP[1])+"."+String(config2.IP[2])+"."+String(config2.IP[3]);
-    root["ssid"]=config2.ssid;
-    root["rfpower"]=config2.rfpower;
-    root["wifipassword"]=config2.password;
-    root["command"]="/config_wifi";
-    File f = LittleFS.open("/config_wifi", "w+");
-    if(f) {
-      root.prettyPrintTo(f);
-      f.close();
-      writeEvent("INFO", "upgrade", "WiFi settings created form EEPROM", "");
-      #if DEBUGHW==2
-      S.print("[ upgrade ] config_wifi created from EEPROM\n");
-      #endif
-    }
-	}
 #endif
-}

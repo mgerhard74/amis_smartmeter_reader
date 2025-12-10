@@ -9,7 +9,7 @@ WebserverClass::WebserverClass()
 {
 }
 
-void WebserverClass::init()
+void WebserverClass::init(bool upgradeMode)
 {
     using std::placeholders::_1;
 
@@ -28,10 +28,11 @@ void WebserverClass::init()
 
     _server.serveStatic("/", LittleFS, "/", "public, must-revalidate");  // /*.* wird aut. geservt, alle Files die keine Daten anfordern (GET, POST...)
 
-    //if (mode==0) server.rewrite("/", "/index.html");
-    //else 	server.rewrite("/", "/upgrade");
-
-    _server.rewrite("/", "/index.html");
+    if (upgradeMode) {
+        _server.rewrite("/", "/upgrade");
+    } else {
+        _server.rewrite("/", "/index.html");
+    }
 
     _server.begin();
 }
@@ -52,6 +53,8 @@ void WebserverClass::reload()
     _websrvWsData.reload();
 }
 
+
+// TODO: Brauchen wir das wirklich noch?
 void WebserverClass::onRequest_Upgrade(AsyncWebServerRequest *request)
 {
     static const char _page_upgrade[] PROGMEM = R\

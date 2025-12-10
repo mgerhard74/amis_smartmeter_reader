@@ -1,9 +1,4 @@
-#if 1
-#include "Webserver.h"
-void serverInit(unsigned mode) {
-  Webserver.init();
-}
-#else
+#if 0
 #include "proj.h"
 #include "AmisReader.h"
 #include "ModbusSmartmeterEmulation.h"

@@ -1,3 +1,7 @@
+/*
+    Handles GET requests at http://<espiIp>/login
+*/
+
 #include "Webserver_Login.h"
 
 #include "config.h"

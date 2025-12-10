@@ -41,6 +41,7 @@ private:
     void onStationModeDisconnected(const WiFiEventStationModeDisconnected& event);
 
     bool loadConfigWifi(NetworkConfigWifi_t &config);
+    bool loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config);
 
     Ticker _tickerReconnect;
 

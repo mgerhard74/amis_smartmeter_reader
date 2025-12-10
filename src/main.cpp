@@ -13,6 +13,7 @@
 #include "ThingSpeak.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
+#include "Webserver.h"
 
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
@@ -91,14 +92,12 @@ void setup(){
   initOTA();
   #endif // OTA
 
-  if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css"))
-  {                     // Nötige html files nicht vorhanden
-    serverInit(1);      // /upgrade.html als /
-    upgrade(0);
-    return;
+  if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css")) {
+    // Nötige html files nicht vorhanden
+    Webserver.init(true);     // /upgrade als /
+  } else {
+    Webserver.init(false);    // /init.html als /
   }
-
-  serverInit(0);                  // /init.html als /
 
   Config.loadConfigGeneral();
   Config.applySettingsConfigGeneral();

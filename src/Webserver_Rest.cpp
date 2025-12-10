@@ -1,3 +1,7 @@
+/*
+    Handles GET requests at http://<espiIp>/rest
+*/
+
 #include "Webserver_Rest.h"
 
 #include "AmisReader.h"
@@ -25,9 +29,9 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
     JsonObject &root = jsonBuffer.createObject();
 
     if (Config.rest_neg) {
-        saldo =-saldo;
+        saldo = -saldo;
     }
-    if (Config.rest_var==0) {
+    if (Config.rest_var == 0) {
         root[F("time")] = a_result[9];
         root[F("1.8.0")] = a_result[0];
         root[F("2.8.0")] = a_result[1];
@@ -38,7 +42,6 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         root[F("3.7.0")] = a_result[6];
         root[F("4.7.0")] = a_result[7];
         root[F("1.128.0")] = a_result[8];
-        root[F("saldo")] = saldo;
     } else {
         root[F("time")] = a_result[9];
         root[F("1_8_0")] = a_result[0];
@@ -50,8 +53,8 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         root[F("3_7_0")] = a_result[6];
         root[F("4_7_0")] = a_result[7];
         root[F("1_128_0")] = a_result[8];
-        root[F("saldo")] = saldo;
     }
+    root[F("saldo")] = saldo;
     root[F("serialnumber")] = AmisReader.getSerialNumber();
     //root.prettyPrintTo(*response);
     root.printTo(*response);
