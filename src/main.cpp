@@ -6,6 +6,7 @@
 
 
 #include "AmisReader.h"
+#include "FileBlob.h"
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "Network.h"
@@ -88,17 +89,18 @@ void setup(){
   setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
   tzset();
 
-  // Start AMIS-Reader ... it can use the time to get the serailnumber
+  // Mal die config laden
+  Config.loadConfigGeneral();
+
+  // Blobs für den Webserver extrahieren
+  FileBlobs_extractIfChanged();
+
+  // Starten wir mal den AMIS-Reader
   AmisReader.init(AMISREADER_SERIAL_NO);  // Init mit Serieller Schnittstellennummer
   AmisReader.enable(); // und gleich enablen
 
   Reboot.init();
 
-  #ifdef OTA
-  initOTA();
-  #endif // OTA
-
-  Config.loadConfigGeneral();
   Config.applySettingsConfigGeneral();
 
  // Start Network
@@ -113,7 +115,9 @@ void setup(){
   // Load history of last 7 days and get YYMM of last entry in
   historyInit();
 
-  if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css")) {
+  // Das gibt es eigentlich nun nicht mehr, weil oben ja die FileBlobs extrahiert wurden
+  if (false && !Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css")) {
+    // TODO: Rausschmeißen - Das gibt es eigentlich nun nicht mehr
     // Nötige html files nicht vorhanden
     Webserver.init(true);     // /upgrade als /
   } else {
