@@ -57,6 +57,8 @@ bool mqttStatus;
 // ADC_MODE(ADC_VCC);
 
 void setup(){
+  Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
+
   #if DEBUGHW==2
     #if DEBUG_OUTPUT==0
       Serial.begin(115200);
