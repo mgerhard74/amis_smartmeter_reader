@@ -180,7 +180,7 @@ void loop() {
 
   Reboot.loop();
 
-  if (ws.count()) {      // ws-connections
+  if (ws->count()) {      // ws-connections
     if (new_data_for_websocket) {
       new_data_for_websocket=false;
       sendZData();
@@ -254,7 +254,7 @@ static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32
 static void secTick() {
   // wird jede Sekunde aufgerufen
 
-  if (ws.count()) {        // ws-connections
+  if (ws->count()) {        // ws-connections
     if (first_frame==0) {
       sendZDataWait();
     }
@@ -330,7 +330,6 @@ static void secTick() {
     }
     updates--;
   }
-  ws.cleanupClients();   // beendete Webclients nicht mehr updaten
 }
 
 void writeEvent(String type, String src, String desc, String data) {

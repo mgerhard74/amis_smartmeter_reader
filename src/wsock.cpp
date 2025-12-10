@@ -47,7 +47,7 @@ void sendWeekData() {
   }
   s.remove(s.length()-1,1);
   s+="]]}";
-  ws.text(clientId,s);
+  ws->text(clientId,s);
 }
 
 void sendEventLog(uint32_t clientId,int page) {
@@ -72,7 +72,7 @@ void sendEventLog(uint32_t clientId,int page) {
   root["haspages"] = ceil(pages);
   String buffer;
   root.prettyPrintTo(buffer);
-  ws.text(clientId,buffer);
+  ws->text(clientId,buffer);
 }
 
 void sendZDataWait() {
@@ -83,10 +83,10 @@ void sendZDataWait() {
   doc["serialnumber"] = AmisReader.getSerialNumber();
 //  doc["things_up"] = ThingSpeak.getLastResult();
   size_t len = doc.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
+  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
   if(buffer) {
     doc.printTo((char *)buffer->get(), len + 1);
-    ws.textAll(buffer);
+    ws->textAll(buffer);
   }
 }
 
@@ -108,10 +108,10 @@ void sendZData() {
   doc["serialnumber"] = AmisReader.getSerialNumber();
 
   size_t len = doc.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
+  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
   if(buffer) {
     doc.printTo((char *)buffer->get(), len + 1);
-    ws.textAll(buffer);
+    ws->textAll(buffer);
   }
 }
 
@@ -132,7 +132,7 @@ void printScanResult(int nFound) {
   buffer="";
   array.printTo(buffer);
   buffer="{\"stations\":"+buffer+"}";
-  ws.text(clientId,buffer);
+  ws->text(clientId,buffer);
   WiFi.scanDelete();
 }
 
@@ -194,14 +194,14 @@ void sendStatus(uint32_t clientId) {
   root[F("ntpSynced")] = "N/A";
   String buffer;
   root.printTo(buffer);
-  ws.text(clientId,buffer);
+  ws->text(clientId,buffer);
 }
 
 void send_data_file(const char *filename, uint32_t clientId) {
   DBGOUT("send file: "+String(filename)+'\n');
   File configFile = LittleFS.open(filename, "r");
   if(configFile) {
-    ws.text(clientId,configFile.readString());
+    ws->text(clientId,configFile.readString());
     configFile.close();
   }
   else eprintf("File %s not found\n",filename);
@@ -300,7 +300,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     sendStatus(client->id());
   }
   else if(strcmp(command, "ping") == 0) {
-    ws.text(client->id(),F("{\"pong\":\"\"}"));
+    ws->text(client->id(),F("{\"pong\":\"\"}"));
     //eprintf("ping\n");
   }
   else if(strcmp(command, "restart") == 0) {
@@ -352,7 +352,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     String buffer;
     doc.printTo(buffer);
     //DBGOUT(buffer+"\n");
-    ws.text(clientId,buffer);
+    ws->text(clientId,buffer);
   }
   else if(strcmp(command, "clear") == 0) {
     LittleFS.remove(F("/config_general"));
@@ -362,7 +362,7 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
   }
   else if(strcmp(command, "print") == 0) {
     const char *uid = root["file"];
-    ws.text(clientId,uid); // ws.text
+    ws->text(clientId,uid); // ws.text
     int i;
     uint8_t ibuffer[65];
     File f = LittleFS.open(uid, "r");
@@ -370,11 +370,11 @@ void  wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
       do {
         i=f.read(ibuffer, 64);
         ibuffer[i]=0;
-        ws.text(clientId,(char *)ibuffer); // ws.text
+        ws->text(clientId,(char *)ibuffer); // ws.text
       } while (i);
       f.close();
     }
-    else ws.text(clientId,"no file\0");
+    else ws->text(clientId,"no file\0");
   }
   else if(strcmp(command, "print2") == 0) {
     //ws.text(clientId,"prn\0"); // ws.text

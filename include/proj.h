@@ -43,8 +43,9 @@ struct kwhstruct {
   unsigned dow;
 };
 extern int logPage;
-extern AsyncWebServer server;
-extern AsyncWebSocket ws;
+//extern AsyncWebServer server;
+//extern AsyncWebSocket ws;
+extern AsyncWebSocket *ws;
 extern WiFiClient dbg_client;
 extern WiFiServer dbg_server;
 
@@ -54,7 +55,7 @@ extern uint8_t mon,myyear;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
 extern uint32_t clientId;
-extern const char PAGE_upgrade[];
+//extern const char PAGE_upgrade[];
 //extern String lastMonth;
 
 extern kwhstruct kwh_hist[7];
