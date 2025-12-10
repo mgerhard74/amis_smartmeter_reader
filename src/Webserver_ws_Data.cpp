@@ -416,6 +416,13 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
     root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
     root[F("app_compiled_git_hash")] = __COMPILED_GIT_HASH__;
+
+    root[F("library_ArduinoJson")] = ARDUINOJSON_VERSION;
+    root[F("library_AsyncMqttClient")] = "0.9.0";
+    root[F("library_AsyncPing_esp8266")] = "95ac7e4ce1d4b41087acc0f7d8109cfd1f553881";
+    root[F("library_ESPAsyncTCP")] = "2.0.0";
+    root[F("library_ESPAsyncWebServer")] = ASYNCWEBSERVER_VERSION;
+
     root[F("core")] = ESP.getCoreVersion();
     root[F("sketchsize")] = ESP.getSketchSize();
     root[F("freesize")] = ESP.getFreeSketchSpace();
