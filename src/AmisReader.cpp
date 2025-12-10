@@ -8,10 +8,6 @@
 #include "Utils.h"
 
 
-#define MIN(A,B) std::min((size_t)(A), (size_t)(B))  // std:min() can not compare (size_t) with (unsigned int) or (int)
-
-
-
 // TODO: Refactor this global vars and external function
 uint32_t a_result[10] = {};
 int valid = 0;
@@ -329,7 +325,7 @@ size_t AmisReaderClass::pollSerial()
     bool rxError = false & _serial->hasRxError();
 
     while (serialAvail > 0 && serialBufferLeft > 0 && !rxError) {
-        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], MIN(serialAvail, serialBufferLeft));
+        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], std::min(serialAvail, serialBufferLeft));
         bytesReadTotal += bytesRead;
         serialBufferLeft -= bytesRead;
         _serialReadBufferIdx += bytesRead;
@@ -382,7 +378,7 @@ size_t AmisReaderClass::clearSerialRx()
     size_t avail = _serial->available();
     while (avail > 0) {
         char b[128];
-        bytesRead += _serial->readBytes(&b[0], MIN(avail, sizeof(b)));
+        bytesRead += _serial->readBytes(&b[0], std::min(avail, (size_t)sizeof(b)));
         avail = _serial->available();
     }
      _serial->hasRxError(); // This clears the pending error flag
@@ -395,6 +391,7 @@ void AmisReaderClass::init(uint8_t serialNo)
     _baudRateIdentifier = 0; _serialNumber[0] = 0;
     _serialReadBufferIdx = 0;
 
+    memset(&a_result, 0, sizeof(a_result));
     memset(&a_result, 0, sizeof(a_result));
 
     if (serialNo == 1) {
@@ -477,7 +474,7 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
                     crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
                     *crlf = 0;
                     const char *serialNr = (const char *)_serialReadBuffer+5;
-                    strncpy(_serialNumber, serialNr, MIN(AMISREADER_MAX_SERIALNUMER, strlen(serialNr)));
+                    strncpy(_serialNumber, serialNr, std::min(size_t(AMISREADER_MAX_SERIALNUMER), strlen(serialNr)));
                     _serialNumber[sizeof(_serialNumber)-1] = 0;
 
                     _state = initReadCounters;
@@ -505,7 +502,7 @@ void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
 void AmisReaderClass::eatSerialReadBuffer(size_t n)
 {
     size_t i;
-    if (n >= _serialReadBufferIdx || n >= std::size(_serialReadBuffer)) {
+    if (n >= _serialReadBufferIdx || n >= sizeof(_serialReadBuffer)) {
         _serialReadBufferIdx = 0;
         return;
     }
@@ -523,8 +520,8 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
 // zum Zählerstand dekodieren verschieben
     size_t i;
 
-    if (n > MIN(sizeof(_decodingWorkBuffer),sizeof(_serialReadBuffer))) {
-        n = MIN(sizeof(_decodingWorkBuffer),sizeof(_serialReadBuffer));
+    if (n > std::min(sizeof(_decodingWorkBuffer),sizeof(_serialReadBuffer))) {
+        n = std::min(sizeof(_decodingWorkBuffer),sizeof(_serialReadBuffer));
     }
     if (n > _serialReadBufferIdx) {
         n = _serialReadBufferIdx;
