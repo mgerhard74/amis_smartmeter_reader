@@ -3,7 +3,7 @@
 */
 
 #include "Webserver_Rest.h"
-
+#include "Webserver.h"
 #include "AmisReader.h"
 #include "config.h"
 
@@ -17,7 +17,10 @@ void WebserverRestClass::init(AsyncWebServer& server)
 }
 
 void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
-{
+{   if (!Webserver.checkCredentials(request)) {
+        return;
+    }
+
     if (valid != 5) {
         return;
     }

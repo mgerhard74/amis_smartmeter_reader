@@ -14,6 +14,7 @@ class WebserverClass
         WebserverClass();
         void init(bool upgradeMode);
         void reload();
+        bool checkCredentials(AsyncWebServerRequest* request);
 
     private:
         void onNotFound(AsyncWebServerRequest *request);

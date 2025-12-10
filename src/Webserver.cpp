@@ -1,4 +1,5 @@
 #include "Webserver.h"
+#include "config.h"
 
 #include <LittleFS.h>
 
@@ -39,6 +40,29 @@ void WebserverClass::init(bool upgradeMode)
     }
 
     _server.begin();
+}
+
+bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
+{
+    if (!Config.use_auth) {
+        return true;
+    }
+
+    if (request->authenticate(Config.auth_user.c_str(), Config.auth_passwd.c_str())) {
+        return true;
+    }
+
+    AsyncWebServerResponse* r = request->beginResponse(401);
+
+#if 0
+    // WebAPI should set the X-Requested-With to prevent browser internal auth dialogs
+    if (!request->hasHeader("X-Requested-With")) {
+        r->addHeader(asyncsrv::T_WWW_AUTH, "Basic realm=\"Login Required\"");
+    }
+#endif
+    request->send(r);
+
+    return false;
 }
 
 void WebserverClass::onNotFound(AsyncWebServerRequest *request)

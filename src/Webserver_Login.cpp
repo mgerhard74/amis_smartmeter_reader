@@ -23,7 +23,7 @@ void WebserverLoginClass::onRestRequest(AsyncWebServerRequest* request)
         request->send(200, F("text/plain"), F("Success"));
         return;
     }
-    if(!request->authenticate(Config.auth_user.c_str(), Config.auth_passwd.c_str())) {
+    if (!request->authenticate(Config.auth_user.c_str(), Config.auth_passwd.c_str())) {
         if (Config.log_sys) {
             writeEvent("WARN", "websrv", "New login attempt", remoteIP);
         }

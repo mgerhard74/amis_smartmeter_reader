@@ -41,31 +41,24 @@ void WebserverWsDataClass::init(AsyncWebServer& server)
     _wsCleanupTicker.attach_scheduled(1, std::bind(&WebserverWsDataClass::wsCleanupTaskCb, this));
     _sendDataTicker.attach_ms_scheduled(100, std::bind(&WebserverWsDataClass::sendDataTaskCb, this));
 
-    //_simpleDigestAuth.setUsername(AUTH_USERNAME);
-    //_simpleDigestAuth.setRealm("console websocket");
+    _simpleDigestAuth.setRealm("data websocket");
 
     reload();
 }
 
 void WebserverWsDataClass::reload()
 {
-    /*
     _ws.removeMiddleware(&_simpleDigestAuth);
 
-    auto const& config = Configuration.get();
-
-    if (config.Security.AllowReadonly) {
-        return;
-    }
-    */
     if (!Config.use_auth) {
         return;
     }
 
     _ws.enable(false);
-    //_simpleDigestAuth.setPassword(config.Security.Password);
-    //_ws.addMiddleware(&_simpleDigestAuth);
-    _ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
+    _simpleDigestAuth.setUsername(Config.auth_user.c_str());
+    _simpleDigestAuth.setPassword(Config.auth_passwd.c_str());
+    _ws.addMiddleware(&_simpleDigestAuth);
+    //_ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
     _ws.closeAll();
     _ws.enable(true);
 }
@@ -409,8 +402,12 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
-    root[F("sdk")] = ESP.getSdkVersion();
     root[F("chipid")] = String(ESP.getChipId(), HEX);
+    root[F("cpu")] = ESP.getCpuFreqMHz();
+    root[F("reset_reason")] = ESP.getResetReason();
+
+    root[F("core")] = ESP.getCoreVersion();
+    root[F("sdk")] = ESP.getSdkVersion();
     root[F("version")] = VERSION;
     root[F("app_name")] = APP_NAME;
     root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
@@ -423,20 +420,32 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("library_ESPAsyncTCP")] = "2.0.0";
     root[F("library_ESPAsyncWebServer")] = ASYNCWEBSERVER_VERSION;
 
-    root[F("core")] = ESP.getCoreVersion();
+#if 0
+    root[F("flashchipid")] = String(ESP.getFlashChipId());
+    // ESP.getHeapStats()
+    root["heap_total"] = ESP.getHeapSize();
+    root["heap_used"] = ESP.getHeapSize() - ESP.getFreeHeap();
+    root["heap_max_block"] = ESP.getMaxAllocHeap();
+    root["heap_min_free"] = ESP.getMinFreeHeap();
+    root["psram_total"] = ESP.getPsramSize();
+    root["psram_used"] = ESP.getPsramSize() - ESP.getFreePsram();
+#endif
+
     root[F("sketchsize")] = ESP.getSketchSize();
     root[F("freesize")] = ESP.getFreeSketchSpace();
+
     root[F("littlefs_size")] = fsinfo.totalBytes;
     root[F("littlefs_used")] = fsinfo.usedBytes;
+
     root[F("max_free_blocksz")] = ESP.getMaxFreeBlockSize();
     root[F("heap_free")] = ESP.getFreeHeap();
     root[F("heap_fragment")] = ESP.getHeapFragmentation();
+
     //  root[F("heap_alloc_max")] = ESP.getMaxAllocHeap();
     root[F("flashspeed")] = ESP.getFlashChipSpeed();
     root[F("flashsize")] = ESP.getFlashChipSize();
     root[F("flashmode")] = String(ESP.getFlashChipMode());
-    root[F("cpu")] = ESP.getCpuFreqMHz();
-    root[F("reset_reason")] = ESP.getResetReason();
+
     if (Network.inAPMode()) {
         wifi_get_ip_info(SOFTAP_IF, &info);
         struct softap_config conf;
