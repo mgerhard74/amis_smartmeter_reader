@@ -94,23 +94,23 @@ void setup(){
   initOTA();
   #endif // OTA
 
+  Config.loadConfigGeneral();
+  Config.applySettingsConfigGeneral();
+
+ // Start Network
+  Network.init(digitalRead(AP_PIN) == LOW);
+  NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
+  Network.connect();
+
+  // Load history of last 7 days and get YYMM of last entry in
+  historyInit();
+
   if (!Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css")) {
     // Nötige html files nicht vorhanden
     Webserver.init(true);     // /upgrade als /
   } else {
     Webserver.init(false);    // /init.html als /
   }
-
-  Config.loadConfigGeneral();
-  Config.applySettingsConfigGeneral();
-
-  // Load history of last 7 days and get YYMM of last entry in
-  historyInit();
-
- // Start Network
-  Network.init(digitalRead(AP_PIN) == LOW);
-  NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
-  Network.connect();
 
   // Smart Meter Simulator
   ModbusSmartmeterEmulation.init();
