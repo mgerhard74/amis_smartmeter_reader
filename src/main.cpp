@@ -73,7 +73,7 @@ void setup(){
 
   // Log some booting information
   writeEvent("INFO", "sys", "System starting...", "");
-  writeEvent("INFO", "sys", "  Version", VERSION);
+  writeEvent("INFO", "sys", "  " APP_NAME " Version", VERSION);
   writeEvent("INFO", "sys", "  Compiled [UTC]", __COMPILED_DATE_TIME_UTC_STR__);
   writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
   writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
