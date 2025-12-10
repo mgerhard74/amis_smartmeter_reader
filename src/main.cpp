@@ -116,14 +116,9 @@ void setup(){
   // Load history of last 7 days and get YYMM of last entry in
   historyInit();
 
-  // Das gibt es eigentlich nun nicht mehr, weil oben ja die FileBlobs extrahiert wurden
-  if (false && !Utils::fileExists("/index.html") && !Utils::fileExists("/custom.css")) {
-    // TODO: Rausschmeißen - Das gibt es eigentlich nun nicht mehr
-    // Nötige html files nicht vorhanden
-    Webserver.init(true);     // /upgrade als /
-  } else {
-    Webserver.init(false);    // /init.html als /
-  }
+  // Webserver ... damit wir auch was machen können
+  Webserver.init();    // Unter "/"" wird die "/index.html" ausgeliefert, "/update" ist eine statische fixe Seite
+
   Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
   Webserver.setTryGzipFirst(!Config.developerModeEnabled); // im developermode wollen wir das nicht
 

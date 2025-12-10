@@ -12,7 +12,7 @@ WebserverClass::WebserverClass()
     //_staticFilesServer->setTryGzipFirst(true); // ist default bereits enabled
 }
 
-void WebserverClass::init(bool upgradeMode)
+void WebserverClass::init()
 {
     using std::placeholders::_1;
 
@@ -33,12 +33,8 @@ void WebserverClass::init(bool upgradeMode)
     // Spezielle statische Seite "/upgrade" einbinden (Seite kommt aus dem RAM)
     _server.on("/upgrade", HTTP_GET, std::bind(&WebserverClass::onRequest_Upgrade, this, _1));
 
-    // Noch den Upgrademode behandeln
-    if (upgradeMode) {
-        _server.rewrite("/", "/upgrade");
-    } else {
-        _server.rewrite("/", "/index.html");
-    }
+    // Noch die "Defaultseite" / behandeln
+    _server.rewrite("/", "/index.html");
 
     _server.begin();
 }

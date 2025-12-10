@@ -12,7 +12,7 @@ class WebserverClass
 {
     public:
         WebserverClass();
-        void init(bool upgradeMode);
+        void init();
         void setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password);
         bool checkCredentials(AsyncWebServerRequest* request);
         void setTryGzipFirst(bool tryGzipFirst=true);
