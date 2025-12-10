@@ -55,6 +55,7 @@ String latestYYMMInHistfile;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
 bool mqttStatus;
+bool doSerialHwTest=false;
 
 
 // ADC_MODE(ADC_VCC);
@@ -211,6 +212,15 @@ void loop() {
 
   LedBlue.loop();
   WatchdogPing.loop();
+
+  if (doSerialHwTest) {
+    for (unsigned i=0; i < 255; i++)  {
+      Serial.write(i);
+      delay(1);
+    }
+    Serial.flush();
+    doSerialHwTest = false;
+  }
 }
 
 

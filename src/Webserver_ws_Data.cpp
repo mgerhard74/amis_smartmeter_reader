@@ -18,6 +18,8 @@ static void sendStatus(AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
 static void clearHist();
 
+extern bool doSerialHwTest;
+
 AsyncWebSocket *ws;
 
 WebserverWsDataClass::WebserverWsDataClass()
@@ -300,6 +302,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         LittleFS.remove(F("/config_wifi"));
         LittleFS.remove(F("/config_mqtt"));
         //    LittleFS.remove(F("/.idea"));
+    } else if (strcmp(command, "test") == 0) {
+        doSerialHwTest = !doSerialHwTest;
     } else if(strcmp(command, "print") == 0) {
         const char *uid = root["file"];
         ws->text(clientId,uid); // ws.text
