@@ -23,6 +23,19 @@ uint32_t UA::swap4(uint32_t v) {
     return (v >> 24) | ((v & 0xff0000) >> 8) | ((v & 0xff00) << 8) | (v << 24) ;
 }
 
+void UA::swap_mem2(void *p) {
+    uint8_t h;
+    uint8_t *v = (uint8_t *)p;
+    h = v[0]; v[0] = v[1];  v[1] = h;
+}
+
+void UA::swap_mem4(void *p) {
+    uint8_t h;
+    uint8_t *v = (uint8_t *)p;
+    h = v[0]; v[0] = v[3];  v[0] = h;
+    h = v[1]; v[1] = v[2];  v[2] = h;
+}
+
 #if not (HAVE_UA2_ACCESS)
 uint16_t UA::ReadU16LE(const void *p)
 {
