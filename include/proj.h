@@ -63,7 +63,6 @@ extern void mqtt_publish_state();
 extern void mqtt_publish_ha_availability(bool);
 extern String get_ha_availability_topic();
 extern void mqtt_publish_ha_discovery();
-extern void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
 extern const char flashOk[];
 extern void initOTA();
 extern AsyncMqttClient mqttClient;
