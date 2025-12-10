@@ -17,6 +17,7 @@ static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
 static void sendStatus(AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
 static void clearHist();
+static bool EEPROMClear();
 
 extern bool doSerialHwTest;
 
@@ -297,7 +298,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
         ws->text(clientId,buffer);
-    } else if(strcmp(command, "clear") == 0) {
+    } else if (strcmp(command, "clear") == 0) {
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
         LittleFS.remove(F("/config_mqtt"));
@@ -341,6 +342,13 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 eprintf("no file\n");
             }
         }
+    } else if (!strcmp(command, "factory-reset-reboot")) {
+        // Remove all files, Clear EEprom
+        if (!LittleFS.format()) {
+            writeEvent("ERROR","littlfs","LittleFS.format() failed!", "");
+        }
+        EEPROMClear();
+        Reboot.startReboot();
     } else if (!strcmp(command, "set-developer-mode")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
@@ -525,7 +533,16 @@ static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
     }
 }
 
-
+static bool EEPROMClear()
+{
+    EEPROM.begin(256);
+    for (size_t i=0; i<256; i++) {
+        if (EEPROM.read(i) != 0) { // Don't write EEPROM every time
+            EEPROM.write(i, 0);
+        }
+    }
+    return EEPROM.end();
+}
 
 
 /* vim:set ts=4 et: */
