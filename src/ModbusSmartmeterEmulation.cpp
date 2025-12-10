@@ -2,6 +2,7 @@
 
 #include "UA.h"
 #include "unions.h"
+#include "unused.h"
 
 /*
   Smartmeter Emulator TCP für Fronius Gen24. Stark vereinfacht auf das tatsächliche Fronius-Polling.
@@ -252,6 +253,7 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
 
 void ModbusSmartmeterEmulationClass::clientOnClient(void* arg, AsyncClient* client)
 {
+    UNUSED_ARG(arg);
     //eprintf("[Fronius] new client has been connected to server, ip: %s\n", client->remoteIP().toString().c_str());
     if (_clientsConnectedCnt++ == 0) {
         // First client connected so prepare internal Modbus register buffer with our actual values
@@ -307,11 +309,16 @@ void ModbusSmartmeterEmulationClass::disable(void)
 /* --------------------------- clients events --------------------------- */
 void ModbusSmartmeterEmulationClass::clientOnError(void* arg, AsyncClient* client, int8_t error)
 {
+    UNUSED_ARG(arg);
+    UNUSED_ARG(client);
+    UNUSED_ARG(error);
     //eprintf("[Fronius] connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
 }
 
 void ModbusSmartmeterEmulationClass::clientOnDisconnect(void* arg, AsyncClient* client)
 {
+    UNUSED_ARG(arg);
+    UNUSED_ARG(client);
     //eprintf("[Fronius] client %s disconnected \n", client->remoteIP().toString().c_str());
     if (_clientsConnectedCnt) {
         _clientsConnectedCnt--;
@@ -320,12 +327,16 @@ void ModbusSmartmeterEmulationClass::clientOnDisconnect(void* arg, AsyncClient* 
 
 void ModbusSmartmeterEmulationClass::clientOnTimeOut(void* arg, AsyncClient* client, uint32_t time)
 {
+    UNUSED_ARG(arg);
+    UNUSED_ARG(client);
+    UNUSED_ARG(time);
     //eprintf("[Fronius] client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
 }
 
 void writeEvent(String type, String src, String desc, String data);
 void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client, void *data, size_t len)
 {
+    UNUSED_ARG(arg);
     //eprintf("[Fronius] Poll IP:%s\n",client->remoteIP().toString().c_str());
     if (!_currentValues.dataAreValid) {
         // nur beantworten wenn gültige Zählerdaten vorhanden

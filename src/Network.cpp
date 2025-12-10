@@ -4,6 +4,7 @@
 #include "config.h"
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
+#include "unused.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -48,6 +49,7 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
+    UNUSED_ARG(event);
     DBGOUT("WiFi onStationModeGotIP()\n");
     DBGPRINTF("%d\n", _tickerReconnect.active());
     _isConnected = true;

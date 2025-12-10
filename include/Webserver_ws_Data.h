@@ -31,7 +31,7 @@ class WebserverWsDataClass
         uint32_t _subscribedClientsWifiScan[3];
         size_t   _subscribedClientsWifiScanLen=0;
 
-        void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
+        void wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength);
 };
 
 /* vim:set ts=4 et: */

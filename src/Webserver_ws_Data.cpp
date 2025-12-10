@@ -8,6 +8,7 @@
 #include "Network.h"
 #include "Reboot.h"
 #include "Webserver.h"
+#include "unused.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -85,6 +86,8 @@ void WebserverWsDataClass::sendDataTaskCb()
 
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
+    UNUSED_ARG(server);
+
     if(type == WS_EVT_ERROR) {
         eprintf("Error: WebSocket[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
@@ -168,7 +171,9 @@ static void clearHist() {
     first_frame = 0;
 }
 
-void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
+void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength) {
+    UNUSED_ARG(tempObjectLength);
+
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {

@@ -9,6 +9,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "Reboot.h"
+#include "unused.h"
 
 #include <LittleFS.h>
 
@@ -31,6 +32,8 @@ void WebserverUpdateClass::init(AsyncWebServer& server)
 
 void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String& filename, size_t index, uint8_t* data, size_t len, bool final)
 {
+    UNUSED_ARG(request);
+
     //Upload handler chunks in data
     if (!index) {  // Start der Übertragung: index==0
         if (Config.log_sys) {

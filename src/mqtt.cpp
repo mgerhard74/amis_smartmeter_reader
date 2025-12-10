@@ -1,6 +1,7 @@
 #include "proj.h"
 #include "AmisReader.h"
 #include "DefaultConfigurations.h"
+#include "unused.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -58,6 +59,7 @@ void mqttAliveTicker() {
 }
 
 void onMqttConnect(bool sessionPresent) {
+  UNUSED_ARG(sessionPresent);
   mqttTimer.detach();
   if (Config.mqtt_keep) {
     mqttTimer.attach_scheduled(Config.mqtt_keep,mqttAliveTicker);
@@ -197,7 +199,7 @@ void mqtt_publish_state() {
     mqttClient.publish(Config.mqtt_pub.c_str(),Config.mqtt_qos,Config.mqtt_retain,mqttBuffer.c_str());
     //DBGOUT("MQTT publish "+Config.mqtt_pub+": "+mqttBuffer+"\n");
   }
-  else DBGOUT("MQTT publish: not connected\n");
+  else { DBGOUT("MQTT publish: not connected\n"); }
 }
 
 
@@ -302,6 +304,12 @@ void mqtt_publish_ha_discovery() {
 }
 
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) {
+  UNUSED_ARG(topic);
+  UNUSED_ARG(payload);
+  UNUSED_ARG(properties);
+  UNUSED_ARG(len);
+  UNUSED_ARG(index);
+  UNUSED_ARG(total);
 #ifdef STROMPREIS
   char p[20];
   memcpy(p,payload,len);
