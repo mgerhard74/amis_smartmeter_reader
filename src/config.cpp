@@ -77,6 +77,8 @@ void ConfigClass::loadConfigGeneral()
     switch_url_off=json[F("switch_url_off")].as<String>();
     switch_url_off.trim();
     switch_intervall=json[F("switch_intervall")].as<unsigned int>();
+
+    developerModeEnabled = json[F("developerModeEnabled")].as<bool>();
 }
 
 void ConfigClass::applySettingsConfigGeneral()

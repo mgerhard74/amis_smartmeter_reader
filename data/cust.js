@@ -35,6 +35,7 @@ var config_general = {
     "rest_ofs":0,
     "rest_neg":false,
     "smart_mtr":false,
+    "developerModeEnabled":false,
     "command" :"/config_general"
 };
 
@@ -177,6 +178,9 @@ function updateElements(obj) {
         case "/config_general":
           config_general=obj;
           if (config_general.thingspeak_aktiv) $(".menu-graf").show();
+          else                                 $(".menu-graf").hide();
+          if (config_general.developerModeEnabled) $(".menu-developer").show();
+          else                                     $(".menu-developer").hide();
           break;
         case "/config_wifi":
           config_wifi=obj;
@@ -588,6 +592,8 @@ function doUpdateGeneral() {                 // button save config
   });
   if (config_general.thingspeak_aktiv) $(".menu-graf").show();
   else $(".menu-graf").hide();
+  if (config_general.developerModeEnabled) $(".menu-developer").show();
+  else $(".menu-developer").hide();
   websock.send(JSON.stringify(config_general));
   if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
@@ -692,6 +698,11 @@ function thingsDetails() {  // display settings only if thingspeak active
 function authDetails() {  // display settings only if auth active
   if ($(this).prop('checked')) $(".auth_details").show();
   else $(".auth_details").hide();
+}
+
+function developerModeEnabled() {  // display settings only if auth active
+  if ($(this).prop('checked')) $(".menu-developer").show();
+  else $(".menu-developer").hide();
 }
 
 function sel_api(i) {
@@ -906,6 +917,7 @@ $(function() {            // main
   $("input[name='mqtt_enabled']").on("click", mqttDetails);
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
+  $("input[name='developerModeEnabled']").on("click", developerModeEnabled);
   //$("input[name='smart_aktiv']").on("click", smart_mtr);
   $("input[name='use_auth']").on("click", authDetails);
   $(".button-upgrade").on("click", doUpgrade);      // firmware update

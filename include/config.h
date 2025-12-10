@@ -53,6 +53,8 @@ public:
     unsigned switch_intervall;
 
     String amis_key;
+
+    bool developerModeEnabled;
 };
 
 extern ConfigClass Config;
