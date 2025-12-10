@@ -188,7 +188,7 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     AES128_CBC_decrypt_buffer(decrypted_ptr+48, &encryptedSndUD->encryptedData[48], 16, nullptr, nullptr);
     AES128_CBC_decrypt_buffer(decrypted_ptr+64, &encryptedSndUD->encryptedData[64], 16, nullptr, nullptr);
 #else
-    AES128_CBC_decrypt_buffer(decrypted_ptr,    &encryptedSndUD->encryptedData[0],  16*5, _key, initialVector);
+    AES128_CBC_decrypt_buffer(decrypted_ptr,    &encryptedSndUD->encryptedData[0],  16*5, nullptr, initialVector);
 #endif
     //yield();
     //sprintf(timecode,"0x%02x%02x%02x%02x%02x",decrypted[8],decrypted[7],decrypted[6],decrypted[5],decrypted[4]);
@@ -772,11 +772,13 @@ void AmisReaderClass::setKey(const char *key)
     while (i < sizeof(_key)) {
         _key[i++] = 0; // fill all the rest with 0
     }
+    AES128_set_key(_key);
 }
 
 void AmisReaderClass::setKey(const uint8_t *key)
 {
     memcpy(_key, key, sizeof(_key));
+    AES128_set_key(_key);
 }
 
 void AmisReaderClass::enable() {
