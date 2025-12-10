@@ -281,7 +281,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         while (dir.next()) {
             File f = dir.openFile("r");
             //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
-            doc[String(i)] = dir.fileName() + ' ' + String(f.size());
+            doc[String(i)] = dir.fileName() +
+                            ((f) ?' ' + String(f.size()) :"") +
+                            ((f) ?' ' + String(f.getCreationTime()) :"") +
+                            ((f) ?' ' + String(f.getLastWrite()) :"");
             if (f) {
                 f.close();
             }
