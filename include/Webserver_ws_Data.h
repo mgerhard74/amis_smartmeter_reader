@@ -26,6 +26,12 @@ class WebserverWsDataClass
 
         Ticker _sendDataTicker;
         void sendDataTaskCb();
+
+        void onWifiScanCompletedCb(int nFound);
+        uint32_t _subscribedClientsWifiScan[3];
+        size_t   _subscribedClientsWifiScanLen=0;
+
+        void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
 };
 
 /* vim:set ts=4 et: */

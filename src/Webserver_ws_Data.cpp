@@ -11,9 +11,7 @@
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 
-static void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
-static void printScanResult(int nFound);
 static void sendStatus(AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
 static void clearHist();
@@ -60,6 +58,7 @@ void WebserverWsDataClass::reload()
     _ws.addMiddleware(&_simpleDigestAuth);
     //_ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
     _ws.closeAll();
+    _subscribedClientsWifiScanLen = 0;
     _ws.enable(true);
 }
 
@@ -164,7 +163,7 @@ static void clearHist() {
     first_frame = 0;
 }
 
-static void wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
+void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {
@@ -251,7 +250,13 @@ static void wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
         LittleFS.remove("/eventlog.json");
         writeEvent("WARN", "sys", "Event log cleared!", "");
     } else if(strcmp(command, "scan_wifi") == 0) {
-        WiFi.scanNetworksAsync(printScanResult, true);
+        if (_subscribedClientsWifiScanLen < std::size(_subscribedClientsWifiScan)) {
+            using std::placeholders::_1;
+            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = clientId;
+            if (_subscribedClientsWifiScanLen == 1) {
+                WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
+            }
+        }
     } else if(strcmp(command, "getconf") == 0) {
         wsSendFile("/config_general", client);
         wsSendFile("/config_wifi", client);
@@ -371,26 +376,37 @@ static void sendWeekData(AsyncWebSocketClient *client)
     client->text(s);
 }
 
-static void printScanResult(int nFound)
+void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 {
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject &root = jsonBuffer.createObject();
-  JsonArray &array = jsonBuffer.createArray();
-  String buffer;
-  for (int i = 0; i < nFound; ++i) {           // esp_event_legacy.h
+
+    if(_subscribedClientsWifiScanLen == 0 || nFound == 0) {
+        WiFi.scanDelete();
+        _subscribedClientsWifiScanLen = 0;
+        return;
+    }
+
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &root = jsonBuffer.createObject();
+    JsonArray &array = jsonBuffer.createArray();
+    String buffer;
+    for (int i = 0; i < nFound; ++i) {           // esp_event_legacy.h
+        buffer = "";
+        root[F("ssid")]    = WiFi.SSID(i);
+        root[F("rssi")]    = WiFi.RSSI(i);
+        root[F("channel")] = WiFi.channel(i);
+        root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
+        root.printTo(buffer);
+        array.add(buffer);
+    }
     buffer = "";
-    root[F("ssid")]    = WiFi.SSID(i);
-    root[F("rssi")]    = WiFi.RSSI(i);
-    root[F("channel")] = WiFi.channel(i);
-    root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
-    root.printTo(buffer);
-    array.add(buffer);
-  }
-  buffer = "";
-  array.printTo(buffer);
-  buffer = "{\"stations\":"+buffer+"}";
-  ws->text(clientId, buffer);
-  WiFi.scanDelete();
+    array.printTo(buffer);
+    buffer = "{\"stations\":"+buffer+"}";
+
+    for (size_t i=0; i < _subscribedClientsWifiScanLen; i++) {
+        ws->text(_subscribedClientsWifiScan[i], buffer);
+    }
+    _subscribedClientsWifiScanLen = 0;
+    WiFi.scanDelete();
 }
 
 static void sendStatus(AsyncWebSocketClient *client)
