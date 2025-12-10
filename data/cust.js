@@ -21,40 +21,45 @@ var config_general = {
     "devicename": "Amis-1",
     "auth_passwd": "admin",
     "auth_user": "admin",
-    "use_auth":0,
-    "log_sys":0,
+    "use_auth": false,
+    "log_sys": false,
     "amis_key": "0",
-    "thingspeak_aktiv":0,
-    "channel_id":0,
+    "thingspeak_aktiv": false,
+    "channel_id": 0,
     "write_api_key":"",
     "read_api_key":"",
     "thingspeak_iv":30,
     "channel_id2":"",
     "read_api_key2":"",
-    "rest_var":0,
-    "rest_ofs":0,
-    "rest_neg":false,
+    "rest_var": 0,
+    "rest_ofs": 0,
+    "rest_neg": false,
     "smart_mtr":false,
-    "developerModeEnabled":false,
-    "command" :"/config_general"
+    "developerModeEnabled": false,
+    "switch_on": 0,
+    "switch_off": 0,
+    "switch_url_on": "",
+    "switch_url_off": "",
+    "switch_intervall": 60,
+    "command": "/config_general"
 };
 
 var config_wifi= {
     "ssid": "",
     "wifipassword": "",
-    "dhcp": 0,
+    "dhcp": false,
     "ip_static": "192.168.",
     "ip_netmask": "255.255.255.0",
     "ip_gateway": "192.168.",
     "ip_nameserver": "192.168.",
-    "rfpower":20,
-    "mdns": 0,
-    "allow_sleep_mode":true,
-    "pingrestart_do":false,
-    "pingrestart_ip":"192.168.",
+    "rfpower": 21,
+    "mdns": false,
+    "allow_sleep_mode": true,
+    "pingrestart_do": false,
+    "pingrestart_ip": "192.168.",
     "pingrestart_interval": 60,
     "pingrestart_max": 3,
-    "command":"/config_wifi"
+    "command": "/config_wifi"
 };
 var config_mqtt={
     "mqtt_enabled": 0,
@@ -64,12 +69,12 @@ var config_mqtt={
     "mqtt_password": "",
     "mqtt_clientid": "",
     "mqtt_qos": 0,
-    "mqtt_retain": 0,
+    "mqtt_retain": false,
     "mqtt_keep": 0,
     "mqtt_pub":"amis/out",
-    "mqtt_will":"",
+    "mqtt_will": "",
     "mqtt_ha_discovery": true,
-    "command":"/config_mqtt"
+    "command": "/config_mqtt"
 };
 
 function toNumberString(value, numberOfDecimals) {
