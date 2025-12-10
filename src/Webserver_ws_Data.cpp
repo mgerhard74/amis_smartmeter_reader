@@ -75,6 +75,7 @@ void WebserverWsDataClass::sendDataTaskCb()
     if (_ws.count() == 0) {
         return;
     }
+    // Do some periodic sending stuff here
 }
 
 
@@ -332,42 +333,42 @@ static void wsClientRequest(AsyncWebSocketClient *client, size_t sz) {
 
 static void sendWeekData(AsyncWebSocketClient *client)
 {
-  File f;
-  uint8_t ibuffer[12];      //12870008
-  unsigned i,j;
-  String s;
+    File f;
+    uint8_t ibuffer[12];      //12870008
+    unsigned i,j;
+    String s;
 
-  s = "{\"weekdata\":[[";
-  for (i=0; i<7; i++) {
-    f = LittleFS.open("/hist_in"+String(i), "r");
-    if (f) {
-       j = f.read(ibuffer, 10);
-       ibuffer[j] = ',';
-       ibuffer[j+1] = 0;
-       f.close();
-       s += (char*)ibuffer;
-    }
-    else {
-        s += "0,";
-    }
-  }
-  s.remove(s.length()-1, 1);
-  s += "],[";
-  for (i=0; i<7; i++) {
-    f = LittleFS.open("/hist_out"+String(i), "r");
-    if (f) {
+    s = "{\"weekdata\":[[";
+    for (i=0; i<7; i++) {
+        f = LittleFS.open("/hist_in"+String(i), "r");
+        if (f) {
         j = f.read(ibuffer, 10);
         ibuffer[j] = ',';
         ibuffer[j+1] = 0;
         f.close();
         s += (char*)ibuffer;
-    } else {
-        s += "0,";
+        }
+        else {
+            s += "0,";
+        }
     }
-  }
-  s.remove(s.length()-1, 1);
-  s += "]]}";
-  client->text(s);
+    s.remove(s.length()-1, 1);
+    s += "],[";
+    for (i=0; i<7; i++) {
+        f = LittleFS.open("/hist_out"+String(i), "r");
+        if (f) {
+            j = f.read(ibuffer, 10);
+            ibuffer[j] = ',';
+            ibuffer[j+1] = 0;
+            f.close();
+            s += (char*)ibuffer;
+        } else {
+            s += "0,";
+        }
+    }
+    s.remove(s.length()-1, 1);
+    s += "]]}";
+    client->text(s);
 }
 
 static void printScanResult(int nFound)
