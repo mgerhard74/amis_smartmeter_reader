@@ -15,17 +15,21 @@ void WebserverClass::init(bool upgradeMode)
 
     DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Origin"), "*");   //CORS-Header allgem.
 
+    // Initilisieren der einzelnen Handler für diverse Unterverzeichnisse
     _websrvLogin.init(_server);
     _websrvRest.init(_server);
     _websrvUpdate.init(_server);
 
+    // Initilisieren der Websocket Handler
     _websrvWsConsole.init(_server);
     _websrvWsData.init(_server);
 
-    _server.on("/upgrade", HTTP_GET, std::bind(&WebserverClass::onRequest_Upgrade, this, _1));
-
     _server.onNotFound(std::bind(&WebserverClass::onNotFound, this, _1));
 
+    // Spezielle statische Seite "/upgrade"
+    _server.on("/upgrade", HTTP_GET, std::bind(&WebserverClass::onRequest_Upgrade, this, _1));
+
+    // Der Rest kommt aus dem Filesystem
     _server.serveStatic("/", LittleFS, "/", "public, must-revalidate");  // /*.* wird aut. geservt, alle Files die keine Daten anfordern (GET, POST...)
 
     if (upgradeMode) {
