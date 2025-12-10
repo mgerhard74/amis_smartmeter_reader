@@ -921,12 +921,31 @@ $(function() {            // main
   $(".button-graf").on("click", function (){
     highchartDestroy(true);
   });
+
+  /* Development - Buttons -  Start */
   $(".button-dev-tools-button1").on("click", function () {
     websock.send('{"command":"dev-tools-button1"}');
   });
   $(".button-dev-tools-button2").on("click", function () {
     websock.send('{"command":"dev-tools-button2"}');
   });
+  $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
+    if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
+      websock.send('{"command":"factory-reset-reboot"}');
+      doReload(25000);
+    }
+  });
+  $(".button-dev-cmd-test").on("click", function () {
+    websock.send('{"command":"test"}');
+  });
+  $(".button-dev-cmd-ls").on("click", function () {
+    websock.send('{"command":"ls"}');
+  });
+  $(".button-dev-cmd-clear").on("click", function () {
+    websock.send('{"command":"clear"}');
+  });
+  /* Development - Buttons -  End */
+
   $("input[name='mqtt_enabled']").on("click", mqttDetails);
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
