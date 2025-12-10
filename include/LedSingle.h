@@ -2,12 +2,6 @@
 
 #include <stdint.h>
 
-
-#ifndef LEDPIN
-#define LEDPIN 2
-#endif
-
-
 typedef enum {
     LED_PINMODE_NONE,           // No LED connect (No I/O calls)
     LED_PINMODE_NO_INVERT,      // LED is on if we set output to HIGH

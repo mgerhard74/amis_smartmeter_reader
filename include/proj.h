@@ -24,8 +24,6 @@
 /// DEBUGHW 3             Websock
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
-#define LEDPIN 2          // LED via 470 to VCC
-#define AP_PIN 14
 //#define OTA
 //#define STROMPREIS
 #define VERSION "1.5.0"

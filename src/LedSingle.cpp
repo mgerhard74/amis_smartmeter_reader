@@ -1,3 +1,5 @@
+#include "ProjectConfiguration.h"
+
 #include "LedSingle.h"
 
 #include <Arduino.h>
@@ -95,9 +97,9 @@ void LedSingleClass::writePin(uint8_t value) {
 }
 
 
-#ifdef LEDPIN
+#ifdef LED_PIN
     // LED via 470 to VCC --> 0 = leuchtet, 255 ist aus --> invertiert
-    LedSingleClass LedBlue(LEDPIN, LED_PINMODE_INVERT);
+    LedSingleClass LedBlue(LED_PIN, LED_PINMODE_INVERT);
 #else
     LedSingleClass LedBlue(0, LED_PINMODE_NONE);
 #endif

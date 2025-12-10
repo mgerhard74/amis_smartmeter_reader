@@ -1,3 +1,5 @@
+#include "ProjectConfiguration.h"
+
 #include "proj.h"
 //#define DEBUG
 #include "debug.h"
@@ -67,8 +69,10 @@ void setup(){
     #endif
   #endif // DEBUGHW
 
+#ifdef AP_PIN
   pinMode(AP_PIN, INPUT_PULLUP);
   // pinMode(AP_PIN, INPUT); digitalWrite(AP_PIN, HIGH);
+#endif
 
   // Start filesystem early - so we can do some logging
   LittleFS.begin();
@@ -85,7 +89,7 @@ void setup(){
   tzset();
 
   // Start AMIS-Reader ... it can use the time to get the serailnumber
-  AmisReader.init(1);  // Init mit Serieller Schnittstelle #1
+  AmisReader.init(AMISREADER_SERIAL_NO);  // Init mit Serieller Schnittstellennummer
   AmisReader.enable(); // und gleich enablen
 
   Reboot.init();
@@ -98,7 +102,11 @@ void setup(){
   Config.applySettingsConfigGeneral();
 
  // Start Network
+#ifdef AP_PIN
   Network.init(digitalRead(AP_PIN) == LOW);
+#else
+  Network.init(false);
+#endif
   NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
   Network.connect();
 
