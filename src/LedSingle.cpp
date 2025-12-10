@@ -12,9 +12,11 @@ LedSingleClass::LedSingleClass(uint8_t pin, LedPinMode pinmode) {
     turnOff();
 }
 
+extern void writeEvent(String, String, String, String);
+
 void LedSingleClass::loop() {
     /* handles a blinking LED */
-    if (_state != LedState_t::BlinkOn && _state != LedState_t::BlinkOff) {
+    if (_state != blinkOn && _state != blinkOff) {
         return;
     }
 
@@ -31,41 +33,44 @@ void LedSingleClass::loop() {
 
 void LedSingleClass::turnOn() {
     writePin(_valueOn);
-    _state = LedState_t::On;
+    _state = on;
 }
 
 void LedSingleClass::turnOff() {
     writePin(_valueOff);
-    _state = LedState_t::Off;
+    _state = off;
 }
 
 void LedSingleClass::turnBlink(unsigned long offIntervalMs, unsigned long onIntervalMs) {
     _blinkIntervalsMs[0] = offIntervalMs;
     _blinkIntervalsMs[1] = onIntervalMs;
-    if (_state == LedState_t::Off) {
-        _state = LedState_t::BlinkOff;
-        _blinkIntervalsIdx = 0;
-    } if (_state == LedState_t::On) {
-        _state = LedState_t::BlinkOn;
-        _blinkIntervalsIdx = 1;
-    }
+
     _lastBlinkChangeMillis = millis();
-    invert();
+    // Do next blink step immediately next time loop() gets called
+    _lastBlinkChangeMillis -= std::max(offIntervalMs, onIntervalMs);
+
+    if (_state == off) {
+        _blinkIntervalsIdx = 0;
+        _state = blinkOff;
+    } else if (_state == on) {
+        _blinkIntervalsIdx = 1;
+        _state = blinkOn;
+    }
 }
 
 void LedSingleClass::invert() {
-    if (_state == LedState_t::Off) {
+    if (_state == off) {
         writePin(_valueOn);
-        _state = LedState_t::On;
-    } else if (_state == LedState_t::On) {
+        _state = on;
+    } else if (_state == on) {
         writePin(_valueOff);
-        _state = LedState_t::Off;
-    } else if (_state == LedState_t::BlinkOff) {
+        _state = off;
+    } else if (_state == blinkOff) {
         writePin(_valueOn);
-        _state = LedState_t::BlinkOn;
-    } else if (_state == LedState_t::BlinkOn) {
+        _state = blinkOn;
+    } else if (_state == blinkOn) {
         writePin(_valueOff);
-        _state = LedState_t::BlinkOff;
+        _state = blinkOff;
     }
 }
 
@@ -91,8 +96,8 @@ void LedSingleClass::writePin(uint8_t value) {
 
 
 #ifdef LEDPIN
-    // Serial1.txd: reroute pin function
-    LedSingleClass LedBlue(LEDPIN, LED_PINMODE_NO_INVERT);
+    // LED via 470 to VCC --> 0 = leuchtet, 255 ist aus --> invertiert
+    LedSingleClass LedBlue(LEDPIN, LED_PINMODE_INVERT);
 #else
     LedSingleClass LedBlue(0, LED_PINMODE_NONE);
 #endif
