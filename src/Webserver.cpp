@@ -1,5 +1,4 @@
 #include "Webserver.h"
-#include "config.h"
 
 #include <LittleFS.h>
 
@@ -44,11 +43,11 @@ void WebserverClass::init(bool upgradeMode)
 
 bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
 {
-    if (!Config.use_auth) {
+    if (!_auth_enabled) {
         return true;
     }
 
-    if (request->authenticate(Config.auth_user.c_str(), Config.auth_passwd.c_str())) {
+    if (request->authenticate(_auth_username.c_str(), _auth_password.c_str())) {
         return true;
     }
 
@@ -107,6 +106,26 @@ function btclick() {
 )=====";
 
     request->send(200, F("text/html"), _page_upgrade);
+}
+
+void WebserverClass::setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password)
+{
+    bool changed = false;
+    if (_auth_enabled != auth_enabled) {
+        changed = true;
+        _auth_enabled = auth_enabled;
+    }
+    if (!_auth_username.equals(auth_username)) {
+        changed = true;
+        _auth_username = auth_username;
+    }
+    if (!_auth_password.equals(auth_password)) {
+        changed = true;
+        _auth_password = auth_password;
+    }
+    if (changed) {
+        reload();
+    }
 }
 
 WebserverClass Webserver;

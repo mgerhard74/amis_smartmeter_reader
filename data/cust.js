@@ -584,7 +584,7 @@ function progressAnimate(id,time) {
 
 function doUpdateGeneral() {                 // button save config
   progressAnimate('prgbar_general',300);
-  let boot=($("#use_auth").prop("checked")!=config_general.use_auth);
+  //let boot=($("#use_auth").prop("checked")!=config_general.use_auth);
   $(".general").each(function () {
     //console.log($(this).prop('type'),this.name,this.value)
     if ($(this).prop('type') == 'checkbox') config_general[this.name] = $(this).prop('checked');
@@ -595,7 +595,7 @@ function doUpdateGeneral() {                 // button save config
   if (config_general.developerModeEnabled) $(".menu-developer").show();
   else $(".menu-developer").hide();
   websock.send(JSON.stringify(config_general));
-  if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
+  //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
 function doUpdateWiFi() {
   progressAnimate('prgbar_wifi',300);

@@ -13,12 +13,13 @@ class WebserverClass
     public:
         WebserverClass();
         void init(bool upgradeMode);
-        void reload();
+        void setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password);
         bool checkCredentials(AsyncWebServerRequest* request);
 
     private:
         void onNotFound(AsyncWebServerRequest *request);
         void onRequest_Upgrade(AsyncWebServerRequest *request);
+        void reload();
 
         AsyncWebServer _server;
 
@@ -28,6 +29,9 @@ class WebserverClass
 
         WebserverWsConsoleClass _websrvWsConsole;
         WebserverWsDataClass _websrvWsData;
+
+        bool _auth_enabled;
+        String _auth_username, _auth_password;
 };
 
 extern WebserverClass Webserver;

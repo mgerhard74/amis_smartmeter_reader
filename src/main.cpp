@@ -119,6 +119,7 @@ void setup(){
   } else {
     Webserver.init(false);    // /init.html als /
   }
+  Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
 
   // Smart Meter Simulator
   ModbusSmartmeterEmulation.init();

@@ -8,6 +8,7 @@
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
 #include "ThingSpeak.h"
+#include "Webserver.h"
 
 #include <ArduinoJson.h>
 #include <LittleFS.h>
@@ -89,6 +90,8 @@ void ConfigClass::applySettingsConfigGeneral()
     ThingSpeak.setInterval(Config.thingspeak_iv);
     ThingSpeak.setApiKeyWriite(Config.write_api_key);
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
+
+    Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 

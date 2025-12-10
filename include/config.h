@@ -24,11 +24,11 @@ public:
     String mqtt_sub;
     bool mqtt_ha_discovery;
 
-    bool use_auth;
     bool log_sys;
 
     bool smart_mtr;
 
+    bool use_auth;
     String auth_passwd;
     String auth_user;
 
