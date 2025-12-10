@@ -6,4 +6,6 @@
 #.vscode/launch.json
 #.vscode/ipch
 
+.DS_Store
+
 platformio_override.ini
