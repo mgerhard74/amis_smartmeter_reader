@@ -9,3 +9,5 @@
 .DS_Store
 
 platformio_override.ini
+
+src/local/DefaultConfigurations.cpp

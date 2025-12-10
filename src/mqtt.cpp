@@ -1,5 +1,6 @@
 #include "proj.h"
 #include "AmisReader.h"
+#include "DefaultConfigurations.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -16,29 +17,39 @@ static bool loadConfigMqtt()
   File configFile = LittleFS.open("/config_mqtt", "r");
   if (!configFile) {
     DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
+#ifndef DEFAULT_CONFIG_MQTT_JSON
     return false;
+#endif
   }
+
   DynamicJsonBuffer jsonBuffer;
-  JsonObject &json = jsonBuffer.parseObject(configFile);
-  configFile.close();
-  if (!json.success()) {
+  JsonObject *json = nullptr;
+  if (configFile) {
+    json = &jsonBuffer.parseObject(configFile);
+    configFile.close();
+  } else {
+#ifdef DEFAULT_CONFIG_MQTT_JSON
+    json = &jsonBuffer.parseObject(DEFAULT_CONFIG_MQTT_JSON);
+#endif
+  }
+  if (json == nullptr || !json->success()) {
     DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
     return false;
   }
   ///json.prettyPrintTo(Serial);
-  Config.mqtt_qos = json[F("mqtt_qos")].as<unsigned int>();
-  Config.mqtt_retain = json[F("mqtt_retain")].as<bool>();
-  Config.mqtt_sub = json[F("mqtt_sub")].as<String>();
-  Config.mqtt_pub = json[F("mqtt_pub")].as<String>();
-  Config.mqtt_keep = json[F("mqtt_keep")].as<unsigned int>();
-  Config.mqtt_ha_discovery = json[F("mqtt_ha_discovery")].as<bool>();
-  Config.mqtt_will = json[F("mqtt_will")].as<String>();
-  Config.mqtt_user = json[F("mqtt_user")].as<String>();
-  Config.mqtt_password = json[F("mqtt_password")].as<String>();
-  Config.mqtt_client_id = json[F("mqtt_clientid")].as<String>();
-  Config.mqtt_enabled = json[F("mqtt_enabled")].as<bool>();
-  Config.mqtt_broker = json[F("mqtt_broker")].as<String>();
-  Config.mqtt_port = json[F("mqtt_port")].as<uint16_t>();
+  Config.mqtt_qos = (*json)[F("mqtt_qos")].as<unsigned int>();
+  Config.mqtt_retain = (*json)[F("mqtt_retain")].as<bool>();
+  Config.mqtt_sub = (*json)[F("mqtt_sub")].as<String>();
+  Config.mqtt_pub = (*json)[F("mqtt_pub")].as<String>();
+  Config.mqtt_keep = (*json)[F("mqtt_keep")].as<unsigned int>();
+  Config.mqtt_ha_discovery = (*json)[F("mqtt_ha_discovery")].as<bool>();
+  Config.mqtt_will = (*json)[F("mqtt_will")].as<String>();
+  Config.mqtt_user = (*json)[F("mqtt_user")].as<String>();
+  Config.mqtt_password = (*json)[F("mqtt_password")].as<String>();
+  Config.mqtt_client_id = (*json)[F("mqtt_clientid")].as<String>();
+  Config.mqtt_enabled = (*json)[F("mqtt_enabled")].as<bool>();
+  Config.mqtt_broker = (*json)[F("mqtt_broker")].as<String>();
+  Config.mqtt_port = (*json)[F("mqtt_port")].as<uint16_t>();
   return true;
 }
 

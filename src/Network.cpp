@@ -2,6 +2,7 @@
 
 #include "AmisReader.h"
 #include "config.h"
+#include "DefaultConfigurations.h"
 #include "LedSingle.h"
 
 //#define DEBUG
@@ -113,51 +114,63 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     if (!configFile) {
         DBGOUT("[ ERR ] Failed to open config_wifi\n");
         writeEvent("ERROR", "wifi", "WiFi config fail", "");
+#ifndef DEFAULT_CONFIG_WIFI_JSON
         return loadConfigWifiFromEEPROM(config);
+#else
+        if (loadConfigWifiFromEEPROM(config)) {
+            return true;
+        }
+#endif
     }
-
-    JsonObject &json = jsonBuffer.parseObject(configFile);
-    configFile.close();
-    if (!json.success()) {
+    JsonObject *json = nullptr;
+    if (configFile) {
+        json = &jsonBuffer.parseObject(configFile);
+        configFile.close();
+    } else {
+#ifdef DEFAULT_CONFIG_WIFI_JSON
+        json = &jsonBuffer.parseObject(DEFAULT_CONFIG_WIFI_JSON);
+#endif
+    }
+    if (json == nullptr || !json->success()) {
         DBGOUT("[ WARN ] Failed to parse config_wifi\n");
         writeEvent("ERROR", "wifi", "WiFi config error", "");
         return false;
     }
 
-    config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
-    config.pingrestart_ip = json[F("pingrestart_ip")].as<String>();
+    config.pingrestart_do = (*json)[F("pingrestart_do")].as<bool>();
+    config.pingrestart_ip = (*json)[F("pingrestart_ip")].as<String>();
     config.pingrestart_ip.trim();
-    config.pingrestart_interval = json[F("pingrestart_interval")].as<unsigned int>();
-    config.pingrestart_max = json[F("pingrestart_max")].as<unsigned int>();
+    config.pingrestart_interval = (*json)[F("pingrestart_interval")].as<unsigned int>();
+    config.pingrestart_max = (*json)[F("pingrestart_max")].as<unsigned int>();
 
-    config.allow_sleep_mode = json[F("allow_sleep_mode")].as<bool>();
+    config.allow_sleep_mode = (*json)[F("allow_sleep_mode")].as<bool>();
 
-    config.ssid = json[F("ssid")].as<String>();
-    config.wifipassword = json[F("wifipassword")].as<String>();
+    config.ssid = (*json)[F("ssid")].as<String>();
+    config.wifipassword = (*json)[F("wifipassword")].as<String>();
 
-    config.dhcp = json[F("dhcp")].as<bool>();
+    config.dhcp = (*json)[F("dhcp")].as<bool>();
 
-    config.mdns = json[F("mdns")].as<bool>();
+    config.mdns = (*json)[F("mdns")].as<bool>();
 
     config.rfpower = 20;
-    if (json[F("rfpower")] != "") {
-        config.rfpower = json[F("rfpower")].as<int>();
+    if ((*json)[F("rfpower")] != "") {
+        config.rfpower = (*json)[F("rfpower")].as<int>();
         if (config.rfpower > 21) {
             config.rfpower = 21;
         }
     }
 
     String v;
-    v = json[F("ip_static")].as<String>();
+    v = (*json)[F("ip_static")].as<String>();
     v.trim();
     config.ip_static.fromString(v);
-    v = json[F("ip_netmask")].as<String>();
+    v = (*json)[F("ip_netmask")].as<String>();
     v.trim();
     config.ip_netmask.fromString(v);
-    v = json[F("ip_nameserver")].as<String>();
+    v = (*json)[F("ip_nameserver")].as<String>();
     v.trim();
     config.ip_nameserver.fromString(v);
-    v = json[F("ip_gateway")].as<String>();
+    v = (*json)[F("ip_gateway")].as<String>();
     v.trim();
     config.ip_gateway.fromString(v);
 
