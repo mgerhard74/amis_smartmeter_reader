@@ -282,6 +282,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             File f = dir.openFile("r");
             //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
             doc[String(i)] = dir.fileName() + ' ' + String(f.size());
+            if (f) {
+                f.close();
+            }
             i++;
         }
         doc["ls"]=i;
