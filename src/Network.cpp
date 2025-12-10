@@ -7,6 +7,14 @@
 //#define DEBUG
 #include "debug.h"
 
+#if 0
+#undef DBGOUT
+#define DBGOUT(X)  Serial.print(X)
+#define DBGPRINTF(fmt, args...)  Serial.printf(fmt, ##args)
+#else
+#define DBGPRINTF(fmt, args...) (void)(0)
+#endif
+
 #include <ArduinoJson.h>
 #include <AsyncMqttClient.h>
 #include <EEPROM.h>
@@ -20,7 +28,6 @@ extern Ticker mqttTimer;
 extern void mqtt_init();
 extern void upgrade (bool save);
 extern void writeEvent(String, String, String, String);
-
 
 void NetworkClass::init(bool apMode)
 {
@@ -40,6 +47,8 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
+    DBGOUT("WiFi onStationModeGotIP()\n");
+    DBGPRINTF("%d\n", _tickerReconnect.active());
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);
@@ -72,6 +81,8 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
+    DBGOUT("WiFi onStationModeDisconnected() start\n");
+    DBGPRINTF("%d\n", _tickerReconnect.active());
     _isConnected = false;
     LedBlue.turnOff();
     mqttTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
@@ -80,11 +91,17 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     }
 
     // in 2 Sekunden Versuch sich wieder verzubinden
+    _tickerReconnect.detach();
+#if 1
+    _tickerReconnect.once(2, std::bind(&NetworkClass::connect, this));
+#else
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
+#endif
     if (Config.log_sys) {
         writeEvent("INFO", "wifi", "WiFi !!! DISCONNECT !!!", "Errorcode: " + String(event.reason));
     }
-    DBGOUT("WiFi disconnect\n");
+    DBGOUT("WiFi onStationModeDisconnected() end\n");
+    DBGPRINTF("%d\n", _tickerReconnect.active());
 }
 
 bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
@@ -149,6 +166,8 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
 void NetworkClass::connect(void)
 {
+    DBGOUT("WiFi connect() start\n");
+    _tickerReconnect.detach();
     if (_apMode) {
         WiFi.mode(WIFI_AP);
         WiFi.softAP("ESP8266_AMIS");
@@ -158,7 +177,6 @@ void NetworkClass::connect(void)
     }
 
     WiFi.mode(WIFI_STA);
-
     if (!_configWifi.allow_sleep_mode) {
         // disable sleep mode
         DBGOUT(F("Wifi sleep mode disabled\n"));
@@ -181,12 +199,12 @@ void NetworkClass::connect(void)
         WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver);
     }
 
+    LedBlue.turnBlink(150, 150);
+    _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword);
 
-    LedBlue.turnBlink(150, 150);
-    _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
-    DBGOUT(F("WiFi begin\n"));
+    DBGOUT(F("WiFi connect() end\n"));
 }
 
 bool NetworkClass::inAPMode(void)
