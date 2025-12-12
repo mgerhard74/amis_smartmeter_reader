@@ -54,7 +54,7 @@ void historyInit()
 
 void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients senden
 {
-  if (ws.count() == 0) {
+  if (ws->count() == 0) {
       return; // No Websock clients
   }
   if (valid != 5) {
@@ -82,17 +82,17 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
       }
   }
   size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
+  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
   if (buffer) {
       root.printTo((char *)buffer->get(), len + 1);
-      ws.textAll(buffer);
+      ws->textAll(buffer);
   }
 }
 
 
 void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients senden
 {
-  if (ws.count() == 0) {
+  if (ws->count() == 0) {
       return; // No Websock clients
   }
 
@@ -106,10 +106,10 @@ void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients se
   f.close();
 
   size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws.makeBuffer(len);
+  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
   if (buffer) {
       root.printTo((char *)buffer->get(), len + 1);
-      ws.textAll(buffer);
+      ws->textAll(buffer);
   }
 }
 

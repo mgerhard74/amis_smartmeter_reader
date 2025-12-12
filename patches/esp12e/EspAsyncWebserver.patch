@@ -1,38 +1,16 @@
-diff --git a/.pio/libdeps/$$$env$$$/ESP Async WebServer/src/WebHandlers.cpp b/.pio/libdeps/$$$env$$$/ESP Async WebServer/src/WebHandlers.cpp
-index 2cd8883..f4a3227 100644     
---- a/.pio/libdeps/$$$env$$$/ESP Async WebServer/src/WebHandlers.cpp
-+++ b/.pio/libdeps/$$$env$$$/ESP Async WebServer/src/WebHandlers.cpp
-@@ -194,16 +194,26 @@
-       return request->requestAuthentication();
- 
-   if (request->_tempFile == true) {
--    String etag = String(request->_tempFile.size());
-+    bool is_modified;
-+    String etag = "\"" + String(request->_tempFile.size()) + "\"";     // etag-value needs between quotes !
-     if (_last_modified.length() && _last_modified == request->header("If-Modified-Since")) {
--      request->_tempFile.close();
--      request->send(304); // Not modified
-+      is_modified = false;
-     } else if (_cache_control.length() && request->hasHeader("If-None-Match") && request->header("If-None-Match").equals(etag)) {
-+      is_modified = false;
-+    } else {
-+      is_modified = true;
-+    }
-+
-+    if (!is_modified) {
-       request->_tempFile.close();
--      AsyncWebServerResponse * response = new AsyncBasicResponse(304); // Not modified
--      response->addHeader("Cache-Control", _cache_control);
--      response->addHeader("ETag", etag);
--      request->send(response);
-+      AsyncWebServerResponse * response = new AsyncBasicResponse(304); // Not modified
-+      if (_last_modified.length())
-+          response->addHeader("Last-Modified", _last_modified);
-+      if (_cache_control.length()) {
-+          response->addHeader("Cache-Control", _cache_control);  // HTTP requires cache headers in 200 and 304 to be identical
-+          response->addHeader("ETag", etag);
-+        }
-+        request->send(response);
+diff --git a/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp b/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp
+index 44a4601..06991ba 100644
+--- a/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp
++++ b/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp
+@@ -224,6 +224,10 @@ void AsyncStaticWebHandler::handleRequest(AsyncWebServerRequest* request) {
      } else {
-       AsyncWebServerResponse * response = new AsyncFileResponse(request->_tempFile, filename, String(), false, _callback);
-       if (_last_modified.length())
+       etag = request->_tempFile.size();
+     }
++    // As per RFC7232 ( https://www.rfc-editor.org/rfc/rfc7232#section-2.3 )
++    // and MDN docs ( https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag#directives )
++    // the value of the ETag in the http header response has to be between quotes.
++    etag = "\"" + etag + "\"";
+
+     bool not_modified = false;
+
+#

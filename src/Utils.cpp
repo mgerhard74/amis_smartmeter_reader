@@ -5,14 +5,29 @@
 
 bool Utils::fileExists(const char *fname)
 {
+    bool r = false;
     File f;
     f = LittleFS.open(fname, "r");
     if (f) {
+        r = f.isFile();
         f.close();
-        return true;
     }
-    return false;
+    return r;
 }
+
+#if 0
+bool Utils::dirExists(const char *fname)
+{
+    bool r = false;
+    File f;
+    f = LittleFS.open(fname, "r");
+    if (f) {
+        r = f.isDirectory();
+        f.close();
+    }
+    return r;
+}
+#endif
 
 bool Utils::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
 {

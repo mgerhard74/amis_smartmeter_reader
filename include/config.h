@@ -23,12 +23,19 @@ public:
     String mqtt_pub;
     String mqtt_sub;
     bool mqtt_ha_discovery;
+    String mqtt_will;
+    String mqtt_user;
+    String mqtt_password;
+    String mqtt_client_id;
+    bool mqtt_enabled;
+    String mqtt_broker;
+    uint16_t mqtt_port;
 
-    bool use_auth;
     bool log_sys;
 
     bool smart_mtr;
 
+    bool use_auth;
     String auth_passwd;
     String auth_user;
 
@@ -53,6 +60,8 @@ public:
     unsigned switch_intervall;
 
     String amis_key;
+
+    bool developerModeEnabled;
 };
 
 extern ConfigClass Config;

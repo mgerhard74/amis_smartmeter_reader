@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h> // needed for size_t
+#include <time.h>   // needed for time_t
 
 /* Check and "documentate" sizes of some data types */
 static_assert(sizeof(int) == 4);
@@ -21,6 +22,8 @@ static_assert(sizeof(int64_t) == 8);
 static_assert(sizeof(uint64_t) == 8);
 
 static_assert(sizeof(size_t) == 4);
+
+static_assert(sizeof(time_t) == 8);
 
 static_assert(sizeof(float) == 4);
 static_assert(sizeof(double) == 8);
@@ -58,6 +61,7 @@ typedef union {
     uint32_t ui32t[2];
     int64_t i64t;
     uint64_t ui64t;
+    time_t timet;
 } U8ByteValues;
 static_assert(sizeof(U8ByteValues) == 8);
 

@@ -58,7 +58,7 @@ def main():
                 continue
 
             fullPath = os.path.join(directory, file)
-            preparePath = fullPath + '.prepare'
+            preparePath = fullPath + "." + env['PIOENV'].strip() + '.prepare'
             replaceInFile(fullPath, preparePath, '$$$env$$$', env['PIOENV'])
             print('Working on patch: ' + fullPath + '... ', end='')
 

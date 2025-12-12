@@ -46,6 +46,8 @@ class UA {
 public:
     static uint16_t swap2(uint16_t v);
     static uint32_t swap4(uint32_t v);
+    void swap_mem2(void *p);
+    void swap_mem4(void *p);
 
 #if (HAVE_UA2_ACCESS)
     static uint16_t ReadU16LE(const void *p) { return SWAP_LE2(*(const uint16_t*)p); }

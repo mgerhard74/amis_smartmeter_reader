@@ -24,8 +24,6 @@
 /// DEBUGHW 3             Websock
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
-#define LEDPIN 2          // LED via 470 to VCC
-#define AP_PIN 14
 //#define OTA
 //#define STROMPREIS
 #define VERSION "1.5.0"
@@ -43,8 +41,9 @@ struct kwhstruct {
   unsigned dow;
 };
 extern int logPage;
-extern AsyncWebServer server;
-extern AsyncWebSocket ws;
+//extern AsyncWebServer server;
+//extern AsyncWebSocket ws;
+extern AsyncWebSocket *ws;
 extern WiFiClient dbg_client;
 extern WiFiServer dbg_server;
 
@@ -54,7 +53,7 @@ extern uint8_t mon,myyear;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
 extern uint32_t clientId;
-extern const char PAGE_upgrade[];
+//extern const char PAGE_upgrade[];
 //extern String lastMonth;
 
 extern kwhstruct kwh_hist[7];
@@ -62,10 +61,6 @@ extern void mqtt_publish_state();
 extern void mqtt_publish_ha_availability(bool);
 extern String get_ha_availability_topic();
 extern void mqtt_publish_ha_discovery();
-extern void serverInit(unsigned mode);
-extern void wsClientRequest(AsyncWebSocketClient *client, size_t sz);
-extern const char flashOk[];
-extern void initOTA();
 extern AsyncMqttClient mqttClient;
 extern Ticker mqttTimer;
 extern void mqtt_init();
@@ -75,7 +70,6 @@ extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);
 extern void sendEventLog(uint32_t clientId,int page);
-extern void upgrade (bool save);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 #endif

@@ -2,12 +2,6 @@
 
 #include <stdint.h>
 
-
-#ifndef LEDPIN
-#define LEDPIN 2
-#endif
-
-
 typedef enum {
     LED_PINMODE_NONE,           // No LED connect (No I/O calls)
     LED_PINMODE_NO_INVERT,      // LED is on if we set output to HIGH
@@ -33,13 +27,13 @@ private:
     uint8_t _blinkIntervalsIdx = 0;
     unsigned long _lastBlinkChangeMillis;
 
-    enum class LedState_t {
-        On,
-        Off,
-        BlinkOn,
-        BlinkOff,
-    };
-    LedState_t _state = LedState_t::Off;
+    typedef enum {
+        on,
+        off,
+        blinkOn,
+        blinkOff,
+    } ledState_t;
+    ledState_t _state = ledState_t::off;
     void writePin(uint8_t value);
 };
 

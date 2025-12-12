@@ -1,0 +1,39 @@
+; ***  PlatformIO Project Configuration Override File  ***
+; ***  Changes done here override settings in platformio.ini  ***
+; ***  Copy this file to platformio_override.ini and add your changes  ***
+;
+; Place your personal settings like monitor_port and upload_port here
+; instead of editing platformio.ini to avoid annoying merge conflicts
+; when you pull updates into your personal clone of the repository
+;
+; Please visit documentation for the options and examples
+; http://docs.platformio.org/en/stable/projectconf.html
+
+[platformio]
+; Specify which default builds are done when pressing "build" button
+; Make sure to add spaces in the default_envs property (this is differnt to default_envs property)
+; default_envs = esp12e, esp12e_developer_mode
+; default_envs = esp12e_developer_mode
+
+[env]
+; Specify port here. Comment out (add ; in front of line) to use auto detection.
+; Under Linux, the ports are in the format /dev/tty***, typically /dev/ttyUSB0
+; To look up the port, execute ls /dev/tty*, then connect the device
+; then execute ls /dev/tty* again and check which device was added
+;monitor_port = COM4
+;upload_port = COM4
+
+
+; you can define your personal board and/or settings here
+; non functional example:
+
+;[env:my_very_special_board_or_build]
+;board = esp32_special_hardware
+;build_flags = ${env.build_flags}
+;    -DANY_SPECIAL_DEFINE=1
+;    -DANY_OTHER_SPECIAL_DEFINE=2
+;monitor_port = /dev/ttyACM0
+;upload_port = /dev/ttyACM0
+
+
+; vim:set ts=4 et:
