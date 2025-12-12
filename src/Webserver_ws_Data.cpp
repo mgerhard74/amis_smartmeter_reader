@@ -5,6 +5,7 @@
 #include "Webserver_ws_Data.h"
 
 #include "config.h"
+#include "FileBlob.h"
 #include "Network.h"
 #include "Reboot.h"
 #include "Webserver.h"
@@ -359,6 +360,11 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
         EEPROMClear();
         Reboot.startReboot();
+    } else if (!strcmp(command, "extract-files")) {
+        // Delete all files contained in the image from filesystem and
+        // start recreation/extraction from image into filesystem
+        FileBlobs.remove(true);
+        FileBlobs.checkIsChanged();
     } else if (!strcmp(command, "set-developer-mode")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
