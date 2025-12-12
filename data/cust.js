@@ -935,6 +935,10 @@ $(function() {            // main
       doReload(25000);
     }
   });
+  $(".button-dev-send-json").on("click", function () {
+    var js = $('textarea#dev-text-json').val();
+    websock.send(js);
+  });
   $(".button-dev-cmd-test").on("click", function () {
     websock.send('{"command":"test"}');
   });
