@@ -289,12 +289,17 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         while (dir.next()) {
             File f = dir.openFile("r");
             //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
-            doc[String(i)] = dir.fileName() +
-                            ((f) ?' ' + String(f.size()) :"") +
-                            ((f) ?' ' + String(f.getCreationTime()) :"") +
-                            ((f) ?' ' + String(f.getLastWrite()) :"");
             if (f) {
+                char puffer [86]; // 31+1 + 11+1 + 20+1 + 20  +1
+                sprintf(puffer,     "%-31s %11u %20lld %20lld",
+                                dir.fileName().c_str(),
+                                f.size(),
+                                f.getCreationTime(),
+                                f.getLastWrite());
                 f.close();
+                doc[String(i)] = puffer;
+            } else {
+                doc[String(i)] = dir.fileName();
             }
             i++;
         }
@@ -348,7 +353,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             }
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {
-        // Remove all files, Clear EEprom
+        // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
             writeEvent("ERROR","littlfs","LittleFS.format() failed!", "");
         }
