@@ -283,6 +283,27 @@ void FileBlobsClass::remove(bool force)
     _extractionInProgress = false;
 }
 
+#if 0
+void FileBlobsClass::removeNotPackedFiles()
+{
+    // If a filename in the blobs ends with ".gz" and the
+    // file without .gz is available in the filesystem then remove the file without ".gz"
+    FileBlobClass *blob;
+    char _filenameOld[LFS_NAME_MAX];
+
+    for (size_t i=0; i < std::size(_fileBlobs); i++) {
+        blob = _fileBlobs[i];
+        strcpy(_filenameOld, blob->getFilename());
+        if (strlen(_filenameOld) > 3 && strcmp(_filenameOld+strlen(_filenameOld)-3, ".gz") == 0) {
+            _filenameOld[strlen(_filenameOld) - 3] = 0;
+            if (Utils::fileExists(_filenameOld)) {
+                LittleFS.remove(_filenameOld);
+            }
+        }
+    }
+}
+#endif
+
 FileBlobsClass FileBlobs;
 
 /* vim:set ts=4 et: */

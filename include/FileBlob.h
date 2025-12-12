@@ -44,6 +44,7 @@ class FileBlobsClass
         void checkIsChanged();
         void loop();            // this proberly extracts
         void remove(bool force);
+        //void removeNotPackedFiles();
 
     private:
         FileBlobClass* _fileBlobs[6];
