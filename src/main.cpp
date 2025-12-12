@@ -85,6 +85,7 @@ void setup(){
     writeEvent("INFO", "sys", "  Compiled [UTC]", __COMPILED_DATE_TIME_UTC_STR__);
     writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
     writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
+    writeEvent("INFO", "sys", "  Reset reason", ESP.getResetReason());
 
     // Set timezone to CET/CEST
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
