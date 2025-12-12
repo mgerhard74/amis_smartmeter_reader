@@ -94,8 +94,11 @@ void setup(){
     // Mal die config laden
     Config.loadConfigGeneral();
 
-    // Blobs für den Webserver extrahieren
-    FileBlobs_extractIfChanged();
+    // Extraktion der Files für den Webserver vorbereiten
+    // Alle Dateien zu extrahieren dauert zu lange (HardwareWatchdok wir d ausgelöst)
+    // Deswegen passiert die eigentlich extraktion dann erst in der loop()
+    FileBlobs.init();
+    FileBlobs.checkIsChanged();
 
     // Starten wir mal den AMIS-Reader
     AmisReader.init(AMISREADER_SERIAL_NO);  // Init mit Serieller Schnittstellennummer
@@ -185,6 +188,8 @@ void loop() {
         dbg_string="";
     }
 #endif
+
+    FileBlobs.loop();
 
     Reboot.loop();
 

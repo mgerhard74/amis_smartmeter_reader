@@ -3,8 +3,9 @@
 #include "config.h"
 #include "Utils.h"
 
-#include <LittleFS.h>
+#if not (FILEBLOB_WRITE_MD_INO_FILE)
 #include <MD5Builder.h>
+#endif
 
 extern const time_t __COMPILED_DATE_TIME_UTC_TIME_T__;
 
@@ -17,6 +18,14 @@ FileBlobClass::FileBlobClass(const uint8_t *data, size_t len, const char *filena
     _filename = filename;
     _md5sum = md5sum;
     _timeStamp = timeStamp;
+#if (FILEBLOB_WRITE_MD_INO_FILE)
+    // Create a filename: _filename + ".md5" within 31 bytes (possible hrink _filename)
+    strncpy(_filenameMd5, _filename, sizeof(_filenameMd5)-2);
+    if (strlen(_filename) > sizeof(_filenameMd5)-5) {
+        _filenameMd5[sizeof(_filenameMd5)-5] = 0;
+    }
+    strcat(_filenameMd5, ".md5");
+#endif
 }
 
 const char *FileBlobClass::getFilename()
@@ -26,8 +35,16 @@ const char *FileBlobClass::getFilename()
 
 bool FileBlobClass::remove()
 {
-    return LittleFS.remove(_filename);
+    bool r = true;
+#if (FILEBLOB_WRITE_MD_INO_FILE)
+    r &= LittleFS.remove(_filenameMd5);
+#endif
+    r &= LittleFS.remove(_filename);
+    return r;
 }
+
+void checkIfChanged();
+
 
 # if 1
 static time_t blobTimeStamp = (time_t) 0;
@@ -51,20 +68,32 @@ time_t FileBlobClass::getTimeStamp()
 }
 #endif
 
-bool FileBlobClass::extractToFile() {
-    uint8_t buffer[2048];
 
-    writeEvent("Info", "FileBlobClass::extractToFile()", _filename, String(_len));
+// Extrahieren mehrere Dateien brauch sehr lange
+// Den HW Watchdog disablen/enablen
+//    void hw_wdt_disable(){ *((volatile uint32_t*) 0x60000900) &= ~(1); /* Hardware WDT OFF */ }
+//    void hw_wdt_enable() { *((volatile uint32_t*) 0x60000900) |= 1;    /* Hardware WDT ON  */ }
+// ist sehr unsauber!
+// Also: Blockweises (1kB) Schreiben in der loop()
+bool FileBlobClass::extractToFileNextBlock()
+{
+    uint8_t buffer[1024];
 
-    LittleFS.remove(_filename);
-    //LittleFS.setTimeCallback(std::bind(&FileBlobClass::getTimeStamp, this)); // TODO: Make this line working
-    //LittleFS.setTimeCallback(&GetTimeStamp);
+    if (_bytesWritten == 0) {
+        remove();
+    }
+
     blobTimeStamp = _timeStamp;
-    File f = LittleFS.open(_filename, "w");
+
+    File f = LittleFS.open(_filename, (_bytesWritten == 0) ?"w" :"a");
     if (!f) {
+        writeEvent("Error", "FileBlobClass::extractToFile()", _filename, "open error");
+        _bytesWritten = 0; // stop updating the file even on failure
+        _isChanged = false;
+        blobTimeStamp = 0;
         return false;
     }
-    size_t off = 0, bytesLeft = _len;
+    size_t off = _bytesWritten,  bytesLeft = _len - _bytesWritten;
     while (bytesLeft != 0) {
         size_t l = std::min(std::size(buffer), bytesLeft);
         memcpy_P(buffer, &_data[off], l);
@@ -72,6 +101,9 @@ bool FileBlobClass::extractToFile() {
         if (f.write(buffer, l) != l) {
             f.close();
             writeEvent("Error", "FileBlobClass::extractToFile()", _filename, "write error");
+            _bytesWritten = 0; // stop updating the file even on failure
+            _isChanged = false;
+            blobTimeStamp = 0;
             return false;
         }
         ESP.wdtFeed();
@@ -79,36 +111,76 @@ bool FileBlobClass::extractToFile() {
         yield();
         off += l;
         bytesLeft -= l;
+        _bytesWritten += l;
+        break; // Just write one block as otherwise hardware watchdog get raised
     }
     f.close();
+
+#if (FILEBLOB_WRITE_MD_INO_FILE)
+    if (_bytesWritten == _len) {
+        // whole file has been written
+        f = LittleFS.open(_filenameMd5, "w");
+        if (f) { // ignore any errors on writing the md5sum
+            f.write((const uint8_t *)_md5sum, 32);
+            f.close();
+        }
+    }
+#endif
     blobTimeStamp = 0;
-    writeEvent("Success", "FileBlobClass::extractToFile()", _filename, String(_len) + " bytes");
+
+    if (_bytesWritten == _len) {
+        _bytesWritten = 0;
+        _isChanged = false; // whole file has been written --> reset _isChanged flag
+        writeEvent("Success", "FileBlobClass::extractToFile()", _filename, String(_len) + " bytes written");
+    }
     return true;
 }
 
 
-bool FileBlobClass::extractIfChanged(bool checkMd5Sum, bool checkTimeStamp)
+void FileBlobClass::checkIfChanged(bool checkMd5Sum, bool checkTimeStamp)
 {
-    LittleFS.setTimeCallback(&GetTimeStamp);
+    _isChanged = false;
 
     File f = LittleFS.open(_filename, "r");
     if (!f) {
-        return extractToFile();
+        _isChanged = true;
+        return;
     }
     size_t size = f.size();
     if (size != _len) {
         f.close();
-        return extractToFile();
+        _isChanged = true;
+        // writeEvent("Info", "FileBlobClass::checkIfChanged()", String(size), String(_len));
+        return;
     }
 
     if (checkTimeStamp) {
-        if (f.getLastWrite() != _timeStamp) {
+        time_t lw = f.getLastWrite();
+        if (lw != _timeStamp) {
             f.close();
-            //writeEvent("Success", "Timediff", String(f.getLastWrite()), String(_timeStamp));
-            return extractToFile();
+            _isChanged = true;
+            // writeEvent("Info", "FileBlobClass::checkIfChanged()", String(lw), String(_timeStamp));
+            return;
         }
     }
 
+#if (FILEBLOB_WRITE_MD_INO_FILE)
+    // As real md5sum computation needs so long, we write the md5sum into an extra file
+    f.close();
+    if (checkMd5Sum) {
+        uint8_t md5_strdata[33];
+        memset(md5_strdata, 0, sizeof(md5_strdata)); // we can use it later as c_str()
+        File f = LittleFS.open(_filenameMd5, "r");
+        if (f) {
+            f.read(md5_strdata, 32);
+            f.close();
+        }
+        if (memcmp(md5_strdata, _md5sum, 32)) {
+            // writeEvent("Info", "FileBlobClass::checkIfChanged()", _md5sum, String((char*)md5_strdata));
+            _isChanged = true;
+        }
+    }
+#else
     if (checkMd5Sum) {
         MD5Builder _md5 = MD5Builder();
         _md5.begin();
@@ -117,12 +189,17 @@ bool FileBlobClass::extractIfChanged(bool checkMd5Sum, bool checkTimeStamp)
 
         if (strcmp(_md5.toString().c_str(), _md5sum)) {
             f.close();
-            return extractToFile();
+            _isChanged = true;
+            return;
         }
     }
-
     f.close();
-    return true;
+#endif
+}
+
+bool FileBlobClass::isChanged()
+{
+    return _isChanged;
 }
 
 
@@ -140,33 +217,72 @@ static FileBlobClass DataBlob_jquery371slim_js_gz(jquery371slim_js_gz, jquery371
 static FileBlobClass DataBlob_pure_min_css_gz(pure_min_css_gz, pure_min_css_gz_size, "/pure-min.css.gz", pure_min_css_gz_md5, __COMPILED_DATE_TIME_UTC_TIME_T__);
 
 
-static FileBlobClass* FileBlobs[6] = {
-    &DataBlob_amis_css_gz,
-    &DataBlob_chart_js_gz,
-    &DataBlob_cust_js_gz,
-    &DataBlob_index_html_gz,
-    &DataBlob_jquery371slim_js_gz,
-    &DataBlob_pure_min_css_gz
-};
-
-
-bool FileBlobs_extractIfChanged()
+void FileBlobsClass::init()
 {
-    bool r = true;
-    //return false;
-    for (size_t i=0; i<std::size(FileBlobs); i++) {
-        FileBlobClass *blob = FileBlobs[i];
-        if (Config.developerModeEnabled) {
-            // Do not check timestamp (we've probaly compiled it now) - but check md5
-            r &= blob->extractIfChanged(true, false);
-        } else {
-            // Do not check md5sum - but check timestamp
-            r &= blob->extractIfChanged(false, true);
-        }
-        yield();
-    }
-    return r;
+    _fileBlobs[0] = &DataBlob_amis_css_gz;
+    _fileBlobs[1] = &DataBlob_cust_js_gz;
+    _fileBlobs[2] = &DataBlob_index_html_gz;
+    _fileBlobs[3] = &DataBlob_jquery371slim_js_gz;
+    _fileBlobs[4] = &DataBlob_pure_min_css_gz;
+    _fileBlobs[5] = &DataBlob_chart_js_gz;
+
+    LittleFS.setTimeCallback(&GetTimeStamp);
+
+    _extractionInProgress = false;
 }
 
+
+void FileBlobsClass::checkIsChanged()
+{
+    if (_extractionInProgress) {
+        return;
+    }
+    for (size_t i=0; i<std::size(_fileBlobs); i++) {
+        FileBlobClass *blob = _fileBlobs[i];
+        /*
+        if (Config.developerModeEnabled) {
+            // Do not check timestamp (we've probaly compiled it now) - but check md5
+            blob->checkIfChanged(true, false);
+        } else {
+            blob->checkIfChanged(true, true);
+        }
+        */
+        blob->checkIfChanged(true, false);
+    }
+    _currentBlob = 0;
+    _extractionInProgress = true; // start extraction
+}
+
+
+void FileBlobsClass::loop()
+{
+    if(!_extractionInProgress) {
+        return;
+    }
+
+    FileBlobClass *blob = _fileBlobs[_currentBlob];
+    if (blob->isChanged()) {
+        blob->extractToFileNextBlock(); // this can update isChanged() flag
+    }
+    if (!blob->isChanged()) {
+        _currentBlob++;
+        if (_currentBlob == std::size(_fileBlobs)) {
+            _extractionInProgress = false; // last blob is on disc -> extraction finished
+        }
+    }
+}
+
+void FileBlobsClass::remove(bool force)
+{
+    if (force || !_extractionInProgress) {
+        for (size_t i=0; i < std::size(_fileBlobs); i++) {
+            FileBlobClass *blob = _fileBlobs[i];
+            blob->remove();
+        }
+    }
+    _extractionInProgress = false;
+}
+
+FileBlobsClass FileBlobs;
 
 /* vim:set ts=4 et: */
