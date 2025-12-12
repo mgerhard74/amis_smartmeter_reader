@@ -91,21 +91,27 @@ void WebserverClass::onRequest_Upgrade(AsyncWebServerRequest *request)
 "=====(
 <!doctype html>
 <html lang="de" style="font-family:Arial;">
+<head>
+<title>Upload file</title>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<h1>Version Upgrade</h1><br>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<h1>Versions Upgrade / Datei Upload</h1><br>
 Upgrade vervollständigen: Im Filedialog bitte 'firmware.bin', 'littlefs.bin' oder eine andere Datei auswählen.<br><br><br>
 <form method='POST' action='/update' enctype='multipart/form-data' id="up">
     <input type='file' name='update'><input type='button' value='Update' onclick="btclick();">
 </form>
-<br><div id="wait"></div>
-</html>
+<br>
+<div id="wait"></div>
 <script>
 function btclick() {
-  document.getElementById("up").submit();
-  document.getElementById("wait").innerHTML='Bitte warten,das dauert jetzt etwas länger...';
+    document.getElementById("up").submit();
+    document.getElementById("wait").innerHTML='Bitte warten, das dauert jetzt etwas ...';
 }
 </script>
+</body>
+</html>
 )=====";
 
     request->send(200, F("text/html"), _page_upgrade);
