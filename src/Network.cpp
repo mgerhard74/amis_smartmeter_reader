@@ -185,6 +185,7 @@ void NetworkClass::connect(void)
     _tickerReconnect.detach();
     if (_apMode) {
         WiFi.mode(WIFI_AP);
+        //WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
         WiFi.softAP("ESP8266_AMIS");
         DBGOUT(F("AP-Mode: 192.168.4.1\n"));
         LedBlue.turnBlink(500, 500);
