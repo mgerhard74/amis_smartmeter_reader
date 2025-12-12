@@ -53,9 +53,6 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             _uploadfiletype = firmware;
             content_len = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        } else if (_uploadFilename == F("spiffs.bin")) {
-            DBGOUT("SPIFFS is deprecated\n");
-            ESP.restart();
         } else if (_uploadFilename == F("littlefs.bin")) {
             if (!Reboot.startUpdateLittleFS()) {
                 return;
