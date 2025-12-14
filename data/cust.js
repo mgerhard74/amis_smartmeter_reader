@@ -21,39 +21,45 @@ var config_general = {
     "devicename": "Amis-1",
     "auth_passwd": "admin",
     "auth_user": "admin",
-    "use_auth":0,
-    "log_sys":0,
+    "use_auth": false,
+    "log_sys": false,
     "amis_key": "0",
-    "thingspeak_aktiv":0,
-    "channel_id":0,
+    "thingspeak_aktiv": false,
+    "channel_id": 0,
     "write_api_key":"",
     "read_api_key":"",
     "thingspeak_iv":30,
     "channel_id2":"",
     "read_api_key2":"",
-    "rest_var":0,
-    "rest_ofs":0,
-    "rest_neg":false,
+    "rest_var": 0,
+    "rest_ofs": 0,
+    "rest_neg": false,
     "smart_mtr":false,
-    "command" :"/config_general"
+    "developerModeEnabled": false,
+    "switch_on": 0,
+    "switch_off": 0,
+    "switch_url_on": "",
+    "switch_url_off": "",
+    "switch_intervall": 60,
+    "command": "/config_general"
 };
 
 var config_wifi= {
     "ssid": "",
     "wifipassword": "",
-    "dhcp": 0,
+    "dhcp": false,
     "ip_static": "192.168.",
     "ip_netmask": "255.255.255.0",
     "ip_gateway": "192.168.",
     "ip_nameserver": "192.168.",
-    "rfpower":20,
-    "mdns": 0,
-    "allow_sleep_mode":true,
-    "pingrestart_do":false,
-    "pingrestart_ip":"192.168.",
+    "rfpower": 21,
+    "mdns": false,
+    "allow_sleep_mode": true,
+    "pingrestart_do": false,
+    "pingrestart_ip": "192.168.",
     "pingrestart_interval": 60,
     "pingrestart_max": 3,
-    "command":"/config_wifi"
+    "command": "/config_wifi"
 };
 var config_mqtt={
     "mqtt_enabled": 0,
@@ -63,12 +69,12 @@ var config_mqtt={
     "mqtt_password": "",
     "mqtt_clientid": "",
     "mqtt_qos": 0,
-    "mqtt_retain": 0,
+    "mqtt_retain": false,
     "mqtt_keep": 0,
     "mqtt_pub":"amis/out",
-    "mqtt_will":"",
+    "mqtt_will": "",
     "mqtt_ha_discovery": true,
-    "command":"/config_mqtt"
+    "command": "/config_mqtt"
 };
 
 function toNumberString(value, numberOfDecimals) {
@@ -177,6 +183,9 @@ function updateElements(obj) {
         case "/config_general":
           config_general=obj;
           if (config_general.thingspeak_aktiv) $(".menu-graf").show();
+          else                                 $(".menu-graf").hide();
+          if (config_general.developerModeEnabled) $(".menu-developer").show();
+          else                                     $(".menu-developer").hide();
           break;
         case "/config_wifi":
           config_wifi=obj;
@@ -580,7 +589,7 @@ function progressAnimate(id,time) {
 
 function doUpdateGeneral() {                 // button save config
   progressAnimate('prgbar_general',300);
-  let boot=($("#use_auth").prop("checked")!=config_general.use_auth);
+  //let boot=($("#use_auth").prop("checked")!=config_general.use_auth);
   $(".general").each(function () {
     //console.log($(this).prop('type'),this.name,this.value)
     if ($(this).prop('type') == 'checkbox') config_general[this.name] = $(this).prop('checked');
@@ -588,8 +597,13 @@ function doUpdateGeneral() {                 // button save config
   });
   if (config_general.thingspeak_aktiv) $(".menu-graf").show();
   else $(".menu-graf").hide();
+  if (config_general.developerModeEnabled) {
+    $(".menu-developer").show();
+  } else {
+    $(".menu-developer").hide();
+  }
   websock.send(JSON.stringify(config_general));
-  if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
+  //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
 function doUpdateWiFi() {
   progressAnimate('prgbar_wifi',300);
@@ -692,6 +706,16 @@ function thingsDetails() {  // display settings only if thingspeak active
 function authDetails() {  // display settings only if auth active
   if ($(this).prop('checked')) $(".auth_details").show();
   else $(".auth_details").hide();
+}
+
+function developerModeEnabled() {  // display settings only if auth active
+  if ($(this).prop('checked')) {
+    $(".menu-developer").show();
+    websock.send('{"command":"set-developer-mode", "value":"on"}');
+  } else {
+    $(".menu-developer").hide();
+    websock.send('{"command":"set-developer-mode", "value":"off"}');
+  }
 }
 
 function sel_api(i) {
@@ -897,15 +921,39 @@ $(function() {            // main
   $(".button-graf").on("click", function (){
     highchartDestroy(true);
   });
+
+  /* Development - Buttons -  Start */
   $(".button-dev-tools-button1").on("click", function () {
     websock.send('{"command":"dev-tools-button1"}');
   });
   $(".button-dev-tools-button2").on("click", function () {
     websock.send('{"command":"dev-tools-button2"}');
   });
+  $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
+    if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
+      websock.send('{"command":"factory-reset-reboot"}');
+      doReload(25000);
+    }
+  });
+  $(".button-dev-send-json").on("click", function () {
+    var js = $('textarea#dev-text-json').val();
+    websock.send(js);
+  });
+  $(".button-dev-cmd-test").on("click", function () {
+    websock.send('{"command":"test"}');
+  });
+  $(".button-dev-cmd-ls").on("click", function () {
+    websock.send('{"command":"ls"}');
+  });
+  $(".button-dev-cmd-clear").on("click", function () {
+    websock.send('{"command":"clear"}');
+  });
+  /* Development - Buttons -  End */
+
   $("input[name='mqtt_enabled']").on("click", mqttDetails);
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
+  $("input[name='developerModeEnabled']").on("click", developerModeEnabled);
   //$("input[name='smart_aktiv']").on("click", smart_mtr);
   $("input[name='use_auth']").on("click", authDetails);
   $(".button-upgrade").on("click", doUpgrade);      // firmware update

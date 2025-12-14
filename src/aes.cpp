@@ -493,7 +493,7 @@ static void InvCipher(void)
 }
 #endif // WANT_AES128_DECRYPT
 
-static void BlockCopy(uint8_t* output, const uint8_t* input)
+static inline void BlockCopy(uint8_t* output, const uint8_t* input)
 {
 #if 1
   memcpy(output, input, KEYLEN);
@@ -642,4 +642,14 @@ void AES128_CBC_decrypt_buffer(uint8_t* output, const uint8_t* input, uint32_t l
 
 #endif // #if defined(CBC) && CBC
 
-//274480	   7456	  32952	 314888	  4ce08
+void AES128_set_key(const uint8_t* key)
+{
+  if(0 != key)
+  {
+    Key = key;
+    KeyExpansion();
+  }
+}
+
+
+/* vim:set ts=2 et: */

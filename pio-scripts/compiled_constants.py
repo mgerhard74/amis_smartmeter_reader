@@ -13,6 +13,7 @@
 
 
 class opts:
+    generate__COMPILED_DATE_TIME_UTC_TIME_T__ = True
     generate__COMPILED_DATE_TIME_UTC_STR__ = True
 
     generate__COMPILED_GIT_HASH__ = True
@@ -91,15 +92,29 @@ lines_h += "/* generated file - do not edit */\n"
 lines_h += "#pragma once\n"
 lines_c += "/* generated file - do not edit */\n"
 
+now = datetime.now(tz=timezone.utc)
+
 if opts.generate__COMPILED_DATE_TIME_UTC_STR__:
     # Add the corrent date and time as string in UTC timezone
-    now = datetime.now(tz=timezone.utc)
     COMPILED_DATE_TIME_UTC_STR = now.strftime("%Y/%m/%d %H:%M:%S")
     if opts.use_defines:
         lines_h += '#define __COMPILED_DATE_TIME_UTC_STR__ "%s"\n' % (COMPILED_DATE_TIME_UTC_STR)
     else:
         lines_h += 'extern const char *__COMPILED_DATE_TIME_UTC_STR__;\n'
         lines_c += 'const char *__COMPILED_DATE_TIME_UTC_STR__ = "%s";\n' % (COMPILED_DATE_TIME_UTC_STR)
+
+if opts.generate__COMPILED_DATE_TIME_UTC_TIME_T__:
+    # Add the corrent date and time as UTC time_t
+    ### COMPILED_DATE_TIME_UTC_TIME_T = int(time.mktime(now.timetuple())) # returns adjusted CET Timezone
+    COMPILED_DATE_TIME_UTC_TIME_T = int(now.timestamp())
+    if opts.use_defines:
+        lines_h += '#define __COMPILED_DATE_TIME_UTC_TIME_T__ ((time_t)(0x%xll)) // %d\n' % (COMPILED_DATE_TIME_UTC_TIME_T, COMPILED_DATE_TIME_UTC_TIME_T)
+    else:
+        lines_h += "#include <time.h>\n"
+        lines_h += 'extern const time_t __COMPILED_DATE_TIME_UTC_TIME_T__;\n'
+        lines_c += "#include <time.h>\n"
+        lines_c += 'const time_t __COMPILED_DATE_TIME_UTC_TIME_T__ = 0x%xll; // %d\n' % (COMPILED_DATE_TIME_UTC_TIME_T, COMPILED_DATE_TIME_UTC_TIME_T)
+
 
 if opts.generate__COMPILED_GIT_HASH__:
     if opts.use_defines:
