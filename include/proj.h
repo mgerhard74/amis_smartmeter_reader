@@ -26,7 +26,7 @@
 #define DEBUG_OUTPUT 0
 //#define OTA
 //#define STROMPREIS
-#define VERSION "1.5.0"
+#define VERSION "1.5.1"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
