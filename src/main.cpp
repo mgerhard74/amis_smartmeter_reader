@@ -57,8 +57,10 @@ kwhstruct kwh_hist[7];
 bool mqttStatus;
 bool doSerialHwTest=false;
 
+// Funktion __get_adc_mode() ( mittels Macro ADC_MODE() ) muss hier definiert werden,
+// ansonsten liefert ESP.getVcc() später keine gültigen Werte
+ADC_MODE(ADC_VCC);
 
-// ADC_MODE(ADC_VCC);
 
 void setup(){
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
