@@ -71,7 +71,7 @@ void onMqttConnect(bool sessionPresent) {
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "Connected to MQTT Server", "Session Present");
     }
-    if (Config.mqtt_sub!="") {
+    if (!Config.mqtt_sub.isEmpty()) {
         mqttClient.subscribe(Config.mqtt_sub.c_str(), Config.mqtt_qos);
         eprintf("MQTT subscr %s\n", Config.mqtt_sub.c_str());
     }
@@ -233,7 +233,7 @@ static String sanitizeTopic(const String &s) {
 
 String get_ha_availability_topic() {
     String avail_topic;
-    if (Config.mqtt_pub.length()) {
+    if (!Config.mqtt_pub.isEmpty()) {
         avail_topic = Config.mqtt_pub;
         if (!avail_topic.endsWith("/")) {
             avail_topic += "/";
@@ -262,7 +262,7 @@ void mqtt_publish_ha_discovery() {
 
     // Use the configured state topic as the main state_topic for sensors
     String state_topic = Config.mqtt_pub;
-    if (state_topic.length() == 0) {
+    if (state_topic.isEmpty()) {
         return;
     }
     String chipId = String(ESP.getChipId(), HEX);
@@ -305,10 +305,10 @@ void mqtt_publish_ha_discovery() {
         // root[F("payload_available")] = "online";
         // root[F("payload_not_available")] = "offline";
 
-        if (e.unit && strlen(e.unit)) {
+        if (e.unit && e.unit[0]) {
             root[F("unit_of_measurement")] = e.unit;
         }
-        if (tpl.length()) {
+        if (!tpl.isEmpty()) {
             root[F("value_template")] = tpl;
         }
         String obj = sanitizeTopic(key_use);
@@ -321,10 +321,10 @@ void mqtt_publish_ha_discovery() {
         devn[F("name")] = Config.DeviceName;
         devn[F("model")] = APP_NAME;
         devn[F("sw_version")] = VERSION;
-        if (e.device_class && strlen(e.device_class)) {
+        if (e.device_class && e.device_class[0]) {
             root[F("device_class")] = e.device_class;
         }
-        if (e.state_class && strlen(e.state_class)) {
+        if (e.state_class && e.state_class[0]) {
             root[F("state_class")] = e.state_class;
         }
 
