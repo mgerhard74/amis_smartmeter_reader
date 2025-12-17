@@ -28,7 +28,6 @@ extern AsyncMqttClient mqttClient;
 extern Ticker mqttTimer;
 
 extern void mqtt_init();
-extern void upgrade (bool save);
 extern void writeEvent(String, String, String, String);
 
 void NetworkClass::init(bool apMode)
