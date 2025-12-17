@@ -10,6 +10,7 @@
 #include "Reboot.h"
 #include "Webserver.h"
 #include "unused.h"
+#include "Utils.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -283,26 +284,32 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if(strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
     } else if(strcmp(command, "ls") == 0) {
+        String path = root["path"].as<String>();
+        if (path.isEmpty()) {
+            path = "/";
+        }
         DynamicJsonBuffer jsonBuffer;
         JsonObject &doc = jsonBuffer.createObject();
-        Dir dir = LittleFS.openDir("/");
         unsigned i=0;
-        while (dir.next()) {
-            File f = dir.openFile("r");
-            //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
-            if (f) {
-                char puffer [86]; // 31+1 + 11+1 + 20+1 + 20  +1
-                sprintf(puffer,     "%-31s %11u %20lld %20lld",
-                                dir.fileName().c_str(),
-                                f.size(),
-                                f.getCreationTime(),
-                                f.getLastWrite());
-                f.close();
-                doc[String(i)] = puffer;
-            } else {
-                doc[String(i)] = dir.fileName();
+        if (Utils::dirExists(path.c_str())) {
+            Dir dir = LittleFS.openDir(path);
+            while (dir.next()) {
+                File f = dir.openFile("r");
+                //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
+                if (f) {
+                    char puffer [86]; // 31+1 + 11+1 + 20+1 + 20  +1
+                    sprintf(puffer,     "%-31s %11u %20lld %20lld",
+                                    dir.fileName().c_str(),
+                                    f.size(),
+                                    f.getCreationTime(),
+                                    f.getLastWrite());
+                    f.close();
+                    doc[String(i)] = puffer;
+                } else {
+                    doc[String(i)] = dir.fileName();
+                }
+                i++;
             }
-            i++;
         }
         doc["ls"]=i;
         String buffer;
