@@ -139,7 +139,6 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
 #include "proj.h"
 extern uint32_t clientId;
 extern int logPage;
-extern bool mqttStatus;
 extern unsigned first_frame;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
@@ -549,7 +548,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     //if (ADC_MODE_VALUE == ADC_VCC) {
     root[F("vcc")] = ESP.getVcc();
     //root["vcc"] = "N/A (TOUT) ";
-    root[F("mqttStatus")] = mqttStatus ? "connected":"N/A";
+    root[F("mqttStatus")] = mqttIsConnected ? "connected":"N/A";
     root[F("ntpSynced")] = "N/A";
 
     String buffer;

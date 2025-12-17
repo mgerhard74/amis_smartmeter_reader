@@ -10,7 +10,7 @@
 extern String strompreis;
 #endif
 
-bool mqttStatus;
+bool mqttIsConnected = false;
 AsyncMqttClient mqttClient;
 Ticker mqttTimer;
 
@@ -75,7 +75,7 @@ void onMqttConnect(bool sessionPresent) {
         mqttClient.subscribe(Config.mqtt_sub.c_str(), Config.mqtt_qos);
         eprintf("MQTT subscr %s\n", Config.mqtt_sub.c_str());
     }
-    mqttStatus = true;
+    mqttIsConnected = true;
     if (Config.mqtt_ha_discovery) {
         // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
         mqtt_publish_ha_availability(true);
@@ -156,7 +156,7 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
     //if(WiFi.isConnected()) {
     mqttTimer.attach_scheduled(15, connectToMqtt);
     //}
-    mqttStatus = false;
+    mqttIsConnected = false;
 }
 
 void onMqttPublish(uint16_t packetId) {

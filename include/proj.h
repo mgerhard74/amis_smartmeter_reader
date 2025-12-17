@@ -65,7 +65,7 @@ extern AsyncMqttClient mqttClient;
 extern Ticker mqttTimer;
 extern void mqtt_init();
 extern Ticker secTicker;
-extern bool mqttStatus;
+extern bool mqttIsConnected;
 extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);
