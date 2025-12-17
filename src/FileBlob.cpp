@@ -3,7 +3,7 @@
 #include "config.h"
 #include "Utils.h"
 
-#if not (FILEBLOB_WRITE_MD_INO_FILE)
+#if not (FILEBLOB_WRITE_MD_INTO_FILE)
 #include <MD5Builder.h>
 #endif
 
@@ -18,7 +18,7 @@ FileBlobClass::FileBlobClass(const uint8_t *data, size_t len, const char *filena
     _filename = filename;
     _md5sum = md5sum;
     _timeStamp = timeStamp;
-#if (FILEBLOB_WRITE_MD_INO_FILE)
+#if (FILEBLOB_WRITE_MD_INTO_FILE)
     // Create a filename: _filename + ".md5" within 31 bytes (possible hrink _filename)
     strncpy(_filenameMd5, _filename, sizeof(_filenameMd5)-2);
     if (strlen(_filename) > sizeof(_filenameMd5)-5) {
@@ -36,7 +36,7 @@ const char *FileBlobClass::getFilename()
 bool FileBlobClass::remove()
 {
     bool r = true;
-#if (FILEBLOB_WRITE_MD_INO_FILE)
+#if (FILEBLOB_WRITE_MD_INTO_FILE)
     r &= LittleFS.remove(_filenameMd5);
 #endif
     r &= LittleFS.remove(_filename);
@@ -116,7 +116,7 @@ bool FileBlobClass::extractToFileNextBlock()
     }
     f.close();
 
-#if (FILEBLOB_WRITE_MD_INO_FILE)
+#if (FILEBLOB_WRITE_MD_INTO_FILE)
     if (_bytesWritten == _len) {
         // whole file has been written
         f = LittleFS.open(_filenameMd5, "w");
@@ -164,7 +164,7 @@ void FileBlobClass::checkIfChanged(bool checkMd5Sum, bool checkTimeStamp)
         }
     }
 
-#if (FILEBLOB_WRITE_MD_INO_FILE)
+#if (FILEBLOB_WRITE_MD_INTO_FILE)
     // As real md5sum computation needs so long, we write the md5sum into an extra file
     f.close();
     if (checkMd5Sum) {
