@@ -65,17 +65,17 @@ void onMqttConnect(bool sessionPresent) {
     UNUSED_ARG(sessionPresent);
     mqttTimer.detach();
     if (Config.mqtt_keep) {
-        mqttTimer.attach_scheduled(Config.mqtt_keep,mqttAliveTicker);
+        mqttTimer.attach_scheduled(Config.mqtt_keep, mqttAliveTicker);
     }
-    eprintf("MQTT onConnect %u %s\n",sessionPresent,Config.mqtt_sub.c_str());
+    eprintf("MQTT onConnect %u %s\n", sessionPresent, Config.mqtt_sub.c_str());
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "Connected to MQTT Server", "Session Present");
     }
     if (Config.mqtt_sub!="") {
-        mqttClient.subscribe(Config.mqtt_sub.c_str(),Config.mqtt_qos);
-        eprintf("MQTT subscr %s\n",Config.mqtt_sub.c_str());
+        mqttClient.subscribe(Config.mqtt_sub.c_str(), Config.mqtt_qos);
+        eprintf("MQTT subscr %s\n", Config.mqtt_sub.c_str());
     }
-    mqttStatus=true;
+    mqttStatus = true;
     if (Config.mqtt_ha_discovery) {
         // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
         mqtt_publish_ha_availability(true);
@@ -94,7 +94,7 @@ void connectToMqtt() {
 
     if (!Config.mqtt_will.isEmpty()) {
         mqttClient.setWill(Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
-        eprintf("MQTT SetWill: %s %u %u %s\n",Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
+        eprintf("MQTT SetWill: %s %u %u %s\n", Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
     } else if (Config.mqtt_ha_discovery) {
         // Set LWT to availability topic for HA discovery in case the user did not define a custom one
         String avail_topic = get_ha_availability_topic();
@@ -156,7 +156,7 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
     //if(WiFi.isConnected()) {
     mqttTimer.attach_scheduled(15, connectToMqtt);
     //}
-    mqttStatus=false;
+    mqttStatus = false;
 }
 
 void onMqttPublish(uint16_t packetId) {
@@ -171,7 +171,7 @@ void mqtt_publish_state() {
     if (mqttClient.connected() && first_frame==1) {
         DynamicJsonBuffer jsonBuffer;
         JsonObject &root = jsonBuffer.createObject();
-        signed saldo = (a_result[4]-a_result[5]-Config.rest_ofs);
+        signed saldo = a_result[4] - a_result[5] - Config.rest_ofs;
         if (Config.rest_neg) {
             saldo =-saldo;
         }
@@ -209,7 +209,7 @@ void mqtt_publish_state() {
         String mqttBuffer;
         //root.prettyPrintTo(mqttBuffer);
         root.printTo(mqttBuffer);
-        mqttClient.publish(Config.mqtt_pub.c_str(),Config.mqtt_qos,Config.mqtt_retain,mqttBuffer.c_str());
+        mqttClient.publish(Config.mqtt_pub.c_str(), Config.mqtt_qos, Config.mqtt_retain, mqttBuffer.c_str());
         //DBGOUT("MQTT publish "+Config.mqtt_pub+": "+mqttBuffer+"\n");
     } else {
         DBGOUT("MQTT publish: not connected\n");
@@ -283,7 +283,9 @@ void mqtt_publish_ha_discovery() {
 
         // choose key variant depending on rest_var (dots vs underscores)
         String key_use = String(e.key);
-        if (Config.rest_var != 0) key_use.replace('.', '_');
+        if (Config.rest_var != 0) {
+            key_use.replace('.', '_');
+        }
 
         // Build the value_template: energy entries are in Wh -> convert to kWh (/1000)
         String tpl;
