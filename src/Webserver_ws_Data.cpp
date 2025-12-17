@@ -316,6 +316,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
         ws->text(clientId,buffer);
+    } else if(strcmp(command, "rm") == 0) {
+        String path = root["path"].as<String>();
+        if (path.isEmpty()) {
+            return;
+        }
+        const char *p = path.c_str();
+        if (Utils::fileExists(p)) {
+            LittleFS.remove(p);
+        }  // LittleFS hat in Wirklichkeit kein mkdir() und rmdir()
+        /* else if (Utils::dirExists(p)) {
+            LittleFS.rmdir(p);
+        }*/
     } else if (strcmp(command, "clear") == 0) {
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
