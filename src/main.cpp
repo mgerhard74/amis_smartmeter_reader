@@ -55,7 +55,6 @@ String latestYYMMInHistfile;
   String dbg_string;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
-bool mqttStatus;
 bool doSerialHwTest=false;
 
 // Funktion __get_adc_mode() ( mittels Macro ADC_MODE() ) muss hier definiert werden,

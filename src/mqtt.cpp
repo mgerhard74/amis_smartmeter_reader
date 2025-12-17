@@ -10,6 +10,7 @@
 extern String strompreis;
 #endif
 
+bool mqttStatus;
 AsyncMqttClient mqttClient;
 Ticker mqttTimer;
 
