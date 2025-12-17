@@ -6,6 +6,7 @@
 
 
 #include "AmisReader.h"
+#include "Exception.h"
 #include "FileBlob.h"
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
@@ -62,7 +63,7 @@ bool doSerialHwTest=false;
 ADC_MODE(ADC_VCC);
 
 
-void setup(){
+void setup() {
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
 
     #if DEBUGHW==2
@@ -88,6 +89,9 @@ void setup(){
     writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
     writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
     writeEvent("INFO", "sys", "  Reset reason", ESP.getResetReason());
+
+    // Sichern des letzten Crashes
+    Exception_DumpLastCrashToFile();
 
     // Set timezone to CET/CEST
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
