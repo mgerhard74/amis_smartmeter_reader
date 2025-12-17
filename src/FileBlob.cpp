@@ -171,7 +171,7 @@ void FileBlobClass::checkIfChanged(bool checkMd5Sum, bool checkTimeStamp)
         uint8_t md5_strdata[33];
         memset(md5_strdata, 0, sizeof(md5_strdata)); // we can use it later as c_str()
         File f = LittleFS.open(_filenameMd5, "r");
-        if (f) {
+        if (f && f.size() == 32) {
             f.read(md5_strdata, 32);
             f.close();
         }
