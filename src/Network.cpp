@@ -18,13 +18,11 @@
 #endif
 
 #include <ArduinoJson.h>
-#include <AsyncMqttClient.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
 //#include "proj.h"
-extern AsyncMqttClient mqttClient;
 extern Ticker mqttTimer;
 
 extern void mqtt_init();
