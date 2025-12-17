@@ -23,7 +23,7 @@
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
 //#define STROMPREIS
-#define VERSION "1.5.1"
+#define VERSION "1.5.2-dev"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
@@ -58,7 +58,7 @@ extern Ticker secTicker;
 extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);
-extern void sendEventLog(uint32_t clientId,int page);
+extern void sendEventLog(uint32_t clientId, int page);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 #endif
