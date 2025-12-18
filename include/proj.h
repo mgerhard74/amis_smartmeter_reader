@@ -1,7 +1,6 @@
 #ifndef PROJ_H
 #define PROJ_H
 #include <Arduino.h>
-#include <ArduinoOTA.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESP8266WiFi.h>
@@ -24,7 +23,6 @@
 /// DEBUGHW 3             Websock
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
-//#define OTA
 //#define STROMPREIS
 #define VERSION "1.5.1"
 #define APP_NAME "Amis"
