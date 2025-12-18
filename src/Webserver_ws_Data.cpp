@@ -6,6 +6,7 @@
 
 #include "config.h"
 #include "FileBlob.h"
+#include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
 #include "Webserver.h"
@@ -23,6 +24,7 @@ static void clearHist();
 static bool EEPROMClear();
 
 extern bool doSerialHwTest;
+
 
 AsyncWebSocket *ws;
 
@@ -548,7 +550,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     //if (ADC_MODE_VALUE == ADC_VCC) {
     root[F("vcc")] = ESP.getVcc();
     //root["vcc"] = "N/A (TOUT) ";
-    root[F("mqttStatus")] = mqttIsConnected ? "connected":"N/A";
+    root[F("mqttStatus")] = Mqtt.isConnected() ?"connected" :"N/A";
     root[F("ntpSynced")] = "N/A";
 
     String buffer;

@@ -10,6 +10,7 @@
 #include "FileBlob.h"
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
 #include "RebootAtMidnight.h"
@@ -96,8 +97,9 @@ void setup() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
 
-    // Mal die config laden
+    // Mal die configs laden
     Config.loadConfigGeneral();
+    Mqtt.loadConfigMqtt();
 
     // Extraktion der Files für den Webserver vorbereiten
     // Alle Dateien zu extrahieren dauert zu lange (HardwareWatchdok wir d ausgelöst)
