@@ -129,7 +129,7 @@ void MqttClass::onConnect(bool sessionPresent)
     }
     eprintf("MQTT onConnect %u %s\n", sessionPresent, Config.mqtt_sub.c_str());
     if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Connected to MQTT Server", "Session Present");
+        writeEvent("INFO", "mqtt", "Connected to MQTT Server", "sessionPresent=" + String(sessionPresent));
     }
     if (!_config.mqtt_sub.isEmpty()) {
         _client.subscribe(_config.mqtt_sub.c_str(), _config.mqtt_qos);
@@ -242,7 +242,9 @@ void MqttClass::connect() {
         eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
-    DBGOUT("MQTT connect\n");
+    if (Config.log_sys) {
+        writeEvent("INFO", "mqtt", "Connecting to MQTT Server", "...");
+    }
     _client.connect();
 }
 
