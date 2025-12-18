@@ -14,22 +14,7 @@ public:
     void loadConfigGeneral();
     void applySettingsConfigGeneral();
 
-
     String DeviceName;
-
-    bool mqtt_retain;
-    unsigned mqtt_qos;
-    unsigned mqtt_keep;
-    String mqtt_pub;
-    String mqtt_sub;
-    bool mqtt_ha_discovery;
-    String mqtt_will;
-    String mqtt_user;
-    String mqtt_password;
-    String mqtt_client_id;
-    bool mqtt_enabled;
-    String mqtt_broker;
-    uint16_t mqtt_port;
 
     bool log_sys;
 

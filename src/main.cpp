@@ -97,9 +97,11 @@ void setup() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
 
-    // Mal die configs laden
+    // Mal die config laden
     Config.loadConfigGeneral();
-    Mqtt.loadConfigMqtt();
+
+    // im Mqtt.init() wird die mqtt-config geladen
+    Mqtt.init();
 
     // Extraktion der Files für den Webserver vorbereiten
     // Alle Dateien zu extrahieren dauert zu lange (HardwareWatchdok wir d ausgelöst)

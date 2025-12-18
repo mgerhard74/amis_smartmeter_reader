@@ -37,11 +37,11 @@ static String sanitizeTopic(const String &s)
 }
 
 
-static String get_ha_availability_topic()
+static String get_ha_availability_topic(MqttConfig_t &configMqtt)
 {
     String avail_topic;
-    if (!Config.mqtt_pub.isEmpty()) {
-        avail_topic = Config.mqtt_pub;
+    if (!configMqtt.mqtt_pub.isEmpty()) {
+        avail_topic = configMqtt.mqtt_pub;
         if (!avail_topic.endsWith("/")) {
             avail_topic += "/";
         }
@@ -53,7 +53,7 @@ static String get_ha_availability_topic()
 }
 
 
-bool MqttClass::loadConfigMqtt()
+bool MqttClass::loadConfigMqtt(MqttConfig_t &config)
 {
     File configFile = LittleFS.open("/config_mqtt", "r");
     if (!configFile) {
@@ -78,19 +78,19 @@ bool MqttClass::loadConfigMqtt()
         return false;
     }
     ///json.prettyPrintTo(Serial);
-    Config.mqtt_qos = (*json)[F("mqtt_qos")].as<unsigned int>();
-    Config.mqtt_retain = (*json)[F("mqtt_retain")].as<bool>();
-    Config.mqtt_sub = (*json)[F("mqtt_sub")].as<String>();
-    Config.mqtt_pub = (*json)[F("mqtt_pub")].as<String>();
-    Config.mqtt_keep = (*json)[F("mqtt_keep")].as<unsigned int>();
-    Config.mqtt_ha_discovery = (*json)[F("mqtt_ha_discovery")].as<bool>();
-    Config.mqtt_will = (*json)[F("mqtt_will")].as<String>();
-    Config.mqtt_user = (*json)[F("mqtt_user")].as<String>();
-    Config.mqtt_password = (*json)[F("mqtt_password")].as<String>();
-    Config.mqtt_client_id = (*json)[F("mqtt_clientid")].as<String>();
-    Config.mqtt_enabled = (*json)[F("mqtt_enabled")].as<bool>();
-    Config.mqtt_broker = (*json)[F("mqtt_broker")].as<String>();
-    Config.mqtt_port = (*json)[F("mqtt_port")].as<uint16_t>();
+    config.mqtt_qos = (*json)[F("mqtt_qos")].as<unsigned int>();
+    config.mqtt_retain = (*json)[F("mqtt_retain")].as<bool>();
+    config.mqtt_sub = (*json)[F("mqtt_sub")].as<String>();
+    config.mqtt_pub = (*json)[F("mqtt_pub")].as<String>();
+    config.mqtt_keep = (*json)[F("mqtt_keep")].as<unsigned int>();
+    config.mqtt_ha_discovery = (*json)[F("mqtt_ha_discovery")].as<bool>();
+    config.mqtt_will = (*json)[F("mqtt_will")].as<String>();
+    config.mqtt_user = (*json)[F("mqtt_user")].as<String>();
+    config.mqtt_password = (*json)[F("mqtt_password")].as<String>();
+    config.mqtt_client_id = (*json)[F("mqtt_clientid")].as<String>();
+    config.mqtt_enabled = (*json)[F("mqtt_enabled")].as<bool>();
+    config.mqtt_broker = (*json)[F("mqtt_broker")].as<String>();
+    config.mqtt_port = (*json)[F("mqtt_port")].as<uint16_t>();
     return true;
 }
 
@@ -113,6 +113,7 @@ MqttClass::MqttClass()
 
 void MqttClass::init()
 {
+    loadConfigMqtt(_config);
 }
 
 
@@ -121,18 +122,18 @@ void MqttClass::onConnect(bool sessionPresent)
     UNUSED_ARG(sessionPresent);
 
     _ticker.detach();
-    if (Config.mqtt_keep) {
-        _ticker.attach_scheduled(Config.mqtt_keep, std::bind(&MqttClass::aliveTicker, this));
+    if (_config.mqtt_keep) {
+        _ticker.attach_scheduled(_config.mqtt_keep, std::bind(&MqttClass::aliveTicker, this));
     }
     eprintf("MQTT onConnect %u %s\n", sessionPresent, Config.mqtt_sub.c_str());
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "Connected to MQTT Server", "Session Present");
     }
-    if (!Config.mqtt_sub.isEmpty()) {
-        _client.subscribe(Config.mqtt_sub.c_str(), Config.mqtt_qos);
-        eprintf("MQTT subscr %s\n", Config.mqtt_sub.c_str());
+    if (!_config.mqtt_sub.isEmpty()) {
+        _client.subscribe(_config.mqtt_sub.c_str(), _config.mqtt_qos);
+        eprintf("MQTT subscr %s\n", _config.mqtt_sub.c_str());
     }
-    if (Config.mqtt_ha_discovery) {
+    if (_config.mqtt_ha_discovery) {
         // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
         publishHaAvailability(true);
         // Publish Home Assistant discovery info so HA can auto-detect this device (if enabled)
@@ -195,7 +196,7 @@ void MqttClass::publishState()
     String mqttBuffer;
     //root.prettyPrintTo(mqttBuffer);
     root.printTo(mqttBuffer);
-    _client.publish(Config.mqtt_pub.c_str(), Config.mqtt_qos, Config.mqtt_retain, mqttBuffer.c_str());
+    _client.publish(_config.mqtt_pub.c_str(), _config.mqtt_qos, _config.mqtt_retain, mqttBuffer.c_str());
     //DBGOUT("MQTT publish "+Config.mqtt_pub+": "+mqttBuffer+"\n");
 }
 
@@ -208,35 +209,35 @@ void MqttClass::aliveTicker() {
 
 
 void MqttClass::connect() {
-    if (!Config.mqtt_enabled) {
+    if (!_config.mqtt_enabled) {
         return;
     }
 
     IPAddress ipAddr;
-    if (ipAddr.fromString(Config.mqtt_broker) && ipAddr.isSet()) {
+    if (ipAddr.fromString(_config.mqtt_broker) && ipAddr.isSet()) {
         eprintf("MQTT init: %s %d\n", ipAddr.toString().c_str(), Config.mqtt_port);
-        _client.setServer(ipAddr, Config.mqtt_port);
+        _client.setServer(ipAddr, _config.mqtt_port);
     } else {
         eprintf("MQTT init: %s %d\n", Config.mqtt_broker.c_str(), Config.mqtt_port);
-        _client.setServer(Config.mqtt_broker.c_str(), Config.mqtt_port);
+        _client.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
     }
 
-    if (!Config.mqtt_will.isEmpty()) {
-        _client.setWill(Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
-        eprintf("MQTT SetWill: %s %u %u %s\n", Config.mqtt_will.c_str(), Config.mqtt_qos, Config.mqtt_retain, Config.DeviceName.c_str());
-    } else if (Config.mqtt_ha_discovery) {
+    if (!_config.mqtt_will.isEmpty()) {
+        _client.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        eprintf("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+    } else if (_config.mqtt_ha_discovery) {
         // Set LWT to availability topic for HA discovery in case the user did not define a custom one
-        String avail_topic = get_ha_availability_topic();
+        String avail_topic = get_ha_availability_topic(_config);
         // mqttClient.setWill(avail_topic.c_str(), Config.mqtt_qos, true, String("offline").c_str());
         eprintf("MQTT SetWill (HA): %s %u %u offline\n", avail_topic.c_str(), Config.mqtt_qos, true);
     }
-    if (!Config.mqtt_user.isEmpty()) {
-        _client.setCredentials(Config.mqtt_user.c_str(), Config.mqtt_password.c_str());
-        eprintf("MQTT User: %s %s\n", Config.mqtt_user.c_str(), Config.mqtt_password.c_str());
+    if (!_config.mqtt_user.isEmpty()) {
+        _client.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        eprintf("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
-    if (!Config.mqtt_client_id.isEmpty()) {
-        _client.setClientId(Config.mqtt_client_id.c_str());
-        eprintf("MQTT ClientId: %s\n", Config.mqtt_client_id.c_str());
+    if (!_config.mqtt_client_id.isEmpty()) {
+        _client.setClientId(_config.mqtt_client_id.c_str());
+        eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
     DBGOUT("MQTT connect\n");
@@ -279,7 +280,7 @@ void MqttClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     eprintf("Disconnected from MQTT server: %s\n", reasonstr.c_str());
 
     // If we have HA discovery enabled, try to publish offline status (clean disconnect)
-    if (Config.mqtt_ha_discovery) {
+    if (_config.mqtt_ha_discovery) {
         publishHaAvailability(false);
     }
     //if(WiFi.isConnected()) {
@@ -301,9 +302,9 @@ void MqttClass::publishHaAvailability(bool isOnline) {
     if (!_client.connected()) {
         return;
     }
-    String avail_topic = get_ha_availability_topic();
+    String avail_topic = get_ha_availability_topic(_config);
     String payload = isOnline ? "online" : "offline";
-    _client.publish(avail_topic.c_str(), Config.mqtt_qos, true, payload.c_str());
+    _client.publish(avail_topic.c_str(), _config.mqtt_qos, true, payload.c_str());
 }
 
 // Publish discovery for all relevant measurement keys. Use bracket notation
@@ -318,7 +319,7 @@ struct HASensor {
 
 // Helper that accepts the whole HASensor and builds the discovery payload,
 // including rest_var handling and value_template logic.
-static void publishSensor(AsyncMqttClient &client, const HASensor &e, String &dev)
+static void publishSensor(AsyncMqttClient &client, const HASensor &e, String &dev, MqttConfig_t &configMqtt)
 {
     //String dev = sanitizeTopic(Config.DeviceName + String("_") + chipId);
 
@@ -341,8 +342,8 @@ static void publishSensor(AsyncMqttClient &client, const HASensor &e, String &de
     JsonObject &root = jsonBuffer.createObject();
     String name = String(Config.DeviceName) + " " + e.name;
     root[F("name")] = name;
-    root[F("state_topic")] = Config.mqtt_pub;
-    root[F("availability_topic")] = get_ha_availability_topic();
+    root[F("state_topic")] = configMqtt.mqtt_pub;
+    root[F("availability_topic")] = get_ha_availability_topic(configMqtt);
     // root[F("payload_available")] = "online";
     // root[F("payload_not_available")] = "offline";
 
@@ -372,7 +373,7 @@ static void publishSensor(AsyncMqttClient &client, const HASensor &e, String &de
     String out;
     root.printTo(out);
     String topic = String("homeassistant/sensor/") + dev + String("/") + obj + String("/config");
-    client.publish(topic.c_str(), Config.mqtt_qos, true, out.c_str());
+    client.publish(topic.c_str(), configMqtt.mqtt_qos, true, out.c_str());
 };
 
 
@@ -383,7 +384,7 @@ void MqttClass::publishHaDiscovery() {
     }
 
     // Use the configured mqtt_pub as the main state_topic for sensors
-    if (Config.mqtt_pub.isEmpty()) {
+    if (_config.mqtt_pub.isEmpty()) {
         return;
     }
 
@@ -398,7 +399,7 @@ void MqttClass::publishHaDiscovery() {
     String dev = sanitizeTopic(Config.DeviceName + String("_") + String(ESP.getChipId(), HEX));
 
     for (size_t i=0; i < sizeof(entries)/sizeof(entries[0]); i++) {
-        publishSensor(_client, entries[i], dev);
+        publishSensor(_client, entries[i], dev, _config);
     }
 }
 
@@ -459,6 +460,13 @@ bool MqttClass::isConnected()
     return _client.connected();
 }
 
+
+/*
+const MqttConfig_t &MqttClass::getConfigMqtt(void)
+{
+    return _config;
+}
+*/
 
 MqttClass Mqtt;
 
