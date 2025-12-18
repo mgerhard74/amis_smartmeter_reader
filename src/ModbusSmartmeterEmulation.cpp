@@ -210,24 +210,24 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
         _valuesInBuffer.v1_7_0 = v1_7_0;
         _valuesInBuffer.v2_7_0 = v2_7_0;
 
-        signed int saldo;
-        saldo = (v1_7_0 - v2_7_0);                                  // 1.7.0 - 2.7.0 = Power
+        float saldo;
+        saldo = v1_7_0 - v2_7_0;                                    // 1.7.0 - 2.7.0 = Power
 
         //float2Bytes.f = (float)(saldo) / 230;                     // Total AC Current
         //float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
         //SET_HOLD_REG_4BYTES(40072, float2Bytes.ui32t);
 
-        float2Bytes.f = (float)(saldo) / 690;
+        float2Bytes.f = saldo / 690;
         float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
         SET_HOLD_REG_4BYTES(40074, float2Bytes.ui32t);              // Phase A Current
         SET_HOLD_REG_4BYTES(40076, float2Bytes.ui32t);              // Phase B Current
         SET_HOLD_REG_4BYTES(40078, float2Bytes.ui32t);              // Phase C Current
 
-        float2Bytes.f = (float)(saldo);
+        float2Bytes.f = saldo;
         float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
         SET_HOLD_REG_4BYTES(40098, float2Bytes.ui32t);              // Aktuelles Saldo = PowerGesamt
 
-        float2Bytes.f = (float)(saldo) / 3;
+        float2Bytes.f = saldo / 3;
         float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
         SET_HOLD_REG_4BYTES(40100, float2Bytes.ui32t);              // Phase A
         SET_HOLD_REG_4BYTES(40102, float2Bytes.ui32t);              // Phase B
@@ -236,7 +236,7 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
 
     if (_valuesInBuffer.v2_8_0 != v2_8_0) {
         _valuesInBuffer.v2_8_0 = v2_8_0;
-        float2Bytes.f = (float)(v2_8_0);
+        float2Bytes.f = v2_8_0;
         float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
         SET_HOLD_REG_4BYTES(40130, float2Bytes.ui32t);              // Total Real Energy Exported
         // Todo: Eventuell die Register 40132, 40134 und 40136 auch versorgen?
@@ -244,7 +244,7 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
 
     if (_valuesInBuffer.v1_8_0 != v1_8_0) {
         _valuesInBuffer.v1_8_0 = v1_8_0;
-        float2Bytes.f = (float)(v1_8_0);
+        float2Bytes.f = v1_8_0;
         float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
         SET_HOLD_REG_4BYTES(40138, float2Bytes.ui32t);              // Total Real Energy Imported
         // Todo: Eventuell die Register 40140, 40142 und 40144 auch versorgen?
