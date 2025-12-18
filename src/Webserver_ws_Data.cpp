@@ -246,10 +246,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             //size_t len = root.measurePrettyLength();
             root.prettyPrintTo(f);
             f.close();
-            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n",command,len);
+            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, len);
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
+            } else if (strcmp(command, "/config_mqtt")==0) {
+                Mqtt.reloadConfig();
             }
         }
     } else if(strcmp(command, "status") == 0) {

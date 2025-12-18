@@ -42,6 +42,7 @@ bool RebootClass::startUpdateFirmware()
     valid = 6;
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
+    Mqtt.stop();
     return true;
 }
 void RebootClass::endUpdateFirmware()
@@ -66,6 +67,7 @@ bool RebootClass::startUpdateLittleFS()
     valid = 6;
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
+    Mqtt.stop();
     LittleFS.end(); // we can also end the filesystem as it will be overwritten
     return true;
 }

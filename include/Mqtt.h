@@ -28,10 +28,13 @@ public:
     MqttClass();
     void init();
     bool isConnected();
+    void start();
     void stop();
 
     void networkOnStationModeGotIP(const WiFiEventStationModeGotIP& event);
     void networkOnStationModeDisconnected(const WiFiEventStationModeDisconnected& event);
+
+    void reloadConfig();
 
     //const MqttConfig_t &getConfigMqtt();
 
@@ -53,6 +56,8 @@ private:
 
     bool loadConfigMqtt(MqttConfig_t &config);
     MqttConfig_t _config;
+
+    int _reloadConfigState;
 };
 
 extern MqttClass Mqtt;

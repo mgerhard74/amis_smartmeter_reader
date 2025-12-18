@@ -3,6 +3,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "DefaultConfigurations.h"
+#include "Network.h"
 #include "unused.h"
 
 #include <AsyncJson.h>
@@ -114,6 +115,7 @@ MqttClass::MqttClass()
 void MqttClass::init()
 {
     loadConfigMqtt(_config);
+    _reloadConfigState = 0;
 }
 
 
@@ -246,7 +248,9 @@ void MqttClass::connect() {
 
 
 void MqttClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
-    _ticker.detach();
+    if (_reloadConfigState == 0) {
+        _ticker.detach();
+    }
     String reasonstr = "";
     switch (reason) {
     case(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED):
@@ -426,17 +430,7 @@ void MqttClass::networkOnStationModeGotIP(const WiFiEventStationModeGotIP& event
 {
     UNUSED_ARG(event);
 
-    _ticker.detach();
-
-    if (!Config.mqtt_enabled) {
-        return;
-    }
-
-    if (Config.mqtt_broker.isEmpty()) {
-        return;
-    }
-
-    _ticker.once_scheduled(15, std::bind(&MqttClass::connect, this));
+    start();
 }
 
 
@@ -444,22 +438,59 @@ void MqttClass::networkOnStationModeDisconnected(const WiFiEventStationModeDisco
 {
     UNUSED_ARG(event);
 
-    stop();
+    stop(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
 }
 
 void MqttClass::stop()
 {
-    _ticker.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+    _ticker.detach();
     if (_client.connected()) {
         _client.disconnect();
     }
 }
+
+void MqttClass::start()
+{
+    _ticker.detach();
+
+    if (!_config.mqtt_enabled) {
+        return;
+    }
+
+    if (_config.mqtt_broker.isEmpty()) {
+        return;
+    }
+
+    _ticker.once_scheduled(15, std::bind(&MqttClass::connect, this));
+}
+
 
 bool MqttClass::isConnected()
 {
     return _client.connected();
 }
 
+
+void MqttClass::reloadConfig() {
+    if (_reloadConfigState == 0) {
+        stop();
+        _reloadConfigState = 1;
+        _ticker.attach_ms(500, std::bind(&MqttClass::reloadConfig, this));
+    } else if (_reloadConfigState == 1) {
+        if (_client.connected()) {
+            return;
+        }
+        loadConfigMqtt(_config);
+        _reloadConfigState = 2;
+    }  else if (_reloadConfigState == 2) {
+        _reloadConfigState = 0;
+        if (Network.isConnected()) {
+            start();
+        } else {
+            _ticker.detach();
+        }
+    }
+}
 
 /*
 const MqttConfig_t &MqttClass::getConfigMqtt(void)
