@@ -81,7 +81,9 @@ bool MqttClass::loadConfigMqtt(MqttConfig_t &config)
     ///json.prettyPrintTo(Serial);
     config.mqtt_qos = (*json)[F("mqtt_qos")].as<uint8_t>();
     config.mqtt_retain = (*json)[F("mqtt_retain")].as<bool>();
+#if 0 // mqtt_sub is currently not configurable
     config.mqtt_sub = (*json)[F("mqtt_sub")].as<String>();
+#endif
     config.mqtt_pub = (*json)[F("mqtt_pub")].as<String>();
     config.mqtt_keep = (*json)[F("mqtt_keep")].as<unsigned int>();
     config.mqtt_ha_discovery = (*json)[F("mqtt_ha_discovery")].as<bool>();
@@ -142,10 +144,12 @@ void MqttClass::onConnect(bool sessionPresent)
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "Connected to MQTT Server", "sessionPresent=" + String(sessionPresent));
     }
+#if 0 // mqtt_sub is currently not configurable
     if (!_config.mqtt_sub.isEmpty()) {
-        _client.subscribe(_config.mqtt_sub.c_str(), _config.mqtt_qos);
+        _mqttClient.subscribe(_config.mqtt_sub.c_str(), _config.mqtt_qos);
         eprintf("MQTT subscr %s\n", _config.mqtt_sub.c_str());
     }
+#endif
     if (_config.mqtt_ha_discovery) {
         // Publish 'online' to availability topic (birth) so Home Assistant / other clients see device is online
         publishHaAvailability(true);

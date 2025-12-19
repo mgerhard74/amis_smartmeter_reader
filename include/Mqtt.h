@@ -11,7 +11,7 @@ typedef struct {
     uint8_t mqtt_qos;
     unsigned mqtt_keep;
     String mqtt_pub;
-    String mqtt_sub;
+    //String mqtt_sub; // mqtt_sub is currently not configurable
     bool mqtt_ha_discovery;
     String mqtt_will;
     String mqtt_user;
