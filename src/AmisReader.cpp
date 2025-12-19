@@ -392,7 +392,6 @@ void AmisReaderClass::init(uint8_t serialNo)
     _serialReadBufferIdx = 0;
 
     memset(&a_result, 0, sizeof(a_result));
-    memset(&a_result, 0, sizeof(a_result));
 
     if (serialNo == 1) {
         _serial = &Serial;
