@@ -20,6 +20,9 @@ NEVER COMMIT THIS FILE CONTAINING ANY PRIVATE OR SECURITY INFORMATION!
 
 */
 
+#if (AMIS_DEVELOPER_MODE)
+
+
 #include "DefaultConfigurations.h"
 
 
@@ -97,6 +100,9 @@ const char *defaultConfigMqttJson = R"(
 }
 )";
 #endif
+
+
+#endif // (AMIS_DEVELOPER_MODE)
 
 
 /* vim:set ts=4 et: */
