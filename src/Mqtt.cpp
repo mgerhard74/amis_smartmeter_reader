@@ -216,12 +216,15 @@ void MqttClass::connect() {
     }
 
     IPAddress ipAddr;
+    String mqttServer;
     if (ipAddr.fromString(_config.mqtt_broker) && ipAddr.isSet()) {
         eprintf("MQTT init: %s %d\n", ipAddr.toString().c_str(), Config.mqtt_port);
         _client.setServer(ipAddr, _config.mqtt_port);
+        mqttServer = ipAddr.toString();
     } else {
         eprintf("MQTT init: %s %d\n", Config.mqtt_broker.c_str(), Config.mqtt_port);
         _client.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
+        mqttServer = _config.mqtt_broker;
     }
 
     if (!_config.mqtt_will.isEmpty()) {
@@ -243,7 +246,7 @@ void MqttClass::connect() {
     }
 
     if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Connecting to MQTT Server", "...");
+        writeEvent("INFO", "mqtt", "Connecting to MQTT server " + mqttServer, "...");
     }
     _client.connect();
 }
@@ -289,9 +292,8 @@ void MqttClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     if (_config.mqtt_ha_discovery) {
         publishHaAvailability(false);
     }
-    //if(WiFi.isConnected()) {
+
     _ticker.attach_scheduled(15, std::bind(&MqttClass::connect, this));
-    //}
 }
 
 
@@ -484,6 +486,9 @@ void MqttClass::reloadConfig() {
         }
         loadConfigMqtt(_config);
         _reloadConfigState = 2;
+        if (Config.log_sys) {
+            writeEvent("INFO", "mqtt", "Config reloaded", "");
+        }
     }  else if (_reloadConfigState == 2) {
         _reloadConfigState = 0;
         if (Network.isConnected()) {
