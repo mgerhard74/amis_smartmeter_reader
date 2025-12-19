@@ -70,7 +70,7 @@ var config_mqtt={
     "mqtt_clientid": "",
     "mqtt_qos": 0,
     "mqtt_retain": false,
-    "mqtt_keep": 0,
+    "mqtt_keep": 30,
     "mqtt_pub":"amis/out",
     "mqtt_will": "",
     "mqtt_ha_discovery": true,

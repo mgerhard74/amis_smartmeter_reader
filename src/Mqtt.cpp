@@ -92,6 +92,17 @@ bool MqttClass::loadConfigMqtt(MqttConfig_t &config)
     config.mqtt_enabled = (*json)[F("mqtt_enabled")].as<bool>();
     config.mqtt_broker = (*json)[F("mqtt_broker")].as<String>();
     config.mqtt_port = (*json)[F("mqtt_port")].as<uint16_t>();
+
+    // Some value checks
+    if (config.mqtt_keep == 0) {
+        // im Webinterface: 1...x / 30 = default
+        config.mqtt_keep = 30;
+    }
+    if (config.mqtt_port == 0) {
+        // im Webinterface: 1...65535 / 1883 = default
+        config.mqtt_port = 1883;
+    }
+
     return true;
 }
 
