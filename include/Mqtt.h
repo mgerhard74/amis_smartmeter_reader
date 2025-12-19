@@ -8,7 +8,7 @@
 // Contains all the settings saved in file '/config_mqtt'
 typedef struct {
     bool mqtt_retain;
-    unsigned mqtt_qos;
+    uint8_t mqtt_qos;
     unsigned mqtt_keep;
     String mqtt_pub;
     String mqtt_sub;

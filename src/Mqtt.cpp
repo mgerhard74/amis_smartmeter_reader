@@ -79,7 +79,7 @@ bool MqttClass::loadConfigMqtt(MqttConfig_t &config)
         return false;
     }
     ///json.prettyPrintTo(Serial);
-    config.mqtt_qos = (*json)[F("mqtt_qos")].as<unsigned int>();
+    config.mqtt_qos = (*json)[F("mqtt_qos")].as<uint8_t>();
     config.mqtt_retain = (*json)[F("mqtt_retain")].as<bool>();
     config.mqtt_sub = (*json)[F("mqtt_sub")].as<String>();
     config.mqtt_pub = (*json)[F("mqtt_pub")].as<String>();
