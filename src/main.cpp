@@ -133,7 +133,7 @@ void setup() {
     Webserver.init();    // Unter "/"" wird die "/index.html" ausgeliefert, "/update" ist eine statische fixe Seite
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
-    Webserver.setTryGzipFirst(!Config.developerModeEnabled); // im developermode wollen wir das nicht
+    Webserver.setTryGzipFirst(Config.webserverTryGzipFirst); // webserverTryGzipFirst sollte hier true sein (lesen wir nicht aus der config)
 
     // Smart Meter Simulator
     ModbusSmartmeterEmulation.init();

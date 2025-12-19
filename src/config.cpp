@@ -89,6 +89,9 @@ void ConfigClass::loadConfigGeneral()
     switch_intervall = (*json)[F("switch_intervall")].as<unsigned int>();
 
     developerModeEnabled = (*json)[F("developerModeEnabled")].as<bool>();
+
+    // 'webserverTryGzipFirst' wird nicht ausgewertet sondern nur bis zum nächsten Reboot mitgeführt
+    // webserverTryGzipFirst = (*json)[F("webserverTryGzipFirst")].as<bool>();
 }
 
 void ConfigClass::applySettingsConfigGeneral()
@@ -101,7 +104,7 @@ void ConfigClass::applySettingsConfigGeneral()
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
-    Webserver.setTryGzipFirst(!Config.developerModeEnabled);
+    Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
     // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 

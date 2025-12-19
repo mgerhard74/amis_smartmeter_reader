@@ -387,11 +387,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // start recreation/extraction from image into filesystem
         FileBlobs.remove(true);
         FileBlobs.checkIsChanged();
-    } else if (!strcmp(command, "set-developer-mode")) {
+/*  } else if (!strcmp(command, "set-developer-mode")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
             Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
-            Webserver.setTryGzipFirst(!Config.developerModeEnabled);
+        }
+*/
+    } else if (!strcmp(command, "set-webserverTryGzipFirst")) {
+        const char *onOff = root[F("value")].as<const char*>();
+        if (onOff) {
+            Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
+            Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
+            ws->text(clientId, "{\"r\":0,\"m\":\"OK\"}");
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 

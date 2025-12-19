@@ -47,6 +47,7 @@ public:
     String amis_key;
 
     bool developerModeEnabled;
+    bool webserverTryGzipFirst = true;
 };
 
 extern ConfigClass Config;

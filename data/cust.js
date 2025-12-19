@@ -36,6 +36,7 @@ var config_general = {
     "rest_neg": false,
     "smart_mtr":false,
     "developerModeEnabled": false,
+    "webserverTryGzipFirst": true, // diese Einstellung wird vom AmisLeser beim Lesen der Konfig nicht beachtet
     "switch_on": 0,
     "switch_off": 0,
     "switch_url_on": "",
@@ -630,6 +631,7 @@ function doUpdateMQTT() {
 
 function doReboot(msg) {
   if(window.confirm(msg+"Neustart mit OK bestätigen, dann 25s warten...")) {
+    config_general.webserverTryGzipFirst = true;
     websock.send('{"command":"restart"}');
     doReload(25000);
   }
@@ -711,10 +713,18 @@ function authDetails() {  // display settings only if auth active
 function developerModeEnabled() {  // display settings only if auth active
   if ($(this).prop('checked')) {
     $(".menu-developer").show();
-    websock.send('{"command":"set-developer-mode", "value":"on"}');
+    //websock.send('{"command":"set-developer-mode", "value":"on"}');
   } else {
     $(".menu-developer").hide();
-    websock.send('{"command":"set-developer-mode", "value":"off"}');
+    //websock.send('{"command":"set-developer-mode", "value":"off"}');
+  }
+}
+
+function webserverTryGzipFirst() {  // display settings only if auth active
+  if ($(this).prop('checked')) {
+    websock.send('{"command":"set-webserverTryGzipFirst", "value":"on"}');
+  } else {
+    websock.send('{"command":"set-webserverTryGzipFirst", "value":"off"}');
   }
 }
 
@@ -931,6 +941,7 @@ $(function() {            // main
   });
   $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
     if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
+      config_general.webserverTryGzipFirst = true;
       websock.send('{"command":"factory-reset-reboot"}');
       doReload(25000);
     }
@@ -954,6 +965,7 @@ $(function() {            // main
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
   $("input[name='developerModeEnabled']").on("click", developerModeEnabled);
+  $("input[name='webserverTryGzipFirst']").on("click", webserverTryGzipFirst);
   //$("input[name='smart_aktiv']").on("click", smart_mtr);
   $("input[name='use_auth']").on("click", authDetails);
   $(".button-upgrade").on("click", doUpgrade);      // firmware update
