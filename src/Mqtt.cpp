@@ -17,11 +17,15 @@ extern String strompreis;
 #endif
 
 
-#include "proj.h"
-extern unsigned int first_frame;
 extern void writeEvent(String, String, String, String);
 
 
+#include "MqttReaderDataClass.hpp"  // Handling "normal" data publishing        (topic = homeassistant/sensor/ .... )
+#include "MqttHAClass.hpp"          // Handling HomeAssistant data publishing   (topic = config.mqtt_pub)
+#include "MqttBaseClass.hpp"
+
+
+#if 0
 // Helper: sanitize a device name for topic/object id
 static String sanitizeTopic(const String &s)
 {
@@ -51,6 +55,13 @@ static String get_ha_availability_topic(MqttConfig_t &configMqtt)
         avail_topic = sanitizeTopic(Config.DeviceName) + String("/status");
     }
     return avail_topic;
+}
+
+
+void MqttClass::init()
+{
+    loadConfigMqtt(_config);
+    _reloadConfigState = 0;
 }
 
 
@@ -118,17 +129,10 @@ MqttClass::MqttClass()
     using std::placeholders::_5;
     using std::placeholders::_6;
 
-    _client.onMessage(std::bind(&MqttClass::onMessage, this, _1, _2, _3, _4, _5, _6));
-    _client.onConnect(std::bind(&MqttClass::onConnect, this, _1));
-    _client.onDisconnect(std::bind(&MqttClass::onDisconnect, this, _1));
-    _client.onPublish(std::bind(&MqttClass::onPublish, this, _1));
-}
-
-
-void MqttClass::init()
-{
-    loadConfigMqtt(_config);
-    _reloadConfigState = 0;
+    _mqttClient.onMessage(std::bind(&MqttClass::onMessage, this, _1, _2, _3, _4, _5, _6));
+    _mqttClient.onConnect(std::bind(&MqttClass::onConnect, this, _1));
+    _mqttClient.onDisconnect(std::bind(&MqttClass::onDisconnect, this, _1));
+    _mqttClient.onPublish(std::bind(&MqttClass::onPublish, this, _1));
 }
 
 
@@ -136,9 +140,9 @@ void MqttClass::onConnect(bool sessionPresent)
 {
     UNUSED_ARG(sessionPresent);
 
-    _ticker.detach();
+    _reconnectTicker.detach();
     if (_config.mqtt_keep) {
-        _ticker.attach_scheduled(_config.mqtt_keep, std::bind(&MqttClass::aliveTicker, this));
+        _publishTicker.attach_scheduled(_config.mqtt_keep, std::bind(&MqttClass::aliveTicker, this));
     }
     eprintf("MQTT onConnect %u %s\n", sessionPresent, Config.mqtt_sub.c_str());
     if (Config.log_sys) {
@@ -157,14 +161,14 @@ void MqttClass::onConnect(bool sessionPresent)
         publishHaDiscovery();
     }
 #ifdef STROMPREIS
-    _client.subscribe("strompreis",0);
+    _mqttClient.subscribe("strompreis", 0);
 #endif // STROMPREIS
 }
 
 
 void MqttClass::publishState()
 {
-    if (!_client.connected()) {
+    if (!_mqttClient.connected()) {
         DBGOUT("MQTT publish: not connected\n");
         return;
     }
@@ -213,7 +217,7 @@ void MqttClass::publishState()
     String mqttBuffer;
     //root.prettyPrintTo(mqttBuffer);
     root.printTo(mqttBuffer);
-    _client.publish(_config.mqtt_pub.c_str(), _config.mqtt_qos, _config.mqtt_retain, mqttBuffer.c_str());
+    _mqttClient.publish(_config.mqtt_pub.c_str(), _config.mqtt_qos, _config.mqtt_retain, mqttBuffer.c_str());
     //DBGOUT("MQTT publish "+Config.mqtt_pub+": "+mqttBuffer+"\n");
 }
 
@@ -234,16 +238,16 @@ void MqttClass::connect() {
     String mqttServer;
     if (ipAddr.fromString(_config.mqtt_broker) && ipAddr.isSet()) {
         eprintf("MQTT init: %s %d\n", ipAddr.toString().c_str(), Config.mqtt_port);
-        _client.setServer(ipAddr, _config.mqtt_port);
+        _mqttClient.setServer(ipAddr, _config.mqtt_port);
         mqttServer = ipAddr.toString();
     } else {
         eprintf("MQTT init: %s %d\n", Config.mqtt_broker.c_str(), Config.mqtt_port);
-        _client.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
+        _mqttClient.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
         mqttServer = _config.mqtt_broker;
     }
 
     if (!_config.mqtt_will.isEmpty()) {
-        _client.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
         eprintf("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
     } else if (_config.mqtt_ha_discovery) {
         // Set LWT to availability topic for HA discovery in case the user did not define a custom one
@@ -252,24 +256,24 @@ void MqttClass::connect() {
         eprintf("MQTT SetWill (HA): %s %u %u offline\n", avail_topic.c_str(), Config.mqtt_qos, true);
     }
     if (!_config.mqtt_user.isEmpty()) {
-        _client.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        _mqttClient.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
         eprintf("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
     if (!_config.mqtt_client_id.isEmpty()) {
-        _client.setClientId(_config.mqtt_client_id.c_str());
+        _mqttClient.setClientId(_config.mqtt_client_id.c_str());
         eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "Connecting to MQTT server " + mqttServer, "...");
     }
-    _client.connect();
+    _mqttClient.connect();
 }
 
 
 void MqttClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     if (_reloadConfigState == 0) {
-        _ticker.detach();
+        _reconnectTicker.detach();
     }
     String reasonstr = "";
     switch (reason) {
@@ -308,7 +312,7 @@ void MqttClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
         publishHaAvailability(false);
     }
 
-    _ticker.attach_scheduled(15, std::bind(&MqttClass::connect, this));
+    _reconnectTicker.attach_scheduled(15, std::bind(&MqttClass::connect, this));
 }
 
 
@@ -322,12 +326,12 @@ void MqttClass::onPublish(uint16_t packetId) {
 
 
 void MqttClass::publishHaAvailability(bool isOnline) {
-    if (!_client.connected()) {
+    if (!_mqttClient.connected()) {
         return;
     }
     String avail_topic = get_ha_availability_topic(_config);
     String payload = isOnline ? "online" : "offline";
-    _client.publish(avail_topic.c_str(), _config.mqtt_qos, true, payload.c_str());
+    _mqttClient.publish(avail_topic.c_str(), _config.mqtt_qos, true, payload.c_str());
 }
 
 // Publish discovery for all relevant measurement keys. Use bracket notation
@@ -402,7 +406,7 @@ static void publishSensor(AsyncMqttClient &client, const HASensor &e, String &de
 
 // Publish Home Assistant MQTT discovery messages for all sensors
 void MqttClass::publishHaDiscovery() {
-    if (!_client.connected()) {
+    if (!_mqttClient.connected()) {
         return;
     }
 
@@ -422,7 +426,7 @@ void MqttClass::publishHaDiscovery() {
     String dev = sanitizeTopic(Config.DeviceName + String("_") + String(ESP.getChipId(), HEX));
 
     for (size_t i=0; i < sizeof(entries)/sizeof(entries[0]); i++) {
-        publishSensor(_client, entries[i], dev, _config);
+        publishSensor(_mqttClient, entries[i], dev, _config);
     }
 }
 
@@ -462,15 +466,15 @@ void MqttClass::networkOnStationModeDisconnected(const WiFiEventStationModeDisco
 
 void MqttClass::stop()
 {
-    _ticker.detach();
-    if (_client.connected()) {
-        _client.disconnect();
+    _reconnectTicker.detach();
+    if (_mqttClient.connected()) {
+        _mqttClient.disconnect();
     }
 }
 
 void MqttClass::start()
 {
-    _ticker.detach();
+    _reconnectTicker.detach();
 
     if (!_config.mqtt_enabled) {
         return;
@@ -480,13 +484,13 @@ void MqttClass::start()
         return;
     }
 
-    _ticker.once_scheduled(15, std::bind(&MqttClass::connect, this));
+    _reconnectTicker.once_scheduled(15, std::bind(&MqttClass::connect, this));
 }
 
 
 bool MqttClass::isConnected()
 {
-    return _client.connected();
+    return _mqttClient.connected();
 }
 
 
@@ -494,9 +498,9 @@ void MqttClass::reloadConfig() {
     if (_reloadConfigState == 0) {
         stop();
         _reloadConfigState = 1;
-        _ticker.attach_ms(500, std::bind(&MqttClass::reloadConfig, this));
+        _reconnectTicker.attach_ms(500, std::bind(&MqttClass::reloadConfig, this));
     } else if (_reloadConfigState == 1) {
-        if (_client.connected()) {
+        if (_mqttClient.connected()) {
             return;
         }
         loadConfigMqtt(_config);
@@ -509,7 +513,7 @@ void MqttClass::reloadConfig() {
         if (Network.isConnected()) {
             start();
         } else {
-            _ticker.detach();
+            _reconnectTicker.detach();
         }
     }
 }
@@ -522,5 +526,7 @@ const MqttConfig_t &MqttClass::getConfigMqtt(void)
 */
 
 MqttClass Mqtt;
+#endif
+
 
 /* vim:set ts=4 et: */

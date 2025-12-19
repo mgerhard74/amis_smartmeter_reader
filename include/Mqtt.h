@@ -23,43 +23,70 @@ typedef struct {
 } MqttConfig_t;
 
 
-class MqttClass {
+// some forward declarations
+class MqttBaseClass;
+struct HASensor;
+
+
+class MqttHAClass
+{
 public:
-    MqttClass();
+    void init(MqttBaseClass &mqttBase);
+    void publishHaDiscovery();
+    void publishHaAvailability(bool isOnline);
+private:
+    void getTopicPayloadSingleSensor(String &topic, String &paylod, const HASensor &e, const String &dev, const String &state_topic, const String &availability_topic);
+    MqttBaseClass *_mqttBase;
+};
+
+class MqttReaderDataClass
+{
+public:
+    void init(MqttBaseClass &mqttBase);
+    void publish();
+private:
+    MqttBaseClass *_mqttBase;
+};
+
+class MqttBaseClass
+{
+public:
+    MqttBaseClass();
     void init();
-    bool isConnected();
-    void start();
     void stop();
+    bool isConnected();
 
     void networkOnStationModeGotIP(const WiFiEventStationModeGotIP& event);
     void networkOnStationModeDisconnected(const WiFiEventStationModeDisconnected& event);
 
     void reloadConfig();
 
-    //const MqttConfig_t &getConfigMqtt();
+    uint16_t publish(const char* topic, uint8_t qos, bool retain, const char* payload);
+
+    const MqttConfig_t &getConfigMqtt();
 
 private:
-    AsyncMqttClient _client;
-    Ticker _ticker;
+    AsyncMqttClient _mqttClient;
+    Ticker _reconnectTicker;
+    Ticker _actionTicker;
 
     void onMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total);
     void onConnect(bool sessionPresent);
     void onDisconnect(AsyncMqttClientDisconnectReason reason);
     void onPublish(uint16_t packetId);
 
-    void publishState();
-    void publishHaAvailability(bool isOnline);
-    void publishHaDiscovery();
-    void aliveTicker();
+    void publishTickerCb();
 
-    void connect();
+    void doConnect();
 
     bool loadConfigMqtt(MqttConfig_t &config);
     MqttConfig_t _config;
-
     int _reloadConfigState;
+
+    MqttReaderDataClass _mqttReaderData;
+    MqttHAClass         _mqttHA;
 };
 
-extern MqttClass Mqtt;
+extern MqttBaseClass Mqtt;
 
 /* vim:set ts=4 et: */
