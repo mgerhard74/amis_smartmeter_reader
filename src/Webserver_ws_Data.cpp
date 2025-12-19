@@ -352,7 +352,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             } while (i);
             f.close();
         } else {
-            ws->text(clientId,"no file\0");
+            ws->text(clientId, "no file\0");
         }
     } else if(strcmp(command, "print2") == 0) {
         //ws.text(clientId,"prn\0"); // ws.text
