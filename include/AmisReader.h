@@ -11,6 +11,13 @@ extern uint8_t dow;
 extern uint8_t mon, myyear;
 
 
+#ifndef AMISREADER_SIMULATE_SERIAL
+// If enabled fixed values are returned
+// Use AmisKey: 1234567890abcdef1234567890abcdef
+#define AMISREADER_SIMULATE_SERIAL      0
+#endif
+
+
 typedef struct {
     bool isSet;
     struct tm time;
@@ -73,6 +80,10 @@ private:
     void moveSerialBufferToDecodingWorkBuffer(size_t n);
 
     int decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result);
+
+#if (AMISREADER_SIMULATE_SERIAL)
+    size_t pollSerialSimulateSerialInput();
+#endif
 
     HardwareSerial *_serial = nullptr;
 
