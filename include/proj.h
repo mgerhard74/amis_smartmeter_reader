@@ -23,7 +23,7 @@
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
 //#define STROMPREIS
-#define VERSION "1.5.2-dev"
+#define VERSION "1.5.2"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
