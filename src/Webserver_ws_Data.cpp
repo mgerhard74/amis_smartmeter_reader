@@ -6,10 +6,12 @@
 
 #include "config.h"
 #include "FileBlob.h"
+#include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
 #include "Webserver.h"
 #include "unused.h"
+#include "Utils.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -22,6 +24,7 @@ static void clearHist();
 static bool EEPROMClear();
 
 extern bool doSerialHwTest;
+
 
 AsyncWebSocket *ws;
 
@@ -138,7 +141,6 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
 #include "proj.h"
 extern uint32_t clientId;
 extern int logPage;
-extern bool mqttStatus;
 extern unsigned first_frame;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
@@ -244,10 +246,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             //size_t len = root.measurePrettyLength();
             root.prettyPrintTo(f);
             f.close();
-            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n",command,len);
+            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, len);
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
+            } else if (strcmp(command, "/config_mqtt")==0) {
+                Mqtt.reloadConfig();
             }
         }
     } else if(strcmp(command, "status") == 0) {
@@ -283,32 +287,50 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if(strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
     } else if(strcmp(command, "ls") == 0) {
+        String path = root["path"].as<String>();
+        if (path.isEmpty()) {
+            path = "/";
+        }
         DynamicJsonBuffer jsonBuffer;
         JsonObject &doc = jsonBuffer.createObject();
-        Dir dir = LittleFS.openDir("/");
         unsigned i=0;
-        while (dir.next()) {
-            File f = dir.openFile("r");
-            //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
-            if (f) {
-                char puffer [86]; // 31+1 + 11+1 + 20+1 + 20  +1
-                sprintf(puffer,     "%-31s %11u %20lld %20lld",
-                                dir.fileName().c_str(),
-                                f.size(),
-                                f.getCreationTime(),
-                                f.getLastWrite());
-                f.close();
-                doc[String(i)] = puffer;
-            } else {
-                doc[String(i)] = dir.fileName();
+        if (Utils::dirExists(path.c_str())) {
+            Dir dir = LittleFS.openDir(path);
+            while (dir.next()) {
+                File f = dir.openFile("r");
+                //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
+                if (f) {
+                    char puffer [86]; // 31+1 + 11+1 + 20+1 + 20  +1
+                    sprintf(puffer,     "%-31s %11u %20lld %20lld",
+                                    dir.fileName().c_str(),
+                                    f.size(),
+                                    f.getCreationTime(),
+                                    f.getLastWrite());
+                    f.close();
+                    doc[String(i)] = puffer;
+                } else {
+                    doc[String(i)] = dir.fileName();
+                }
+                i++;
             }
-            i++;
         }
         doc["ls"]=i;
         String buffer;
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
         ws->text(clientId,buffer);
+    } else if(strcmp(command, "rm") == 0) {
+        String path = root["path"].as<String>();
+        if (path.isEmpty()) {
+            return;
+        }
+        const char *p = path.c_str();
+        if (Utils::fileExists(p)) {
+            LittleFS.remove(p);
+        }  // LittleFS hat in Wirklichkeit kein mkdir() und rmdir()
+        /* else if (Utils::dirExists(p)) {
+            LittleFS.rmdir(p);
+        }*/
     } else if (strcmp(command, "clear") == 0) {
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
@@ -330,7 +352,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             } while (i);
             f.close();
         } else {
-            ws->text(clientId,"no file\0");
+            ws->text(clientId, "no file\0");
         }
     } else if(strcmp(command, "print2") == 0) {
         //ws.text(clientId,"prn\0"); // ws.text
@@ -365,11 +387,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // start recreation/extraction from image into filesystem
         FileBlobs.remove(true);
         FileBlobs.checkIsChanged();
-    } else if (!strcmp(command, "set-developer-mode")) {
+/*  } else if (!strcmp(command, "set-developer-mode")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
             Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
-            Webserver.setTryGzipFirst(!Config.developerModeEnabled);
+        }
+*/
+    } else if (!strcmp(command, "set-webserverTryGzipFirst")) {
+        const char *onOff = root[F("value")].as<const char*>();
+        if (onOff) {
+            Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
+            Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
+            ws->text(clientId, "{\"r\":0,\"m\":\"OK\"}");
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 
@@ -472,6 +501,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
     root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
     root[F("app_compiled_git_hash")] = __COMPILED_GIT_HASH__;
+    root[F("app_compiled_build_environment")] = PIOENV; // PIOENV wird in platform.ini beim Compilieren gesetzt
 
     root[F("library_ArduinoJson")] = ARDUINOJSON_VERSION;
     root[F("library_AsyncMqttClient")] = "0.9.0";
@@ -530,7 +560,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     //if (ADC_MODE_VALUE == ADC_VCC) {
     root[F("vcc")] = ESP.getVcc();
     //root["vcc"] = "N/A (TOUT) ";
-    root[F("mqttStatus")] = mqttStatus ? "connected":"N/A";
+    root[F("mqttStatus")] = Mqtt.isConnected() ?"connected" :"N/A";
     root[F("ntpSynced")] = "N/A";
 
     String buffer;

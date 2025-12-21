@@ -35,6 +35,7 @@ typedef union {
     unsigned int ui;
     long l;
     unsigned long ul;
+    long unsigned int lu;
     float f;
     char c[4];
     unsigned char uc[4];

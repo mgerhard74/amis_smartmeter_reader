@@ -6,10 +6,10 @@
 
 #include <LittleFS.h>
 
-// FILEBLOB_WRITE_MD_INO_FILE:
+// FILEBLOB_WRITE_MD_INTO_FILE:
 //      0 ... md5sum is computed (needs long time)
 //      1 ... md5sum is written into extra file
-#define FILEBLOB_WRITE_MD_INO_FILE  1
+#define FILEBLOB_WRITE_MD_INTO_FILE  1
 
 class FileBlobClass
 {
@@ -31,7 +31,7 @@ class FileBlobClass
         const char *_filename;
         const char *_md5sum;
         time_t _timeStamp;
-#if (FILEBLOB_WRITE_MD_INO_FILE)
+#if (FILEBLOB_WRITE_MD_INTO_FILE)
         char _filenameMd5[LFS_NAME_MAX]; // this includes already trailing '\0' --> so only 31 chars for filename
 #endif
 };

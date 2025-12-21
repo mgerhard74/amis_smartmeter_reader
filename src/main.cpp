@@ -6,9 +6,11 @@
 
 
 #include "AmisReader.h"
+#include "Exception.h"
 #include "FileBlob.h"
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
 #include "RebootAtMidnight.h"
@@ -54,13 +56,14 @@ String latestYYMMInHistfile;
   String dbg_string;
 #endif // DEBUGHW
 kwhstruct kwh_hist[7];
-bool mqttStatus;
 bool doSerialHwTest=false;
 
+// Funktion __get_adc_mode() ( mittels Macro ADC_MODE() ) muss hier definiert werden,
+// ansonsten liefert ESP.getVcc() später keine gültigen Werte
+ADC_MODE(ADC_VCC);
 
-// ADC_MODE(ADC_VCC);
 
-void setup(){
+void setup() {
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
 
     #if DEBUGHW==2
@@ -87,12 +90,18 @@ void setup(){
     writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
     writeEvent("INFO", "sys", "  Reset reason", ESP.getResetReason());
 
+    // Sichern des letzten Crashes
+    Exception_DumpLastCrashToFile();
+
     // Set timezone to CET/CEST
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
 
     // Mal die config laden
     Config.loadConfigGeneral();
+
+    // im Mqtt.init() wird die mqtt-config geladen
+    Mqtt.init();
 
     // Extraktion der Files für den Webserver vorbereiten
     // Alle Dateien zu extrahieren dauert zu lange (HardwareWatchdok wir d ausgelöst)
@@ -124,7 +133,7 @@ void setup(){
     Webserver.init();    // Unter "/"" wird die "/index.html" ausgeliefert, "/update" ist eine statische fixe Seite
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
-    Webserver.setTryGzipFirst(!Config.developerModeEnabled); // im developermode wollen wir das nicht
+    Webserver.setTryGzipFirst(Config.webserverTryGzipFirst); // webserverTryGzipFirst sollte hier true sein (lesen wir nicht aus der config)
 
     // Smart Meter Simulator
     ModbusSmartmeterEmulation.init();

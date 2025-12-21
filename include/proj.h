@@ -1,12 +1,10 @@
 #ifndef PROJ_H
 #define PROJ_H
 #include <Arduino.h>
-#include <ArduinoOTA.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <AsyncMqttClient.h>
 #include <AsyncJson.h> //needs to be declared AFTER #include <ESPAsyncWebServer.h>
 #include <Ticker.h>
 #include "flash_hal.h"
@@ -24,9 +22,8 @@
 /// DEBUGHW 3             Websock
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
-//#define OTA
 //#define STROMPREIS
-#define VERSION "1.5.1"
+#define VERSION "1.5.2-dev"
 #define APP_NAME "Amis"
   extern String dbg_string;
   extern char dbg[128];
@@ -57,19 +54,11 @@ extern uint32_t clientId;
 //extern String lastMonth;
 
 extern kwhstruct kwh_hist[7];
-extern void mqtt_publish_state();
-extern void mqtt_publish_ha_availability(bool);
-extern String get_ha_availability_topic();
-extern void mqtt_publish_ha_discovery();
-extern AsyncMqttClient mqttClient;
-extern Ticker mqttTimer;
-extern void mqtt_init();
 extern Ticker secTicker;
-extern bool mqttStatus;
 extern void sendZData();
 extern void sendZDataWait();
 extern void writeEvent(String type, String src, String desc, String data);
-extern void sendEventLog(uint32_t clientId,int page);
+extern void sendEventLog(uint32_t clientId, int page);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 #endif

@@ -20,6 +20,9 @@ NEVER COMMIT THIS FILE CONTAINING ANY PRIVATE OR SECURITY INFORMATION!
 
 */
 
+#if (AMIS_DEVELOPER_MODE)
+
+
 #include "DefaultConfigurations.h"
 
 
@@ -51,7 +54,8 @@ const char *defaultConfigGerneralJson = R"(
     "switch_url_on": "",
     "switch_url_off": "",
     "switch_intervall": 60,
-    "developerModeEnabled":false
+    "developerModeEnabled": false,
+    "webserverTryGzipFirst": true
 }
 )";
 #endif
@@ -90,13 +94,16 @@ const char *defaultConfigMqttJson = R"(
     "mqtt_clientid": "mqclient",
     "mqtt_qos": 0,
     "mqtt_retain": false,
-    "mqtt_keep": 0,
+    "mqtt_keep": 30,
     "mqtt_pub": "amis/out",
     "mqtt_ha_discovery": true,
     "mqtt_will": ""
 }
 )";
 #endif
+
+
+#endif // (AMIS_DEVELOPER_MODE)
 
 
 /* vim:set ts=4 et: */

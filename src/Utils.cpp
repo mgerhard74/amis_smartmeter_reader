@@ -1,6 +1,5 @@
 #include "Utils.h"
 
-//#include <Arduino.h>
 #include <LittleFS.h>
 
 bool Utils::fileExists(const char *fname)
@@ -15,7 +14,6 @@ bool Utils::fileExists(const char *fname)
     return r;
 }
 
-#if 0
 bool Utils::dirExists(const char *fname)
 {
     bool r = false;
@@ -27,7 +25,6 @@ bool Utils::dirExists(const char *fname)
     }
     return r;
 }
-#endif
 
 bool Utils::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
 {

@@ -191,6 +191,8 @@
             <div class="pure-u-11-24"><span class="right" name="flashmode"></span></div>
             <div class="pure-u-1-2">CPU Frequ.</div>
             <div class="pure-u-11-24"><span class="right" name="cpu" post=" MHz"></span></div>
+            <div class="pure-u-1-2">VCC</div>
+            <div class="pure-u-11-24"><span class="right" name="vcc">? </span><span>mV</span></div>
             <div class="pure-u-1-2">Reset Grund</div>
             <div class="pure-u-11-24"><span class="right" name="reset_reason" post=""></span></div>
         </div>
@@ -199,6 +201,8 @@
           <div class="pure-u-11-24"><span class="right" name="version"></span></div>
           <div class="pure-u-1-2">Compiled [UTC]</div>
           <div class="pure-u-11-24"><span class="right" name="app_compiled_time_utc"></span></div>
+          <div class="pure-u-1-2">PIO Umgebung</div>
+          <div class="pure-u-11-24"><span class="right" name="app_compiled_build_environment"></span></div>
           <div class="pure-u-1-2">Git branch</div>
           <div class="pure-u-11-24"><span class="right" name="app_compiled_git_branch"></span></div>
           <div class="pure-u-1-2">Git version/hash <!-- <br>
@@ -209,7 +213,7 @@
           <div class="pure-u-11-24"><span class="right" name="sdk"></span></div>
           <div class="pure-u-1-2">Core version</div>
           <div class="pure-u-11-24"><span class="right" name="core"></span></div>
-          <!-- used library version -->
+          <!-- used library versions -->
           <div class="pure-u-1-2">Library <a href="https://registry.platformio.org/libraries/bblanchon/ArduinoJson">ArduinoJson</a></div>
           <!-- https://github.com/bblanchon/ArduinoJson -->
           <div class="pure-u-11-24"><span class="right" name="library_ArduinoJson"></span></div>
@@ -244,8 +248,6 @@
             <div class="pure-u-11-24"><span name="gateway"></span></div>
             <div class="pure-u-1-2">Netmask</div>
             <div class="pure-u-11-24"><span name="netmask"></span></div>
-            <div class="pure-u-1-2">VCC</div>
-            <div class="pure-u-11-24"><span class="right" name="vcc">? </span><span>mV</span></div>
             <div class="pure-u-1-2 module-mqtt">MQTT Status</div>
             <div class="pure-u-11-24 module-mqtt"><span name="mqttStatus"></span></div>
             <div class="pure-u-1-2 module-ntp">NTP Status</div>
@@ -360,7 +362,7 @@
         </div>
         <div class="pure-g">
           <label class="pure-u-2-3">Modbus Smartmeter Emulation aktiv:</label>
-            <div class="pure-u-1-3 "><input type="checkbox" name="smart_mtr" id="smart_mtr" class="general"/></div>
+          <div class="pure-u-1-3 "><input type="checkbox" name="smart_mtr" id="smart_mtr" class="general"/></div>
           <div class="pure-u-1 hint">
             Unter IP-Nummer:502 ist eine Modbus Smartmeter Emulation verfügbar zum Abruf der ins Netz gelieferten/bezogenen Leistung.
             Verwendbar zB für Einspeiselimit.
@@ -389,12 +391,20 @@
         </div>
         <hr>
         <div class="pure-g">
-          <label class="pure-u-1-3">Developermodus aktiv:</label>
+          <label class="pure-u-2-3">Developermodus aktiv:</label>
+          <div class="pure-u-1-3"><input type="checkbox" name="developerModeEnabled" id="developerModeEnabled" class="general"/></div>
           <div class="pure-u-1 hint">
             Der Developermodus schaltet ein zusätzliches Menü frei, mit dem verschiedene Systembefehle an den Leser gesendet werden können.
-            Es werden im Developermodus die html, css, js, ... Dateien vom Dateisystem verwendet und nicht jene, die in der Firmware enthalten sind.
           </div>
-          <div class="pure-u-1-3"><input type="checkbox" name="developerModeEnabled" id="developerModeEnabled" class="general"/></div>
+        </div>
+        <div class="pure-g">
+          <div class="pure-u-2-3">Webserverdateien aus Image verwenden:</div>
+          <div class="pure-u-1-3 "><input type="checkbox" name="webserverTryGzipFirst" id="webserverTryGzipFirst" class="general"/></div>
+          <div class="pure-u-1 hint">
+            Es werden die html, css, js, ... Dateien mit der Endung .gz vom Dateisystem bevorzugt (Diese werden von der Firmware bereitgestellt).<br>
+            Zum Entwickeln der Weboberfläche ist es vernünftig, diese Option auszuschalten.<br>
+            <b>Diese Einstellung wird nicht permanent gespeichert und gilt nur bis zum nächsten Reboot!</b>
+          </div>
         </div>
         <br>
         <div class="pure-g">
@@ -685,6 +695,13 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.5.2-dev</h3>
+              Bei einer Exception (Neustart wegen Fehler) wird eine minimale Dumpinformation in das Verzeichnis "/crashes" geschrieben.<br>
+              MQTT Anbindung überarbeitet, vernünftige Defaultwerte verwendet<br>
+              Einstellung, ob Webserverdaten aus dem Firmwareimage verwendet werden sollen im Menü Allgemein.<br>
+              Fixing: Anzeige der Spannung VCC auf der Statusseite.<br>
+              Sourcecode weiter aufgeräumt.
+              <br>
               <h3>Version 1.5.1</h3>
               ESPAsyncWebserver auf Version 3.6.0 upgedatet<br>
               Webserverinhalt ist nun in der Firmware enthalten (kein manuelles Update der html,.... Dateien mehr nötig)<br>

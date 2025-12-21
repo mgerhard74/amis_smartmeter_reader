@@ -4,7 +4,7 @@
 #include "config.h"
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
-#include "unused.h"
+#include "Mqtt.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -18,17 +18,11 @@
 #endif
 
 #include <ArduinoJson.h>
-#include <AsyncMqttClient.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
 //#include "proj.h"
-extern AsyncMqttClient mqttClient;
-extern Ticker mqttTimer;
-
-extern void mqtt_init();
-extern void upgrade (bool save);
 extern void writeEvent(String, String, String, String);
 
 void NetworkClass::init(bool apMode)
@@ -49,7 +43,6 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    UNUSED_ARG(event);
     DBGOUT("WiFi onStationModeGotIP()\n");
     DBGPRINTF("%d\n", _tickerReconnect.active());
     _isConnected = true;
@@ -79,7 +72,7 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     dbg_server.begin();
     //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
 #endif
-    mqtt_init();
+    Mqtt.networkOnStationModeGotIP(event);
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
@@ -88,7 +81,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     DBGPRINTF("%d\n", _tickerReconnect.active());
     _isConnected = false;
     LedBlue.turnOff();
-    mqttTimer.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+    Mqtt.networkOnStationModeDisconnected(event);
     if (MDNS.isRunning()) {
         MDNS.end();
     }

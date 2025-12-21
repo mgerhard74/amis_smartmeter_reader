@@ -6,6 +6,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "Mqtt.h"
 #include "RemoteOnOff.h"
 #include "ThingSpeak.h"
 
@@ -13,7 +14,6 @@
 #include <Ticker.h>
 
 extern Ticker secTicker;
-extern Ticker mqttTimer;
 extern void writeEvent(String, String, String, String);
 extern int valid;
 
@@ -42,6 +42,7 @@ bool RebootClass::startUpdateFirmware()
     valid = 6;
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
+    Mqtt.stop();
     return true;
 }
 void RebootClass::endUpdateFirmware()
@@ -66,6 +67,7 @@ bool RebootClass::startUpdateLittleFS()
     valid = 6;
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
+    Mqtt.stop();
     LittleFS.end(); // we can also end the filesystem as it will be overwritten
     return true;
 }
@@ -97,7 +99,7 @@ void RebootClass::loop()
             secTicker.detach();
             break;
         case 5:
-            mqttTimer.detach();
+            Mqtt.stop();
             break;
         case 6:
             ModbusSmartmeterEmulation.disable();
