@@ -501,6 +501,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
     root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
     root[F("app_compiled_git_hash")] = __COMPILED_GIT_HASH__;
+    root[F("app_compiled_build_environment")] = PIOENV; // PIOENV wird in platform.ini beim Compilieren gesetzt
 
     root[F("library_ArduinoJson")] = ARDUINOJSON_VERSION;
     root[F("library_AsyncMqttClient")] = "0.9.0";
