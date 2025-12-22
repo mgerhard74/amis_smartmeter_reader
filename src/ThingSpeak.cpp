@@ -18,8 +18,8 @@ void ThingSpeakClass::enable()
     _readerValues.isValid = false; // force fresh data
 
     uint32_t now = millis();
-    if (now < 30000ul) {
-        _lastSentMs = 30000ul - _intervalMs; // earliest run is after uptime of 30 sec
+    if (now < 30000) {
+        _lastSentMs = 30000 - _intervalMs; // earliest run is after uptime of 30 sec
     } else {
         _lastSentMs = now - _intervalMs; // run as soon as we got valid data
     }
@@ -59,8 +59,8 @@ void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
     _readerValues.isValid = false; // force fresh data
 
     uint32_t now = millis();
-    if (now < 30000ul) {
-        _lastSentMs = 30000ul - _intervalMs; // earliest run is after uptime of 30 sec
+    if (now < 30000) {
+        _lastSentMs = 30000 - _intervalMs; // earliest run is after uptime of 30 sec
     } else {
         _lastSentMs = now - _intervalMs; // run as soon as we got valid data
     }
@@ -84,7 +84,7 @@ void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, cons
     /* Wir müssen vom Interval noch eine Sekunde abziehen, da wir jede Sekunde neue Werte bekommen
        und das Versenden ebenfalls etwas Zeit braucht.
        Das hätte dann zur Folge, dass unsere Millisekundenwartezeit uns immer eine ganze Sekunde kostet  */
-    if (millis() - _lastSentMs > _intervalMs - 1000ul) {
+    if (millis() - _lastSentMs > _intervalMs - 1000) {
         if (!_ticker.active()) {
             _ticker.once_ms_scheduled(10, std::bind(&ThingSpeakClass::sendData, this));
         }
