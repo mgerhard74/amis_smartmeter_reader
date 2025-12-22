@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <time.h>
 
-// TODO: Refactor this global vars
+// TODO(anyone): Refactor this global vars
 extern uint32_t a_result[10];
 extern int valid;
 extern char timecode[13];

@@ -84,7 +84,7 @@ void WebserverClass::reload()
 }
 
 
-// TODO: Brauchen wir das wirklich noch?
+// TODO(anyone): Brauchen wir das wirklich noch?
 void WebserverClass::onRequest_Upgrade(AsyncWebServerRequest *request)
 {
     static const char _page_upgrade[] PROGMEM = R\

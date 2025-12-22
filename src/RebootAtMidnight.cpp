@@ -2,7 +2,7 @@
 
 #include "Reboot.h"
 
-// TODO: Refactor writeEvent
+// TODO(anyone): Refactor writeEvent
 extern void writeEvent(String ,String ,String ,String );
 
 // Info:

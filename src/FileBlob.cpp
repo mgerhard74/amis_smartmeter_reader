@@ -59,7 +59,7 @@ static time_t GetTimeStamp()
 static time_t _defaultTimeCB(void) { return time(NULL); }
 static time_t GetTimeStamp()
 {
-    // TODO: Return corresponding timestamp
+    // TODO(anyone): Return corresponding timestamp
     return __COMPILED_DATE_TIME_UTC_TIME_T__;
 }
 time_t FileBlobClass::getTimeStamp()

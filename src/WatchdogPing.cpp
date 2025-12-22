@@ -12,7 +12,7 @@
 #include <cstdint>
 
 
-// TODO - reuse refactored classes for logging and debugging
+// TODO(anyone) - reuse refactored classes for logging and debugging
 #include "debug.h"
 #include "config.h"
 extern void writeEvent(String type, String src, String desc, String data);

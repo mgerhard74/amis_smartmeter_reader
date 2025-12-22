@@ -194,7 +194,7 @@ void NetworkClass::connect(void)
             writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
         }
     } else {
-        // TODO ... sollte hier nicht auch was gemacht werden?
+        // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
     }
 
     DBGOUT(F("Start Wifi\n"));
@@ -254,7 +254,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
     // wir die Config aus dem EEPROM zu lesen und gleich
     // als /config_wifi zu speichern
     //
-    // TODO: Brauchen wir das wirklich noch?
+    // TODO(anyone): Brauchen wir das wirklich noch?
 
     EEPROM.begin(256);
     if(EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {

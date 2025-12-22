@@ -105,7 +105,7 @@ void ConfigClass::applySettingsConfigGeneral()
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
-    // TODO: Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
+    // TODO(anyone): Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 
     // RemoteOnOffClass

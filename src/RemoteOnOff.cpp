@@ -16,13 +16,7 @@
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
 
-// TODO: Fragen zu dem Thema:
-// * Soll vor einem Reboot noch Ein-/Ausgeschaltet werden
-// * Was tun, wenn die Konfiguration während der Laufzeit geändert wird
-// * Ev. harmonisches Mittel verwenden?
-
-
-// TODO: Refactor this external function
+// TODO(anyone): Refactor this external function
 extern void writeEvent(String, String, String, String);
 
 
@@ -41,7 +35,7 @@ void RemoteOnOffClass::init()
 
 void RemoteOnOffClass::sendURL(switchState_t newState)
 {
-    // TODO: Prüfen, ob wir überhaupt mit dem Netzwerk verbunden sind
+    // TODO(anyone): Prüfen, ob wir überhaupt mit dem Netzwerk verbunden sind
 
     if (_rebooting) {
         newState = off;
