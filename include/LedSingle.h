@@ -10,7 +10,7 @@ typedef enum {
 
 class LedSingleClass {
 public:
-    LedSingleClass(uint8_t pin, LedPinMode pinmode=LED_PINMODE_NO_INVERT);
+    explicit LedSingleClass(uint8_t pin, LedPinMode pinmode=LED_PINMODE_NO_INVERT);
 
     void loop();
     void turnOn();
