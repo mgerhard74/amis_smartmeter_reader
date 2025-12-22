@@ -20,9 +20,9 @@ extern String strompreis;
 extern void writeEvent(String, String, String, String);
 
 
-#include "MqttReaderDataClass.hpp"  // Handling "normal" data publishing        (topic = homeassistant/sensor/ .... )
-#include "MqttHAClass.hpp"          // Handling HomeAssistant data publishing   (topic = config.mqtt_pub)
-#include "MqttBaseClass.hpp"
+#include "MqttReaderDataClass.inl"  // Handling "normal" data publishing        (topic = homeassistant/sensor/ .... )
+#include "MqttHAClass.inl"          // Handling HomeAssistant data publishing   (topic = config.mqtt_pub)
+#include "MqttBaseClass.inl"
 
 
 #if 0
