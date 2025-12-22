@@ -15,7 +15,7 @@ public:
     void loop();
     void turnOn();
     void turnOff();
-    void turnBlink(unsigned long offIntervalMs, unsigned long onIntervalMs);
+    void turnBlink(uint32_t offIntervalMs, uint32_t onIntervalMs);
     void invert();
     void setBrightness(uint8_t percent);
 
@@ -23,9 +23,9 @@ private:
     uint8_t _pin = 0;
     LedPinMode _pinmode = LED_PINMODE_NO_INVERT;
     uint8_t _valueOff, _valueOn; // Durch setBrightness() berechnete Werte für ein/aus
-    unsigned long _blinkIntervalsMs[2];
+    uint32_t _blinkIntervalsMs[2];
     uint8_t _blinkIntervalsIdx = 0;
-    unsigned long _lastBlinkChangeMillis;
+    uint32_t _lastBlinkChangeMillis;
 
     typedef enum {
         on,

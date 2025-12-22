@@ -10,7 +10,7 @@ void ThingSpeakClass::enable()
     _enabled = true;
     _readerValues.isValid = false; // force fresh data
 
-    unsigned long now = millis();
+    uint32_t now = millis();
     if (now < 30000ul) {
         _lastSentMs = 30000ul - _intervalMs; // earliest run is after uptime of 30 sec
     } else {
@@ -31,12 +31,12 @@ void ThingSpeakClass::disable()
 
 void ThingSpeakClass::setInterval(unsigned int intervalSeconds)
 {
-    unsigned long newInterval = (unsigned long)intervalSeconds * 1000ul;
+    uint32_t newInterval = (uint32_t)intervalSeconds * 1000ul;
 
     if (_intervalMs == newInterval) {
         return;
     }
-    _intervalMs = (unsigned long)intervalSeconds * 1000ul;
+    _intervalMs = (uint32_t)intervalSeconds * 1000ul;
 }
 
 void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
@@ -51,7 +51,7 @@ void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
 
     _readerValues.isValid = false; // force fresh data
 
-    unsigned long now = millis();
+    uint32_t now = millis();
     if (now < 30000ul) {
         _lastSentMs = 30000ul - _intervalMs; // earliest run is after uptime of 30 sec
     } else {

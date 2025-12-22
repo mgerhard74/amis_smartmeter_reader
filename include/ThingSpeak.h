@@ -34,8 +34,8 @@ class ThingSpeakClass {
 
         THINGSPEAK_WIFICLIENT _client;
         bool _enabled=false;
-        unsigned long _lastSentMs=0;
-        unsigned long _intervalMs=30000ul;
+        uint32_t _lastSentMs=0;
+        uint32_t _intervalMs=30000;
         String _lastResult = "ThingSpeak deaktiviert.";
         String _apiKeyWrite;
         struct {

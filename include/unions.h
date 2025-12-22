@@ -7,12 +7,12 @@
 
 /* Check and "documentate" sizes of some data types */
 static_assert(sizeof(int) == 4);
-static_assert(sizeof(long) == 4);
-static_assert(sizeof(long long) == 8);
+static_assert(sizeof(long) == 4);                   // NOLINT
+static_assert(sizeof(long long) == 8);              // NOLINT
 
 static_assert(sizeof(unsigned int) == 4);
-static_assert(sizeof(unsigned long) == 4);
-static_assert(sizeof(unsigned long long) == 8);
+static_assert(sizeof(unsigned long) == 4);          // NOLINT
+static_assert(sizeof(unsigned long long) == 8);     // NOLINT
 
 static_assert(sizeof(int16_t) == 2);
 static_assert(sizeof(uint16_t) == 2);
@@ -33,9 +33,9 @@ static_assert(sizeof(double) == 8);
 typedef union {
     int i;
     unsigned int ui;
-    long l;
-    unsigned long ul;
-    long unsigned int lu;
+    long l;                                         // NOLINT
+    unsigned long ul;                               // NOLINT
+    long unsigned int lu;                           // NOLINT
     float f;
     char c[4];
     unsigned char uc[4];
@@ -49,8 +49,8 @@ typedef union {
 static_assert(sizeof(U4ByteValues) == 4);
 
 typedef union {
-    long long ll;
-    unsigned long long ull;
+    long long ll;                                   // NOLINT
+    unsigned long long ull;                         // NOLINT
     double d;
     char c[8];
     unsigned char uc[8];

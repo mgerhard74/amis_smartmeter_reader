@@ -58,7 +58,7 @@ void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, 
     _host = String(host);
 
     _counterFailed = 0;
-    checkIntervalMs = (unsigned long long)checkIntervalSec * 1000ull;
+    checkIntervalMs = static_cast<uint32_t>(checkIntervalSec) * 1000;
     restartAfterFailed = failCount;
 
     if (_isEnabled) {
@@ -129,7 +129,7 @@ void WatchdogPingClass::startSinglePing()
     // bool begin(const IPAddress &addr, u8_t count = 3, u32_t timeout = 1000);
     // bool begin(const char *host, u8_t count = 3, u32_t timeout = 1000);
     _lastPingStartedMs = millis();
-    _ping.begin(_host.c_str(), 1, 1500u); // single ping with timeout of 1500ms
+    _ping.begin(_host.c_str(), 1, 1500); // single ping with timeout of 1500ms
     _isWaitingForPingResult = true;
 }
 
@@ -148,7 +148,7 @@ void WatchdogPingClass::loop()
         // We're still waiting on the ping result
         return;
     }
-    unsigned long now = millis();
+    uint32_t now = millis();
     if (now - _lastPingStartedMs < checkIntervalMs) {
         return;
     }

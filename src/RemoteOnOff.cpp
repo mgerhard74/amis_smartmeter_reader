@@ -60,7 +60,7 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
 
     } else {
         // Failure
-        _lastSentStateMs += 5000ul - _switchIntervalMs; // Try again in 5 secs
+        _lastSentStateMs += 5000u - _switchIntervalMs; // Try again in 5 secs
     }
    // writeEvent("I", "", *url, String(httpResultCode));
 
@@ -114,9 +114,9 @@ void RemoteOnOffClass::config(String &urlOn, String &urlOff,
     _urlOff = urlOff;
     _honorHttpResult = honorHttpResult;
 
-    _switchIntervalMs = (unsigned long)switchIntervalSec * 1000ul;
+    _switchIntervalMs = switchIntervalSec * 1000;
     if (_switchIntervalMs == 0) {
-        _switchIntervalMs = 5000ul;
+        _switchIntervalMs = 5000;
     }
 
     _switchOnSaldoW = switchOnSaldoW;

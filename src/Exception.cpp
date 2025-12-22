@@ -37,8 +37,8 @@ struct __attribute__((__packed__)) exceptionInformation_s {
     uint32_t stack, stack_end;
 
     // und nun noch ein paar Zeitinfos
-    unsigned long ms;   // millis();
-    time_t ts;          // time(NULL);
+    uint32_t ms;    // millis();
+    time_t ts;      // time(NULL);
 };
 
 
@@ -125,7 +125,7 @@ void Exception_DumpLastCrashToFile()
     f.printf("excsave1 = 0x%08" PRIx32 "\n", exin.excsave1);
     f.printf("stack = 0x%08" PRIx32 "\n", exin.stack);
     f.printf("stack_end = 0x%08" PRIx32 "\n", exin.stack_end);
-    f.printf("millis() = 0x%08" PRIx32 "\n", (unsigned int) exin.ms);
+    f.printf("millis() = 0x%08" PRIx32 "\n", exin.ms);
     f.printf("time() = 0x%016" PRIx64 "\n", exin.ts);
 
     char buffer[30]; // 24 should be enough

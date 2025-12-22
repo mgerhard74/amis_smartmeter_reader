@@ -22,7 +22,7 @@ void LedSingleClass::loop() {
         return;
     }
 
-    unsigned long now = millis();
+    uint32_t now = millis();
     if (now - _lastBlinkChangeMillis < _blinkIntervalsMs[_blinkIntervalsIdx]) {
         return;
     }
@@ -43,7 +43,7 @@ void LedSingleClass::turnOff() {
     _state = off;
 }
 
-void LedSingleClass::turnBlink(unsigned long offIntervalMs, unsigned long onIntervalMs) {
+void LedSingleClass::turnBlink(uint32_t offIntervalMs, uint32_t onIntervalMs) {
     _blinkIntervalsMs[0] = offIntervalMs;
     _blinkIntervalsMs[1] = onIntervalMs;
 

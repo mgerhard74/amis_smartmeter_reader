@@ -203,11 +203,11 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             LittleFS.remove(filename);
         }
     } if(strcmp(command,"weekfiles")==0) {
-        long zstand;
+        uint32_t zstand;
         AmisReader.disable();
         clearHist();
         for (unsigned i=0; i<7; i++){
-            zstand = root["week"][0][i].as<long>();
+            zstand = root["week"][0][i].as<uint32_t>();
             if (zstand) {
             File f = LittleFS.open("/hist_in"+String(i), "w");
             if(f) {
@@ -215,7 +215,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 f.close();
             }
             }
-            zstand = root["week"][1][i].as<long>();
+            zstand = root["week"][1][i].as<uint32_t>();
             if (zstand) {
             File f = LittleFS.open("/hist_out"+String(i), "w");
             if(f) {

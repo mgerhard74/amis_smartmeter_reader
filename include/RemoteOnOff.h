@@ -18,13 +18,13 @@ public:
 
 private:
     String _urlOn, _urlOff;
-    unsigned long _switchIntervalMs;
+    uint32_t _switchIntervalMs;
     int _switchOnSaldoW, _switchOffSaldoW;
     bool _honorHttpResult;
 
     bool _enabled = false;
 
-    unsigned long _lastSentStateMs;
+    uint32_t _lastSentStateMs;
 
     int _saldoHistory[5];
     size_t _saldoHistoryLen;

@@ -310,9 +310,9 @@ size_t AmisReaderClass::serialWrite(uint8_t byte)
 #if (AMISREADER_SIMULATE_SERIAL)
 size_t AmisReaderClass::pollSerialSimulateSerialInput()
 {
-    static unsigned long lastSent = 0;
+    static uint32_t lastSent = 0;
 
-    unsigned long now = millis();
+    uint32_t now = millis();
     if (now - lastSent < 1000) {
         return 0;
     }
@@ -455,7 +455,7 @@ void AmisReaderClass::end()
     ThingSpeak.onNewData(false);
 }
 
-void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
+void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
         _baudRateIdentifier = 0; _serialNumber[0] = 0;
@@ -573,7 +573,7 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
     _serialReadBufferIdx = i;
 }
 
-void AmisReaderClass::processStateCounters(const unsigned long msNow)
+void AmisReaderClass::processStateCounters(const uint32_t msNow)
 {
     if (_state == initReadCounters) {
         if (_serial) {
@@ -725,7 +725,7 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
 
 void AmisReaderClass::loop()
 {
-    unsigned long msNow;
+    uint32_t msNow;
 
     if (!_isEnabled) {
         return;

@@ -74,8 +74,8 @@ private:
 
     //void eatSerialReadBuffer(size_t n); // ist derzeit nicht benötigt und mittels #if 0 dektiviert
 
-    void processStateSerialnumber(const unsigned long msNow);
-    void processStateCounters(const unsigned long msNow);
+    void processStateSerialnumber(const uint32_t msNow);
+    void processStateCounters(const uint32_t msNow);
 
     void moveSerialBufferToDecodingWorkBuffer(size_t n);
 
@@ -92,11 +92,11 @@ private:
 
     AmisReaderState_t _state = initReadSerial;
     //AmisReaderState_t _prevState = stateUndefined;
-    unsigned long _stateLastSetMs;
+    uint32_t _stateLastSetMs;
 
-    unsigned long _stateTimoutMs;
-    unsigned int _stateErrorCnt;
-    unsigned int _stateErrorMax;
+    uint32_t _stateTimoutMs;
+    uint32_t _stateErrorCnt;
+    uint32_t _stateErrorMax;
 
     uint8_t _serialReadBuffer[128];
     size_t _serialReadBufferIdx=0;

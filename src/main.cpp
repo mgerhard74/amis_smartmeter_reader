@@ -230,7 +230,7 @@ void loop() {
 }
 
 
-void writeHistFileIn(int x, long val) {
+static void writeHistFileIn(int x, uint32_t val) {
     DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
     File f = LittleFS.open("/hist_in"+String(x), "w");
     if (f) {
@@ -238,7 +238,8 @@ void writeHistFileIn(int x, long val) {
         f.close();
     }
 }
-void writeHistFileOut(int x, long val) {
+
+static void writeHistFileOut(int x, uint32_t val) {
     DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
     File f = LittleFS.open("/hist_out"+String(x), "w");
     if (f) {
