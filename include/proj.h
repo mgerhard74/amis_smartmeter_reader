@@ -24,17 +24,17 @@
 //#define STROMPREIS
 #define VERSION "1.5.2"
 #define APP_NAME "Amis"
-  extern String dbg_string;
-  extern char dbg[128];
+extern String dbg_string;
+extern char dbg[128];
 #if DEBUG_OUTPUT==0
-  #define S Serial
+    #define S Serial
 #else
-  #define S Serial1
+    #define S Serial1
 #endif
 struct kwhstruct {
-  unsigned kwh_in;
-  unsigned kwh_out;
-  unsigned dow;
+    unsigned kwh_in;
+    unsigned kwh_out;
+    unsigned dow;
 };
 extern int logPage;
 //extern AsyncWebServer server;
@@ -61,3 +61,5 @@ extern void sendEventLog(uint32_t clientId, int page);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 
+
+/* vim:set ts=4 et: */
