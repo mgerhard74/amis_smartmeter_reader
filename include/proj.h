@@ -1,5 +1,5 @@
-#ifndef PROJ_H
-#define PROJ_H
+#pragma once
+
 #include <Arduino.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -60,4 +60,4 @@ extern void writeEvent(String type, String src, String desc, String data);
 extern void sendEventLog(uint32_t clientId, int page);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
-#endif
+
