@@ -16,6 +16,11 @@
 
 extern void writeEvent(String type, String src, String desc, String data);
 
+void ConfigClass::init()
+{
+    webserverTryGzipFirst = true;
+}
+
 void ConfigClass::loadConfigGeneral()
 {
     File configFile;

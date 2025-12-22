@@ -12,6 +12,7 @@ extern void writeEvent(String ,String ,String ,String );
 
 void RebootAtMidnightClass::init()
 {
+    _enabled = false;
 }
 
 void RebootAtMidnightClass::config(void)

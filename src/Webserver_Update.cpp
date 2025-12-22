@@ -17,6 +17,8 @@ extern void writeEvent(String, String, String, String);
 
 void WebserverUpdateClass::init(AsyncWebServer& server)
 {
+     _uploadfiletype = none;
+
     using std::placeholders::_1;
     using std::placeholders::_2;
     using std::placeholders::_3;

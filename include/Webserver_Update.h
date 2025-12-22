@@ -19,7 +19,7 @@ class WebserverUpdateClass
             anyOther,
             none
         } uploadFileType_t;
-        uploadFileType_t _uploadfiletype = none;
+        uploadFileType_t _uploadfiletype;
         String _uploadFilename;
 };
 

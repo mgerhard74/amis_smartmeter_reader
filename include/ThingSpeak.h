@@ -20,7 +20,7 @@
 
 class ThingSpeakClass {
     public:
-        void init() {};
+        void init();
         void enable();
         void disable();
         void setEnabled(bool enabled) { if (enabled) enable(); else disable(); }
@@ -33,10 +33,10 @@ class ThingSpeakClass {
         void armTimerFirstRun();
 
         THINGSPEAK_WIFICLIENT _client;
-        bool _enabled=false;
-        uint32_t _lastSentMs=0;
-        uint32_t _intervalMs=30000;
-        String _lastResult = "ThingSpeak deaktiviert.";
+        bool _enabled;
+        uint32_t _lastSentMs;
+        uint32_t _intervalMs;
+        String _lastResult;
         String _apiKeyWrite;
         struct {
             uint32_t values[8];

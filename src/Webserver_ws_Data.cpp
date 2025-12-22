@@ -36,6 +36,8 @@ WebserverWsDataClass::WebserverWsDataClass()
 
 void WebserverWsDataClass::init(AsyncWebServer& server)
 {
+    _subscribedClientsWifiScanLen = 0;
+
     using std::placeholders::_1;
     using std::placeholders::_2;
     using std::placeholders::_3;

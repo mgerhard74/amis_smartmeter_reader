@@ -20,8 +20,8 @@ private:
     void stopSinglePing();
     uint32_t _lastPingStartedMs;
     unsigned int _counterFailed;
-    bool _isWaitingForPingResult = false;
-    bool _isEnabled = false;
+    bool _isWaitingForPingResult;
+    bool _isEnabled;
     String _host;
 };
 

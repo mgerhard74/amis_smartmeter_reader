@@ -1,6 +1,13 @@
 
 #include "ThingSpeak.h"
 
+void ThingSpeakClass::init()
+{
+    _enabled = false;
+    _lastSentMs = 0;
+    _intervalMs = 30000;
+    _lastResult = "ThingSpeak deaktiviert.";
+}
 
 void ThingSpeakClass::enable()
 {

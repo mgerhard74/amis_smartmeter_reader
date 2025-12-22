@@ -45,6 +45,9 @@ ping.on(false,[](const AsyncPingResponse& response){
 
 void WatchdogPingClass::init()
 {
+    _isWaitingForPingResult = false;
+    _isEnabled = false;
+
     using std::placeholders::_1;
     _ping.on(false, std::bind(&WatchdogPingClass::onPingEndOfPing, this, _1));
 }

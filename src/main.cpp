@@ -98,6 +98,7 @@ void setup() {
     tzset();
 
     // Mal die config laden
+    Config.init();
     Config.loadConfigGeneral();
 
     // im Mqtt.init() wird die mqtt-config geladen

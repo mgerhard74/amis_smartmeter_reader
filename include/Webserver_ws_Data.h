@@ -29,7 +29,7 @@ class WebserverWsDataClass
 
         void onWifiScanCompletedCb(int nFound);
         uint32_t _subscribedClientsWifiScan[3];
-        size_t   _subscribedClientsWifiScanLen=0;
+        size_t   _subscribedClientsWifiScanLen;
 
         void wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength);
 };
