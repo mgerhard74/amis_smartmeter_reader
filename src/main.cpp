@@ -258,7 +258,7 @@ static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32
     char dataLine[28];
     //     4  1   10   1  10   1 1   = 28
     //   "yymm  NUMBER1 NUMBER2\n\0"
-    len = sprintf(dataLine, "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
+    len = snprintf(dataLine, sizeof(dataLine), "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
 
     File f = LittleFS.open("/monate", "a");
     if (f) {

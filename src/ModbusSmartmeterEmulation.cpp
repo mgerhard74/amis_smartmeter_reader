@@ -391,10 +391,11 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
     // Logging des headers
     {
         char msg[62];
-        sprintf(msg, "MBAP Header(%d):"      // 14B + %d
-                     " %02x %02x %02x %02x"  // 4*3B
-                     " %02x %02x %02x %02x"  // 4*3B
-                     " %02x %02x %02x %02x", // 4*3B + 1B
+        snprintf(msg, sizeof(msg),
+                 "MBAP Header(%d):"      // 14B + %d
+                 " %02x %02x %02x %02x"  // 4*3B
+                 " %02x %02x %02x %02x"  // 4*3B
+                 " %02x %02x %02x %02x", // 4*3B + 1B
             len,
             header[0], header[1], header[2], header[3],
             header[4], header[5], header[6], header[7],

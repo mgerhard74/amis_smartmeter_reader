@@ -300,8 +300,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 File f = dir.openFile("r");
                 //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
                 if (f) {
-                    char puffer [86]; // 31+1 + 11+1 + 20+1 + 20  +1
-                    sprintf(puffer,     "%-31s %11u %20lld %20lld",
+                    char puffer[86];                // 31+1 + 11+1 + 20+1 + 20  +1
+                    snprintf(puffer, sizeof(puffer),  "%-31s %11u %20lld %20lld",
                                     dir.fileName().c_str(),
                                     f.size(),
                                     f.getCreationTime(),

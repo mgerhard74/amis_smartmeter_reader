@@ -255,9 +255,10 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     // TODO(anyone): "Diese Aufbereitung" Timecode entfernen
     // Da das eine
     //        MM(1..12) in Hex
-    sprintf(numresult.timecode, "0x%02x%02x%02x%02x%02x",
-            decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
-            decrypted.valueDT[1], decrypted.valueDT[0]
+    snprintf(numresult.timecode, sizeof(numresult.timecode),
+             "0x%02x%02x%02x%02x%02x",
+             decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
+             decrypted.valueDT[1], decrypted.valueDT[0]
     );
 
     numresult.isSet = true;
