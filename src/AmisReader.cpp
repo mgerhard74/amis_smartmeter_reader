@@ -320,7 +320,7 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
 
     if(!_serialReadBufferIdx) {
         if (_state == waitForReaderSerial) {
-            strcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n");
+            strcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n"); // NOLINT
             _serialReadBufferIdx = strlen((const char*)_serialReadBuffer);
             lastSent = now;
         } else if (_state == readReaderCounters) {
@@ -681,7 +681,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             }
             a_result[8] = l_result.results_8;
             a_result[9] = mktime(&l_result.time); // Seconds since epoch
-            strcpy(timecode, l_result.timecode);
+            strcpy(timecode, l_result.timecode);  // NOLINT
 
             // TODO(anyone): Refactor that "special values" from main.cpp
 
