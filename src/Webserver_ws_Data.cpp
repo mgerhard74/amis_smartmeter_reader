@@ -5,6 +5,7 @@
 #include "Webserver_ws_Data.h"
 
 #include "config.h"
+#include "Exception.h"
 #include "FileBlob.h"
 #include "Mqtt.h"
 #include "Network.h"
@@ -406,6 +407,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 
     } else if (!strcmp(command, "dev-tools-button2")) {
 
+
+    } else if (!strcmp(command, "dev-raise-exception")) {
+        const uint32_t no = root[F("value")].as<unsigned>();
+        Exception_Raise(no);
     }
 }
 
