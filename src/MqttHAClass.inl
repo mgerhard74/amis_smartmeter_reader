@@ -57,9 +57,9 @@ static String getHaTopic(MqttConfig_t &configMqtt)
         if (!avail_topic.endsWith("/")) {
             avail_topic += "/";
         }
-        avail_topic += "status";
+        avail_topic += F("status");
     } else {
-        avail_topic = sanitizeTopic(Config.DeviceName) + String("/status");
+        avail_topic = sanitizeTopic(Config.DeviceName) + F("/status");
     }
     return avail_topic;
 }

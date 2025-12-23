@@ -83,12 +83,13 @@ void setup() {
     LittleFS.begin();
 
     // Log some booting information
-    writeEvent("INFO", "sys", "System starting...", "");
-    writeEvent("INFO", "sys", "  " APP_NAME " Version", VERSION);
-    writeEvent("INFO", "sys", "  Compiled [UTC]", __COMPILED_DATE_TIME_UTC_STR__);
-    writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
-    writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
-    writeEvent("INFO", "sys", "  Reset reason", ESP.getResetReason());
+    writeEvent("INFO", "sys", F("System starting..."), "");
+    writeEvent("INFO", "sys", F("  " APP_NAME " Version"), F(VERSION));
+    writeEvent("INFO", "sys", F("  Compiled [UTC]"), __COMPILED_DATE_TIME_UTC_STR__);
+    writeEvent("INFO", "sys", F("  Git branch"), __COMPILED_GIT_BRANCH__);
+    writeEvent("INFO", "sys", F("  Git version/hash"), __COMPILED_GIT_HASH__);
+    writeEvent("INFO", "sys", F("  PIO environment"), F(PIOENV));
+    writeEvent("INFO", "sys", F("  Reset reason"), ESP.getResetReason());
 
     // Sichern des letzten Crashes
     Exception_DumpLastCrashToFile();
@@ -148,7 +149,7 @@ void setup() {
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
         if (Config.log_sys) {
-            writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+            writeEvent("INFO", "wifi", F("Ping restart check enabled"), "");
         }
     }
 
@@ -173,7 +174,7 @@ void setup() {
     secTicker.attach_scheduled(1, secTick);
 
     if (Config.log_sys) {
-        writeEvent("INFO", "sys", "System setup completed, running", "");
+        writeEvent("INFO", "sys", F("System setup completed, running"), "");
     }
 }
 
