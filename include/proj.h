@@ -7,7 +7,6 @@
 #include <WiFiClient.h>
 #include <AsyncJson.h> //needs to be declared AFTER #include <ESPAsyncWebServer.h>
 #include <Ticker.h>
-#include "flash_hal.h"
 #include "LittleFS.h"
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
