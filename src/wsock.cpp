@@ -45,7 +45,7 @@ void sendZDataWait() {
     doc["serialnumber"] = AmisReader.getSerialNumber();
     //  doc["things_up"] = ThingSpeak.getLastResult();
     size_t len = doc.measureLength();
-    AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
+    AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len + 1);
     if (buffer) {
         doc.printTo((char *)buffer->get(), len + 1);
         ws->textAll(buffer);
@@ -71,7 +71,7 @@ void sendZData() {
     doc["serialnumber"] = AmisReader.getSerialNumber();
 
     size_t len = doc.measureLength();
-    AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
+    AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len + 1);
     if (buffer) {
         doc.printTo((char *)buffer->get(), len + 1);
         ws->textAll(buffer);

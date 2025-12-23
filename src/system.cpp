@@ -82,7 +82,7 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
       }
   }
   size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
+  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len + 1);
   if (buffer) {
       root.printTo((char *)buffer->get(), len + 1);
       ws->textAll(buffer);
@@ -106,7 +106,7 @@ void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients se
   f.close();
 
   size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
+  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len + 1);
   if (buffer) {
       root.printTo((char *)buffer->get(), len + 1);
       ws->textAll(buffer);
