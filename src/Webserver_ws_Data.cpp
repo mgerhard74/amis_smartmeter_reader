@@ -320,7 +320,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         String buffer;
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
-        ws->text(clientId,buffer);
+        ws->text(clientId, buffer);
     } else if(strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
