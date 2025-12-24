@@ -407,6 +407,20 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 
     } else if (!strcmp(command, "dev-tools-button2")) {
 
+    } else if (!strcmp(command, "dev-set-reader-serial")) {
+        const char *ret_msg = "{\"r\":1,\"m\":\"Error\"}"; // error
+        const char *v = root[F("value")].as<const char*>();
+        if (v) {
+            const uint8_t vv = root[F("value")].as<uint8_t>();
+            AmisReader.end();
+            AmisReader.init(vv);
+            if (vv != 1) {
+                // Wenn die erste serielle nicht für den Reader verwendet wird, nehmen wir diese fürs Loggen
+                Serial.begin(115200, SERIAL_8N1);
+            }
+            ret_msg = "{\"r\":0,\"m\":\"OK\"}";
+        }
+        ws->text(clientId, ret_msg);
 
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();
