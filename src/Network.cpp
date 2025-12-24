@@ -5,6 +5,7 @@
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
 #include "Mqtt.h"
+#include "SystemMonitor.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -73,6 +74,7 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
 #endif
     Mqtt.networkOnStationModeGotIP(event);
+    SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
@@ -98,6 +100,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     }
     DBGOUT("WiFi onStationModeDisconnected() end\n");
     DBGPRINTF("%d\n", _tickerReconnect.active());
+    SYSTEMMONITOR_STAT();
 }
 
 bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)

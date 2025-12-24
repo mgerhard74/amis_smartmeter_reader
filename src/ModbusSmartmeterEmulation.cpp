@@ -1,5 +1,6 @@
 #include "ModbusSmartmeterEmulation.h"
 
+#include "SystemMonitor.h"
 #include "UA.h"
 #include "unions.h"
 #include "unused.h"
@@ -476,6 +477,8 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
     client->add((char*)mbap_r, sizeof(struct mbapHeaderResponseFunc3Result));
     client->add((char*)&_modbus_reg_buffer[reg_idx_begin - MODBUS_SMARTMETER_FIRST_AVAIL_REGIDX], reg_cnt * 2);
     client->send();
+
+    SYSTEMMONITOR_STAT();
 }
 
 ModbusSmartmeterEmulationClass ModbusSmartmeterEmulation;

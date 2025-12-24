@@ -15,6 +15,7 @@
 #include "Reboot.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
+#include "SystemMonitor.h"
 #include "ThingSpeak.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
@@ -64,6 +65,13 @@ ADC_MODE(ADC_VCC);
 
 
 void setup() {
+    /*
+    // Reclaim 4KB for system use (required for WPS/Enterprise)
+    // This results in loosing 4k heap for user context and giving system context(SYS) 4k more RAM
+    //
+    disable_extra4k_at_link_time();
+    */
+
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
 
     #if DEBUGHW==2
@@ -97,6 +105,9 @@ void setup() {
     // Set timezone to CET/CEST
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
+
+    // Minimalwerte von Stack, freies RAM, ... tracken
+    SYSTEMMONITOR_STAT();
 
     // Mal die config laden
     Config.init();
@@ -176,6 +187,7 @@ void setup() {
     if (Config.log_sys) {
         writeEvent("INFO", "sys", F("System setup completed, running"), "");
     }
+    SYSTEMMONITOR_STAT();
 }
 
 void loop() {
@@ -229,6 +241,7 @@ void loop() {
         Serial.flush();
         doSerialHwTest = false;
     }
+    SYSTEMMONITOR_STAT();
 }
 
 

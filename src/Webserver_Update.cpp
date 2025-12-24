@@ -9,6 +9,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "Reboot.h"
+#include "SystemMonitor.h"
 #include "unused.h"
 
 #include <LittleFS.h>
@@ -133,6 +134,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         }
         _uploadfiletype = none;
     }
+    SYSTEMMONITOR_STAT();
 }
 
 void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)

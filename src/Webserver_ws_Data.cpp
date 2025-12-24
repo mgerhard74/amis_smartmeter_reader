@@ -10,6 +10,7 @@
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
+#include "SystemMonitor.h"
 #include "Webserver.h"
 #include "unused.h"
 #include "Utils.h"
@@ -404,8 +405,76 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             ws->text(clientId, "{\"r\":0,\"m\":\"OK\"}");
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
+#if (AMIS_DEVELOPER_MODE)
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject &doc = jsonBuffer.createObject();
+        doc["AAAA"]="ABCDEF";
+        String buffer;
+        String buffer1;
+        doc.printTo(buffer);
+        doc.printTo(Serial);
+        Serial.printf("\r\nlen = %d\r\n", buffer.length());
+
+        doc.prettyPrintTo(buffer);
+        doc.prettyPrintTo(Serial);
+        Serial.printf("\r\nlen = %d\r\n", buffer.length());
+
+        size_t len, prlen;
+        len = root.measureLength();
+        Serial.printf("measureLength() = %d\r\n", len);
+        prlen = root.measurePrettyLength();
+        Serial.printf("measurePrettyLength() = %d\r\n", prlen);
+
+        char x[100];
+        memset(&x, '9', sizeof(x));
+        doc.printTo(x, 3); // sollte nur 2 Zeichen schreiben und eine '\0'
+        x[10] = 0;
+        Serial.printf("len(x)= %d\r\n", strlen(x));
+        Serial.printf("x= %s\r\n", x);
+        Serial.printf("x[2]...x[4] = %d %d %d\r\n", x[2], x[3], x[4]);
+
+        memset(&x, '9', sizeof(x));
+        doc.printTo(x,99);
+        Serial.printf("len(x)= %d\r\n", strlen(x));
+        Serial.printf("x= %s\r\n", x);
+        Serial.printf("x[l]...x[l+2] = %d %d %d\r\n", x[strlen(x)], x[strlen(x)+1], x[strlen(x)+2]);
+
+        Serial.printf("heap= %u\r\n", ESP.getFreeHeap());
+        doc.printTo(buffer1);
+        Serial.printf("len(buffer)= %d\r\n", buffer1.length());
+        //Serial.printf("capacity(buffer)= %d\r\n", buffer1.capacity);
+        Serial.printf("buffer = %s\r\n", buffer1.c_str());
+        Serial.printf("heap= %u\r\n", ESP.getFreeHeap());
+#endif
+        // TODO(StefanOberhumer): Figure out why  dev-tools-button1 works and dev-tools-button2 crashes
+        // Works
+        const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
+        String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
+        ws->text(clientId, x);
 
     } else if (!strcmp(command, "dev-tools-button2")) {
+        // Crashes
+        const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
+        //ws->text(clientId, String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
+        String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname;
+        ws->text(clientId, x);
+
+    } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
+        const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
+        const SystemMonitorClass::statInfo_t freeStack = SystemMonitor.getFreeStack();
+        const SystemMonitorClass::statInfo_t maxFreeBlockSize = SystemMonitor.getMaxFreeBlockSize();
+        {
+            String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
+            ws->text(clientId, x);
+        }
+        {
+            String x = String(freeStack.value) + String(freeStack.filename) + String(freeStack.lineno) + String(freeStack.functionname);
+            ws->text(clientId, x);
+        }
+        {
+            String x = String(maxFreeBlockSize.value) + String(maxFreeBlockSize.filename) + String(maxFreeBlockSize.lineno) + String(maxFreeBlockSize.functionname);
+            ws->text(clientId, x);
+        }
 
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = "{\"r\":1,\"m\":\"Error\"}"; // error
@@ -426,6 +495,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         const uint32_t no = root[F("value")].as<unsigned>();
         Exception_Raise(no);
     }
+
+
+    SYSTEMMONITOR_STAT();
 }
 
 static void sendWeekData(AsyncWebSocketClient *client)
@@ -499,6 +571,7 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
     }
     _subscribedClientsWifiScanLen = 0;
     WiFi.scanDelete();
+    SYSTEMMONITOR_STAT();
 }
 
 static void sendStatus(AsyncWebSocketClient *client)
@@ -587,6 +660,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     String buffer;
     root.printTo(buffer);
     client->text(buffer);
+    SYSTEMMONITOR_STAT();
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
