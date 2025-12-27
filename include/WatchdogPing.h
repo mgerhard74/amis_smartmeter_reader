@@ -9,7 +9,7 @@ public:
     void config(const char *host, unsigned int checkIntervalSec, unsigned int failCount);
     void loop();
     unsigned int restartAfterFailed;
-    unsigned long checkIntervalMs;
+    uint32_t checkIntervalMs;
     void enable();
     void disable();
 
@@ -18,10 +18,10 @@ private:
     bool onPingEndOfPing(const AsyncPingResponse& response);
     void startSinglePing();
     void stopSinglePing();
-    unsigned long _lastPingStartedMs;
+    uint32_t _lastPingStartedMs;
     unsigned int _counterFailed;
-    bool _isWaitingForPingResult = false;
-    bool _isEnabled = false;
+    bool _isWaitingForPingResult;
+    bool _isEnabled;
     String _host;
 };
 

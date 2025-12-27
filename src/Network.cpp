@@ -5,6 +5,7 @@
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
 #include "Mqtt.h"
+#include "SystemMonitor.h"
 
 //#define DEBUG
 #include "debug.h"
@@ -73,6 +74,7 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
 #endif
     Mqtt.networkOnStationModeGotIP(event);
+    SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
@@ -98,6 +100,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     }
     DBGOUT("WiFi onStationModeDisconnected() end\n");
     DBGPRINTF("%d\n", _tickerReconnect.active());
+    SYSTEMMONITOR_STAT();
 }
 
 bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
@@ -194,7 +197,7 @@ void NetworkClass::connect(void)
             writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
         }
     } else {
-        // TODO ... sollte hier nicht auch was gemacht werden?
+        // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
     }
 
     DBGOUT(F("Start Wifi\n"));
@@ -254,7 +257,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
     // wir die Config aus dem EEPROM zu lesen und gleich
     // als /config_wifi zu speichern
     //
-    // TODO: Brauchen wir das wirklich noch?
+    // TODO(anyone): Brauchen wir das wirklich noch?
 
     EEPROM.begin(256);
     if(EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {

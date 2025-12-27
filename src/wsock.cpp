@@ -44,12 +44,9 @@ void sendZDataWait() {
     doc["uptime"] = millis() / 1000;
     doc["serialnumber"] = AmisReader.getSerialNumber();
     //  doc["things_up"] = ThingSpeak.getLastResult();
-    size_t len = doc.measureLength();
-    AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
-    if (buffer) {
-        doc.printTo((char *)buffer->get(), len + 1);
-        ws->textAll(buffer);
-    }
+    String buffer;
+    doc.printTo(buffer);
+    ws->textAll(buffer);
 }
 
 void sendZData() {
@@ -70,12 +67,9 @@ void sendZData() {
     doc["things_up"] = ThingSpeak.getLastResult();
     doc["serialnumber"] = AmisReader.getSerialNumber();
 
-    size_t len = doc.measureLength();
-    AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
-    if (buffer) {
-        doc.printTo((char *)buffer->get(), len + 1);
-        ws->textAll(buffer);
-    }
+    String buffer;
+    doc.printTo(buffer);
+    ws->textAll(buffer);
 }
 
 /* vim:set ts=4 et: */

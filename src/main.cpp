@@ -15,6 +15,7 @@
 #include "Reboot.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
+#include "SystemMonitor.h"
 #include "ThingSpeak.h"
 #include "Utils.h"
 #include "WatchdogPing.h"
@@ -64,6 +65,13 @@ ADC_MODE(ADC_VCC);
 
 
 void setup() {
+    /*
+    // Reclaim 4KB for system use (required for WPS/Enterprise)
+    // This results in loosing 4k heap for user context and giving system context(SYS) 4k more RAM
+    //
+    disable_extra4k_at_link_time();
+    */
+
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
 
     #if DEBUGHW==2
@@ -83,12 +91,13 @@ void setup() {
     LittleFS.begin();
 
     // Log some booting information
-    writeEvent("INFO", "sys", "System starting...", "");
-    writeEvent("INFO", "sys", "  " APP_NAME " Version", VERSION);
-    writeEvent("INFO", "sys", "  Compiled [UTC]", __COMPILED_DATE_TIME_UTC_STR__);
-    writeEvent("INFO", "sys", "  Git branch", __COMPILED_GIT_BRANCH__);
-    writeEvent("INFO", "sys", "  Git version/hash", __COMPILED_GIT_HASH__);
-    writeEvent("INFO", "sys", "  Reset reason", ESP.getResetReason());
+    writeEvent("INFO", "sys", F("System starting..."), "");
+    writeEvent("INFO", "sys", F("  " APP_NAME " Version"), F(VERSION));
+    writeEvent("INFO", "sys", F("  Compiled [UTC]"), __COMPILED_DATE_TIME_UTC_STR__);
+    writeEvent("INFO", "sys", F("  Git branch"), __COMPILED_GIT_BRANCH__);
+    writeEvent("INFO", "sys", F("  Git version/hash"), __COMPILED_GIT_HASH__);
+    writeEvent("INFO", "sys", F("  PIO environment"), F(PIOENV));
+    writeEvent("INFO", "sys", F("  Reset reason"), ESP.getResetReason());
 
     // Sichern des letzten Crashes
     Exception_DumpLastCrashToFile();
@@ -97,7 +106,11 @@ void setup() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
 
+    // Minimalwerte von Stack, freies RAM, ... tracken
+    SYSTEMMONITOR_STAT();
+
     // Mal die config laden
+    Config.init();
     Config.loadConfigGeneral();
 
     // im Mqtt.init() wird die mqtt-config geladen
@@ -147,7 +160,7 @@ void setup() {
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
         if (Config.log_sys) {
-            writeEvent("INFO", "wifi", "Ping restart check enabled", "");
+            writeEvent("INFO", "wifi", F("Ping restart check enabled"), "");
         }
     }
 
@@ -172,8 +185,9 @@ void setup() {
     secTicker.attach_scheduled(1, secTick);
 
     if (Config.log_sys) {
-        writeEvent("INFO", "sys", "System setup completed, running", "");
+        writeEvent("INFO", "sys", F("System setup completed, running"), "");
     }
+    SYSTEMMONITOR_STAT();
 }
 
 void loop() {
@@ -227,10 +241,11 @@ void loop() {
         Serial.flush();
         doSerialHwTest = false;
     }
+    SYSTEMMONITOR_STAT();
 }
 
 
-void writeHistFileIn(int x, long val) {
+static void writeHistFileIn(int x, uint32_t val) {
     DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
     File f = LittleFS.open("/hist_in"+String(x), "w");
     if (f) {
@@ -238,7 +253,8 @@ void writeHistFileIn(int x, long val) {
         f.close();
     }
 }
-void writeHistFileOut(int x, long val) {
+
+static void writeHistFileOut(int x, uint32_t val) {
     DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
     File f = LittleFS.open("/hist_out"+String(x), "w");
     if (f) {
@@ -257,7 +273,7 @@ static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32
     char dataLine[28];
     //     4  1   10   1  10   1 1   = 28
     //   "yymm  NUMBER1 NUMBER2\n\0"
-    len = sprintf(dataLine, "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
+    len = snprintf(dataLine, sizeof(dataLine), "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
 
     File f = LittleFS.open("/monate", "a");
     if (f) {

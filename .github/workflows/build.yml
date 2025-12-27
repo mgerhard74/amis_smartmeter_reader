@@ -1,0 +1,152 @@
+name: AMIS-Leser Build
+
+on:
+  push:
+    paths-ignore:
+      - Docs/**
+      - '*.md'
+      - '**/*.md'
+  pull_request:
+    paths-ignore:
+      - Docs/**
+      - '*.md'
+      - '**/*.md'
+
+jobs:
+  get_default_envs:
+    name: Gather Environments
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio
+
+      - name: Get default environments
+        id: envs
+        run: |
+          echo "environments=$(pio project config --json-output | jq -cr '.[1][1][0][1]|split(",")')" >> $GITHUB_OUTPUT
+          echo "default_environment=$(pio project config --json-output | jq -cr '.[1][1][0][1]|split(",")[0]')" >> $GITHUB_OUTPUT
+
+    outputs:
+      environments: ${{ steps.envs.outputs.environments }}
+      default_environment: ${{ steps.envs.outputs.default_environment }}
+
+
+  build:
+    name: Build Environments
+    runs-on: ubuntu-latest
+    needs: get_default_envs
+    strategy:
+      matrix:
+        environment: ${{ fromJSON(needs.get_default_envs.outputs.environments) }}
+        #default_environment
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Get tags
+        run: git fetch --force --tags origin
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade platformio setuptools
+
+      - name: Build firmware
+        run: pio run -e ${{ matrix.environment }}
+
+      - name: Rename Firmware
+        run: |
+          mv .pio/build/${{ matrix.environment }}/firmware.bin .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin
+          mv .pio/build/${{ matrix.environment }}/firmware.elf .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.elf
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-amis-${{ matrix.environment }}
+          path: |
+            .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin
+            .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.elf
+            # .pio/build/${{ matrix.environment }}/README.txt
+
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [get_default_envs, build]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Build Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          failOnError: true
+          commitMode: true
+          configuration: ".github/workflows/config/release-notes-config.json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Move all files to the same location
+        run: |
+          cd artifacts
+          for i in */; do mv -i ${i}firmware-amis-*.bin ./; done
+          for i in */; do mv -i ${i}firmware-amis-*.elf ./; done
+
+      - name: Create README.txt
+        run: |
+          cd artifacts
+          echo -en "Use 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin' for updating your AMIS-Leser system!  \r\n" > README.txt
+          echo -en "File 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' is just needed from devlopers to analyse errors!\r\n" >> README.txt
+          echo -en "\r\n" >> README.txt
+          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin' für das Updaten des AMIS-Lesers verwenden!\r\n" >> README.txt
+          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' wird nur zur Fehleranalyse für Entwickler benötig!\r\n" >> README.txt
+          ls -la
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{steps.github_release.outputs.changelog}}
+          draft: False
+          files: |
+            artifacts/firmware-amis-*.bin, artifacts/firmware-amis-*.elf, artifacts/README.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,6 +11,7 @@
 class ConfigClass {
 
 public:
+    void init();
     void loadConfigGeneral();
     void applySettingsConfigGeneral();
 
@@ -47,7 +48,7 @@ public:
     String amis_key;
 
     bool developerModeEnabled;
-    bool webserverTryGzipFirst = true;
+    bool webserverTryGzipFirst;
 };
 
 extern ConfigClass Config;

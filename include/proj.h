@@ -1,5 +1,5 @@
-#ifndef PROJ_H
-#define PROJ_H
+#pragma once
+
 #include <Arduino.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -7,7 +7,6 @@
 #include <WiFiClient.h>
 #include <AsyncJson.h> //needs to be declared AFTER #include <ESPAsyncWebServer.h>
 #include <Ticker.h>
-#include "flash_hal.h"
 #include "LittleFS.h"
 #include <ESP8266mDNS.h>
 #include <EEPROM.h>
@@ -23,19 +22,19 @@
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
 //#define STROMPREIS
-#define VERSION "1.5.2"
+#define VERSION "1.5.3"
 #define APP_NAME "Amis"
-  extern String dbg_string;
-  extern char dbg[128];
+extern String dbg_string;
+extern char dbg[128];
 #if DEBUG_OUTPUT==0
-  #define S Serial
+    #define S Serial
 #else
-  #define S Serial1
+    #define S Serial1
 #endif
 struct kwhstruct {
-  unsigned kwh_in;
-  unsigned kwh_out;
-  unsigned dow;
+    unsigned kwh_in;
+    unsigned kwh_out;
+    unsigned dow;
 };
 extern int logPage;
 //extern AsyncWebServer server;
@@ -61,4 +60,6 @@ extern void writeEvent(String type, String src, String desc, String data);
 extern void sendEventLog(uint32_t clientId, int page);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
-#endif
+
+
+/* vim:set ts=4 et: */

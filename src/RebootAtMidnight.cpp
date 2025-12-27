@@ -2,7 +2,7 @@
 
 #include "Reboot.h"
 
-// TODO: Refactor writeEvent
+// TODO(anyone): Refactor writeEvent
 extern void writeEvent(String ,String ,String ,String );
 
 // Info:
@@ -12,6 +12,7 @@ extern void writeEvent(String ,String ,String ,String );
 
 void RebootAtMidnightClass::init()
 {
+    _enabled = false;
 }
 
 void RebootAtMidnightClass::config(void)

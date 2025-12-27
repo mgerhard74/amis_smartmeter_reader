@@ -11,7 +11,7 @@ public:
 private:
     void doReboot(void);
     void adjustTicker(void);
-    bool _enabled = false;
+    bool _enabled;
     Ticker _ticker;
 };
 extern RebootAtMidnightClass RebootAtMidnight;

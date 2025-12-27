@@ -1,5 +1,4 @@
-#ifndef _AES_H_
-#define _AES_H_
+#pragma once
 
 #include <stdint.h>
 
@@ -58,7 +57,5 @@ void AES128_CBC_decrypt_buffer(uint8_t* output, const uint8_t* input, uint32_t l
 
 void AES128_set_key(const uint8_t* key);
 
-
-#endif //_AES_H_
 
 // vim:set ts=4 sw=4 et:

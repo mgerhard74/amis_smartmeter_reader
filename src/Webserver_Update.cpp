@@ -9,6 +9,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "Reboot.h"
+#include "SystemMonitor.h"
 #include "unused.h"
 
 #include <LittleFS.h>
@@ -17,6 +18,8 @@ extern void writeEvent(String, String, String, String);
 
 void WebserverUpdateClass::init(AsyncWebServer& server)
 {
+     _uploadfiletype = none;
+
     using std::placeholders::_1;
     using std::placeholders::_2;
     using std::placeholders::_3;
@@ -131,6 +134,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         }
         _uploadfiletype = none;
     }
+    SYSTEMMONITOR_STAT();
 }
 
 void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)

@@ -24,7 +24,7 @@ FileBlobClass::FileBlobClass(const uint8_t *data, size_t len, const char *filena
     if (strlen(_filename) > sizeof(_filenameMd5)-5) {
         _filenameMd5[sizeof(_filenameMd5)-5] = 0;
     }
-    strcat(_filenameMd5, ".md5");
+    strcat(_filenameMd5, ".md5"); // NOLINT
 #endif
 }
 
@@ -59,7 +59,7 @@ static time_t GetTimeStamp()
 static time_t _defaultTimeCB(void) { return time(NULL); }
 static time_t GetTimeStamp()
 {
-    // TODO: Return corresponding timestamp
+    // TODO(anyone): Return corresponding timestamp
     return __COMPILED_DATE_TIME_UTC_TIME_T__;
 }
 time_t FileBlobClass::getTimeStamp()
@@ -293,7 +293,7 @@ void FileBlobsClass::removeNotPackedFiles()
 
     for (size_t i=0; i < std::size(_fileBlobs); i++) {
         blob = _fileBlobs[i];
-        strcpy(_filenameOld, blob->getFilename());
+        strcpy(_filenameOld, blob->getFilename()); // NOLINT
         if (strlen(_filenameOld) > 3 && strcmp(_filenameOld+strlen(_filenameOld)-3, ".gz") == 0) {
             _filenameOld[strlen(_filenameOld) - 3] = 0;
             if (Utils::fileExists(_filenameOld)) {

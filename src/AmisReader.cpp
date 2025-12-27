@@ -3,12 +3,13 @@
 #include "aes.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "RemoteOnOff.h"
+#include "SystemMonitor.h"
 #include "ThingSpeak.h"
 #include "UA.h"
 #include "Utils.h"
 
 
-// TODO: Refactor this global vars and external function
+// TODO(anyone): Refactor this global vars and external function
 uint32_t a_result[10] = {};
 int valid = 0;
 char timecode[13] = {}; // "0x" + 5*2 + '\0'
@@ -41,7 +42,7 @@ struct __attribute__((__packed__))  enryptedMBUSTelegram_SND_UD {
         uint8_t ci;                      // 0x5B = 'variable data respond'
     // Offset 7
         struct __attribute__((__packed__)) {
-            uint8_t identificationNumber[4]; // TODO: Zählernummerr?? 0x00, 0x00, 0x00, 0x00
+            uint8_t identificationNumber[4]; // TODO(anyone): Zählernummerr?? 0x00, 0x00, 0x00, 0x00
             uint16_t vendorId;               // Hersteller Identifikation EMH, LSB first 0x2d 0x4c
             uint8_t version;                 // 0x01
             uint8_t medium;                  // 02 = Medium Elektrizität --> hier 0x0e
@@ -252,12 +253,13 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     numresult.results[7] = UA::ReadU32LE(&decrypted.value4_7_0);
     numresult.results_8  = UA::ReadS32LE(&decrypted.value1_128_0);
 
-    // TODO: "Diese Aufbereitung" Timecode entfernen
+    // TODO(anyone): "Diese Aufbereitung" Timecode entfernen
     // Da das eine
     //        MM(1..12) in Hex
-    sprintf(numresult.timecode, "0x%02x%02x%02x%02x%02x",
-            decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
-            decrypted.valueDT[1], decrypted.valueDT[0]
+    snprintf(numresult.timecode, sizeof(numresult.timecode),
+             "0x%02x%02x%02x%02x%02x",
+             decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
+             decrypted.valueDT[1], decrypted.valueDT[0]
     );
 
     numresult.isSet = true;
@@ -310,16 +312,16 @@ size_t AmisReaderClass::serialWrite(uint8_t byte)
 #if (AMISREADER_SIMULATE_SERIAL)
 size_t AmisReaderClass::pollSerialSimulateSerialInput()
 {
-    static unsigned long lastSent = 0;
+    static uint32_t lastSent = 0;
 
-    unsigned long now = millis();
+    uint32_t now = millis();
     if (now - lastSent < 1000) {
         return 0;
     }
 
     if(!_serialReadBufferIdx) {
         if (_state == waitForReaderSerial) {
-            strcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n");
+            strcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n"); // NOLINT
             _serialReadBufferIdx = strlen((const char*)_serialReadBuffer);
             lastSent = now;
         } else if (_state == readReaderCounters) {
@@ -455,7 +457,7 @@ void AmisReaderClass::end()
     ThingSpeak.onNewData(false);
 }
 
-void AmisReaderClass::processStateSerialnumber(const unsigned long msNow)
+void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
         _baudRateIdentifier = 0; _serialNumber[0] = 0;
@@ -573,7 +575,7 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
     _serialReadBufferIdx = i;
 }
 
-void AmisReaderClass::processStateCounters(const unsigned long msNow)
+void AmisReaderClass::processStateCounters(const uint32_t msNow)
 {
     if (_state == initReadCounters) {
         if (_serial) {
@@ -666,7 +668,7 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             // OK, we got new valid data
             RemoteOnOff.onNewValidData(l_result.results[4]/* 1.7.0 */, l_result.results[5] /* 2.7.0 */);
 
-            // TODO: Refactor
+            // TODO(anyone): Refactor
             // Transfer the result into the "old/global" result variables
             // Vars: valid, timecode, a_result
             valid = 5;
@@ -680,9 +682,9 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
             }
             a_result[8] = l_result.results_8;
             a_result[9] = mktime(&l_result.time); // Seconds since epoch
-            strcpy(timecode, l_result.timecode);
+            strcpy(timecode, l_result.timecode);  // NOLINT
 
-            // TODO: Refactor that "special values" from main.cpp
+            // TODO(anyone): Refactor that "special values" from main.cpp
 
             dow = l_result.time.tm_wday; // dow: 1..7 (1=MON...7=SUN)
             if (dow == 0) {              // tm_wday: days since Sunday (0...6)
@@ -714,18 +716,19 @@ void AmisReaderClass::processStateCounters(const unsigned long msNow)
         }
         _state = readReaderCounters;
 
-        // TODO: Refactor - Create events on changed data
+        // TODO(anyone): Refactor - Create events on changed data
         ModbusSmartmeterEmulation.setCurrentValues((bool)(valid == 5),
                                                    l_result.results[4], l_result.results[5],
                                                    l_result.results[0], l_result.results[1]);
 
         ThingSpeak.onNewData((bool)(valid == 5), &l_result.results[0], l_result.timecode);
+        SYSTEMMONITOR_STAT();
      }
 }
 
 void AmisReaderClass::loop()
 {
-    unsigned long msNow;
+    uint32_t msNow;
 
     if (!_isEnabled) {
         return;

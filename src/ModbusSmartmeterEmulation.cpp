@@ -1,5 +1,6 @@
 #include "ModbusSmartmeterEmulation.h"
 
+#include "SystemMonitor.h"
 #include "UA.h"
 #include "unions.h"
 #include "unused.h"
@@ -391,10 +392,11 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
     // Logging des headers
     {
         char msg[62];
-        sprintf(msg, "MBAP Header(%d):"      // 14B + %d
-                     " %02x %02x %02x %02x"  // 4*3B
-                     " %02x %02x %02x %02x"  // 4*3B
-                     " %02x %02x %02x %02x", // 4*3B + 1B
+        snprintf(msg, sizeof(msg),
+                 "MBAP Header(%d):"      // 14B + %d
+                 " %02x %02x %02x %02x"  // 4*3B
+                 " %02x %02x %02x %02x"  // 4*3B
+                 " %02x %02x %02x %02x", // 4*3B + 1B
             len,
             header[0], header[1], header[2], header[3],
             header[4], header[5], header[6], header[7],
@@ -475,6 +477,8 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
     client->add((char*)mbap_r, sizeof(struct mbapHeaderResponseFunc3Result));
     client->add((char*)&_modbus_reg_buffer[reg_idx_begin - MODBUS_SMARTMETER_FIRST_AVAIL_REGIDX], reg_cnt * 2);
     client->send();
+
+    SYSTEMMONITOR_STAT();
 }
 
 ModbusSmartmeterEmulationClass ModbusSmartmeterEmulation;

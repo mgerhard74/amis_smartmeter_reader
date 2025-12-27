@@ -84,11 +84,11 @@ void WebserverClass::reload()
 }
 
 
-// TODO: Brauchen wir das wirklich noch?
+// TODO(anyone): Brauchen wir das wirklich noch?
 void WebserverClass::onRequest_Upgrade(AsyncWebServerRequest *request)
 {
-    static const char _page_upgrade[] PROGMEM = R\
-"=====(
+    static const char _page_upgrade[] PROGMEM =
+R"(
 <!doctype html>
 <html lang="de" style="font-family:Arial;">
 <head>
@@ -112,7 +112,7 @@ function btclick() {
 </script>
 </body>
 </html>
-)=====";
+)";
 
     request->send(200, F("text/html"), _page_upgrade);
 }

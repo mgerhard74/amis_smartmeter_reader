@@ -81,12 +81,9 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
           data.add(kwh_hist[i].kwh_out);
       }
   }
-  size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
-  if (buffer) {
-      root.printTo((char *)buffer->get(), len + 1);
-      ws->textAll(buffer);
-  }
+  String buffer;
+  root.printTo(buffer);
+  ws->textAll(buffer);
 }
 
 
@@ -105,12 +102,9 @@ void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients se
   }
   f.close();
 
-  size_t len = root.measureLength();
-  AsyncWebSocketMessageBuffer *buffer = ws->makeBuffer(len);
-  if (buffer) {
-      root.printTo((char *)buffer->get(), len + 1);
-      ws->textAll(buffer);
-  }
+  String buffer;
+  root.printTo(buffer);
+  ws->textAll(buffer);
 }
 
 /* vim:set ts=4 et: */
