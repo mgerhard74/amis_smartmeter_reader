@@ -5,6 +5,8 @@
 #include "config.h"
 #include "AmisReader.h"
 #include "DefaultConfigurations.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
@@ -13,8 +15,6 @@
 
 #include <ArduinoJson.h>
 #include <LittleFS.h>
-
-extern void writeEvent(String type, String src, String desc, String data);
 
 void ConfigClass::init()
 {
@@ -27,8 +27,7 @@ void ConfigClass::loadConfigGeneral()
     configFile = LittleFS.open("/config_general", "r");
 
     if (!configFile) {
-        DBGOUT("[ WARN ] Failed to open config_general\n");
-        writeEvent("ERROR", "Allgemein", "Could not open /config_general", "");
+        LOG_EP("Could not open %s", "/config_general");
 #ifndef DEFAULT_CONFIG_GENERAL_JSON
         return;
 #endif
@@ -45,8 +44,7 @@ void ConfigClass::loadConfigGeneral()
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBGOUT("[ WARN ] Failed to parse config_general\n");
-        writeEvent("ERROR", "Allgemein", "Error parsing /config_general", "");
+        LOG_EP("Failed parsing %s", "/config_general");
         return;
     }
     //json.prettyPrintTo(Serial);
@@ -101,6 +99,12 @@ void ConfigClass::loadConfigGeneral()
 
 void ConfigClass::applySettingsConfigGeneral()
 {
+    if (Config.log_sys) {
+        Log.setLoglevel(LOGLEVEL_INFO);
+    } else {
+        Log.setLoglevel(LOGLEVEL_NONE);
+    }
+
     AmisReader.setKey(Config.amis_key.c_str());
     RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
 

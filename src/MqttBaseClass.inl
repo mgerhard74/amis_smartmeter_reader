@@ -29,10 +29,7 @@ MqttBaseClass::MqttBaseClass()
 
 void MqttBaseClass::onPublish(uint16_t packetId) {
     // seems that callback is not not working!!!
-    DBGOUT ("onMqttPublish\n");
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "MQTT publish acknowledged", String(packetId));
-    }
+    LOG_WP("Unexpected onPublish() call: %d", packetId);
 }
 
 
@@ -47,9 +44,7 @@ void MqttBaseClass::onMessage(char* topic, char* payload, AsyncMqttClientMessage
     UNUSED_ARG(index);
     UNUSED_ARG(total);
 
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Unexpected onMessage() call", String(topic));
-    }
+    LOG_WP("Unexpected onMessage() call: %s", topic);
 #ifdef STROMPREIS
     char p[20];
     memcpy(p,payload,len);
@@ -63,7 +58,7 @@ void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
 
     if (!_mqttClient.connected()) {
-        DBGOUT("MQTT publish: not connected\n");
+        LOG_WP("MQTT publishTickerCb() but not connected!");
         return; // _actionTicker will be armed in onConnect()
     }
 
@@ -88,10 +83,7 @@ void MqttBaseClass::onConnect(bool sessionPresent)
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
-    eprintf("MQTT onConnect %u\n", sessionPresent);
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Connected to MQTT Server", "sessionPresent=" + String(sessionPresent));
-    }
+    LOG_IP("Connected to MQTT server");
 
     // Für HA melden wir uns mal "Online" und "verbreiten" alle unsere Sensoren
     if (_config.mqtt_ha_discovery) {
@@ -132,9 +124,7 @@ void MqttBaseClass::doConnect()
         eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Connecting to MQTT server " + mqttServer, "...");
-    }
+    LOG_IP("Connecting to MQTT server [%s]", mqttServer.c_str());
     _mqttClient.connect();
 }
 
@@ -185,10 +175,7 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
         reasonstr = F("Unknown");
         break;
     }
-    if (Config.log_sys) {
-        writeEvent("WARN", "mqtt", "Disconnected from MQTT server", reasonstr);
-    }
-    eprintf("Disconnected from MQTT server: %s\n", reasonstr.c_str());
+    LOG_WP("Disconnected from MQTT server: %s", reasonstr.c_str());
 }
 
 
@@ -226,9 +213,7 @@ void MqttBaseClass::reloadConfig() {
         // disconnection finished --> reload configuration
         loadConfigMqtt(_config);
         _reloadConfigState = 3;
-        if (Config.log_sys) {
-            writeEvent("INFO", "mqtt", "Config reloaded", "");
-        }
+        LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
         // finished ... try reconnecting if enabled
         _reloadConfigState = 0;
@@ -249,7 +234,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 {
     File configFile = LittleFS.open("/config_mqtt", "r");
     if (!configFile) {
-        DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
+        LOG_EP("Could not open %s", "/config_mqtt");
 #ifndef DEFAULT_CONFIG_MQTT_JSON
         return false;
 #endif
@@ -266,7 +251,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
+        LOG_EP("Failed parsing %s", "/config_mqtt");
         return false;
     }
     ///json.prettyPrintTo(Serial);

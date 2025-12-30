@@ -5,7 +5,7 @@ var UpdateUri = "";
 const wday=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 var ws_pingpong;
 var logpage=1;
-var logpagenr;
+var logpages;
 var e180,e280;
 var yestd_in=null;
 var yestd_out;
@@ -288,8 +288,9 @@ function updateElements(obj) {
        else value="";
     }
     else if (key==='page') {             // Logpanel
-      logpagenr=obj["haspages"];
-      value="Seite "+value+" von "+logpagenr;
+      logpage=obj["page"];
+      logpages=obj["pages"];
+      value="Seite "+value+" von "+logpages;
     }
     else if (key==='list') {             // Logpanel
       let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Inhalt</th><th>Daten</th></tr></thead><Tbody>';
@@ -758,22 +759,26 @@ function toggleVisiblePassword() {
 }
 
 function doLogNext() {
-  if (logpage < logpagenr) {
-    logpage++;
-    websock.send('{"command":"geteventlog","page":'+logpage+'}');
+  // refresh current page or goto next
+  if (++logpage > logpages) {
+    logpage = logpages;
   }
+  websock.send('{"command":"geteventlog","page":'+logpage+'}');
 }
 
 function doLogPrev() {
-  if (logpage>1) logpage--;
+  if (--logpage < 1) {
+    logpage = 1;
+  }
   websock.send('{"command":"geteventlog","page":'+logpage+'}');
 }
 
 function doLogClear () {
-  if(window.confirm("Log-Datei löschen. Sicher?"))
-  websock.send('{"command":"clearevent"}');
-  logpage=1;
-  doLogPrev();
+  if(window.confirm("Log-Datei löschen. Sicher?")) {
+    websock.send('{"command":"clearevent"}');
+    logpage=1;
+    doLogPrev();
+  }
 }
 
 function test () {

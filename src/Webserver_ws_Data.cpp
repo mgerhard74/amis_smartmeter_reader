@@ -7,6 +7,8 @@
 #include "config.h"
 #include "Exception.h"
 #include "FileBlob.h"
+#include "Log.h"
+#define LOGMODULE LOGMODULE_BIT_WEBSSOCKET
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
@@ -97,7 +99,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
     UNUSED_ARG(server);
 
     if(type == WS_EVT_ERROR) {
-        eprintf("Error: WebSocket[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
+        LOG_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
 
@@ -143,8 +145,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
 
 #include "AmisReader.h"
 #include "proj.h"
-extern uint32_t clientId;
-extern int logPage;
+
 extern unsigned first_frame;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
@@ -155,7 +156,6 @@ extern unsigned kwh_day_out[7];
 };*/
 extern kwhstruct kwh_hist[7];
 extern void historyInit(void);
-extern void writeEvent(String, String, String, String);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
@@ -195,8 +195,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         ws->text(client->id(),F("{\"pong\":\"\"}"));
         return;
     }
-
-    clientId = client->id();
 
     // Check whatever the command is and act accordingly
     eprintf("[ INFO ] command: %s\n",command);
@@ -263,15 +261,19 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if(strcmp(command, "restart") == 0) {
         Reboot.startReboot();
     } else if(strcmp(command, "geteventlog") == 0) {
-        logPage = root["page"];
-    //Log in main.loop bearbeiten, Timeout!!!
+        //Logausgabe in main.loop() bzw Log.loop() bearbeiten, Timeout!!!
+        uint32_t page = root["page"].as<uint32_t>();
+        if (Log.websocketRequestPage(ws, client->id(), page)) {
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        } else {
+            ws->text(client->id(), R"({"r":1,"m":"Error: No slot available"})");
+        }
     } else if(strcmp(command, "clearevent") == 0) {
-        LittleFS.remove("/eventlog.json");
-        writeEvent("WARN", "sys", "Event log cleared!", "");
+        Log.clear();
     } else if(strcmp(command, "scan_wifi") == 0) {
         if (_subscribedClientsWifiScanLen < std::size(_subscribedClientsWifiScan)) {
             using std::placeholders::_1;
-            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = clientId;
+            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = client->id();
             if (_subscribedClientsWifiScanLen == 1) {
                 WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
             }
@@ -322,7 +324,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         String buffer;
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
-        ws->text(clientId, buffer);
+        ws->text(client->id(), buffer);
     } else if(strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
@@ -344,7 +346,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         doSerialHwTest = !doSerialHwTest;
     } else if(strcmp(command, "print") == 0) {
         const char *uid = root["file"];
-        ws->text(clientId,uid); // ws.text
+        ws->text(client->id(), uid); // ws.text
         int i;
         uint8_t ibuffer[65];
         File f = LittleFS.open(uid, "r");
@@ -352,14 +354,14 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             do {
             i=f.read(ibuffer, 64);
             ibuffer[i]=0;
-            ws->text(clientId,(char *)ibuffer); // ws.text
+            ws->text(client->id(), (char *)ibuffer); // ws.text
             } while (i);
             f.close();
         } else {
-            ws->text(clientId, "no file\0");
+            ws->text(client->id(), "no file\0");
         }
     } else if(strcmp(command, "print2") == 0) {
-        //ws.text(clientId,"prn\0"); // ws.text
+        //ws.text(client->id(), "prn\0"); // ws.text
         eprintf("prn\n");
         uint8_t ibuffer[10];      //12870008
         File f;
@@ -372,9 +374,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 ibuffer[j]=0;
                 f.close();
                 eprintf("%d %d\n", i, atoi((char*)ibuffer));
-        //       ws.text(clientId,ibuffer); // ws.text
+        //       ws.text(client->id(), ibuffer); // ws.text
             }
-            //else ws.text(clientId,"no file\0");
+            //else ws.text(client->id(), "no file\0");
             else {
                 eprintf("no file\n");
             }
@@ -382,7 +384,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
-            writeEvent("ERROR","littlfs","LittleFS.format() failed!", "");
+            LOG_EP("LittleFS.format() failed!");
         }
         EEPROMClear();
         Reboot.startReboot();
@@ -402,7 +404,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         if (onOff) {
             Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
             Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
-            ws->text(clientId, "{\"r\":0,\"m\":\"OK\"}");
+            ws->text(client->id(), "{\"r\":0,\"m\":\"OK\"}");
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 #if (AMIS_DEVELOPER_MODE)
@@ -450,14 +452,14 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // Works
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-        ws->text(clientId, x);
+        ws->text(client->id(), x);
 
     } else if (!strcmp(command, "dev-tools-button2")) {
         // Crashes
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
-        //ws->text(clientId, String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
+        //ws->text(client->id(), String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
         String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname;
-        ws->text(clientId, x);
+        ws->text(client->id(), x);
 
     } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
@@ -465,15 +467,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         const SystemMonitorClass::statInfo_t maxFreeBlockSize = SystemMonitor.getMaxFreeBlockSize();
         {
             String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-            ws->text(clientId, x);
+            ws->text(client->id(), x);
         }
         {
             String x = String(freeStack.value) + String(freeStack.filename) + String(freeStack.lineno) + String(freeStack.functionname);
-            ws->text(clientId, x);
+            ws->text(client->id(), x);
         }
         {
             String x = String(maxFreeBlockSize.value) + String(maxFreeBlockSize.filename) + String(maxFreeBlockSize.lineno) + String(maxFreeBlockSize.functionname);
-            ws->text(clientId, x);
+            ws->text(client->id(), x);
         }
 
     } else if (!strcmp(command, "dev-set-reader-serial")) {
@@ -489,7 +491,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             }
             ret_msg = "{\"r\":0,\"m\":\"OK\"}";
         }
-        ws->text(clientId, ret_msg);
+        ws->text(client->id(), ret_msg);
 
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();

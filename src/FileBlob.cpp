@@ -1,6 +1,8 @@
 #include "FileBlob.h"
 
 #include "config.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "Utils.h"
 
 #if not (FILEBLOB_WRITE_MD_INTO_FILE)
@@ -8,8 +10,6 @@
 #endif
 
 extern const time_t __COMPILED_DATE_TIME_UTC_TIME_T__;
-
-extern void writeEvent(String, String, String, String);
 
 FileBlobClass::FileBlobClass(const uint8_t *data, size_t len, const char *filename, const char *md5sum, time_t timeStamp)
 {
@@ -87,7 +87,7 @@ bool FileBlobClass::extractToFileNextBlock()
 
     File f = LittleFS.open(_filename, (_bytesWritten == 0) ?"w" :"a");
     if (!f) {
-        writeEvent("Error", "FileBlobClass::extractToFile()", _filename, "open error");
+        LOG_EP("FileBlobClass::extractToFile() %s open error!", _filename);
         _bytesWritten = 0; // stop updating the file even on failure
         _isChanged = false;
         blobTimeStamp = 0;
@@ -100,7 +100,7 @@ bool FileBlobClass::extractToFileNextBlock()
 
         if (f.write(buffer, l) != l) {
             f.close();
-            writeEvent("Error", "FileBlobClass::extractToFile()", _filename, "write error");
+            LOG_EP("FileBlobClass::extractToFile() %s write error!", _filename);
             _bytesWritten = 0; // stop updating the file even on failure
             _isChanged = false;
             blobTimeStamp = 0;
@@ -131,7 +131,7 @@ bool FileBlobClass::extractToFileNextBlock()
     if (_bytesWritten == _len) {
         _bytesWritten = 0;
         _isChanged = false; // whole file has been written --> reset _isChanged flag
-        writeEvent("Success", "FileBlobClass::extractToFile()", _filename, String(_len) + " bytes written");
+        LOG_IP("FileBlobClass::extractToFile() %s: %u bytes written.", _filename, _len);
     }
     return true;
 }
@@ -150,7 +150,7 @@ void FileBlobClass::checkIfChanged(bool checkMd5Sum, bool checkTimeStamp)
     if (size != _len) {
         f.close();
         _isChanged = true;
-        // writeEvent("Info", "FileBlobClass::checkIfChanged()", String(size), String(_len));
+        LOG_VP("FileBlobClass::checkIfChanged()-site %u vs %u", size, _len);
         return;
     }
 
@@ -159,7 +159,7 @@ void FileBlobClass::checkIfChanged(bool checkMd5Sum, bool checkTimeStamp)
         if (lw != _timeStamp) {
             f.close();
             _isChanged = true;
-            // writeEvent("Info", "FileBlobClass::checkIfChanged()", String(lw), String(_timeStamp));
+            LOG_VP("FileBlobClass::checkIfChanged()-timestamp %llu vs %llu", lw, _timeStamp);
             return;
         }
     }
@@ -176,7 +176,7 @@ void FileBlobClass::checkIfChanged(bool checkMd5Sum, bool checkTimeStamp)
             f.close();
         }
         if (memcmp(md5_strdata, _md5sum, 32)) {
-            // writeEvent("Info", "FileBlobClass::checkIfChanged()", _md5sum, String((char*)md5_strdata));
+            LOG_VP("FileBlobClass::checkIfChanged()-md5sum %s vs %s", _md5sum, (char*)md5_strdata);
             _isChanged = true;
         }
     }

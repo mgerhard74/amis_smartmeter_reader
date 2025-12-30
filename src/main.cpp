@@ -9,6 +9,8 @@
 #include "Exception.h"
 #include "FileBlob.h"
 #include "LedSingle.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "Network.h"
@@ -48,8 +50,6 @@ unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
 unsigned last_mon_out;
-uint32_t clientId;
-int logPage=-1;
 uint8_t updates;
 String latestYYMMInHistfile;
 #if DEBUGHW>0
@@ -90,14 +90,19 @@ void setup() {
     // Start filesystem early - so we can do some logging
     LittleFS.begin();
 
+    // Init logging
+    Log.init("eventlog.json");
+    Log.setModules(LOGMODULE_BIT_ALL);
+    Log.setLoglevel(LOGLEVEL_INFO);
+
     // Log some booting information
-    writeEvent("INFO", "sys", F("System starting..."), "");
-    writeEvent("INFO", "sys", F("  " APP_NAME " Version"), F(VERSION));
-    writeEvent("INFO", "sys", F("  Compiled [UTC]"), __COMPILED_DATE_TIME_UTC_STR__);
-    writeEvent("INFO", "sys", F("  Git branch"), __COMPILED_GIT_BRANCH__);
-    writeEvent("INFO", "sys", F("  Git version/hash"), __COMPILED_GIT_HASH__);
-    writeEvent("INFO", "sys", F("  PIO environment"), F(PIOENV));
-    writeEvent("INFO", "sys", F("  Reset reason"), ESP.getResetReason());
+    DOLOG_IP("System starting...");
+    DOLOG_IP("  " APP_NAME " Version " VERSION);
+    DOLOG_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
+    DOLOG_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
+    DOLOG_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
+    DOLOG_IP("  PIO environment " PIOENV);
+    DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
 
     // Sichern des letzten Crashes
     Exception_DumpLastCrashToFile();
@@ -112,6 +117,10 @@ void setup() {
     // Mal die config laden
     Config.init();
     Config.loadConfigGeneral();
+
+    if (!Config.log_sys) {
+        Log.setLoglevel(LOGLEVEL_NONE);
+    }
 
     // im Mqtt.init() wird die mqtt-config geladen
     Mqtt.init();
@@ -152,6 +161,7 @@ void setup() {
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
+        LOG_VP("ModbusSmartmeterEmulation enabled");
     }
 
     // initiate ping watchdog
@@ -159,9 +169,7 @@ void setup() {
     WatchdogPing.config(networkConfigWifi.pingrestart_ip.c_str(), networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
-        if (Config.log_sys) {
-            writeEvent("INFO", "wifi", F("Ping restart check enabled"), "");
-        }
+        LOG_VP("WatchdogPing enabled");
     }
 
     // Netzwerksteckdose (On/Off via Netzwerk)
@@ -180,13 +188,13 @@ void setup() {
     RebootAtMidnight.config();
     if (Config.reboot0) {
         RebootAtMidnight.enable();
+        LOG_VP("RebootAtMidnight enabled");
     }
 
     secTicker.attach_scheduled(1, secTick);
 
-    if (Config.log_sys) {
-        writeEvent("INFO", "sys", F("System setup completed, running"), "");
-    }
+    LOG_IP("System setup completed, running");
+
     SYSTEMMONITOR_STAT();
 }
 
@@ -225,10 +233,7 @@ void loop() {
 
     AmisReader.loop();  // Zähler auslesen
 
-    if (logPage >=0) {
-        sendEventLog(clientId,logPage);
-        logPage=-1;
-    }
+    Log.loop(); // Eine Seite des Logfiles an einen Websocket client senden
 
     LedBlue.loop();
     WatchdogPing.loop();
@@ -393,31 +398,5 @@ static void secTick() {
     }
 }
 
-void writeEvent(String type, String src, String desc, String data) {
-    File eventlog = LittleFS.open("/eventlog.json", "a");
-    if (!eventlog) {
-        return;
-    }
-
-    if(eventlog.size() > 50000) {
-        eventlog.close();
-        LittleFS.remove("/eventlog.json");
-        eventlog = LittleFS.open("/eventlog.json", "a");
-        if (!eventlog) {
-            return;
-        }
-    }
-
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    root[F("type")] = type;
-    root[F("src")] = src;
-    root[F("desc")] = desc;
-    root[F("data")] = data;
-    root[F("time")] = timecode;
-    root.printTo(eventlog);
-    eventlog.print("\n");
-    eventlog.close();
-}
 
 /* vim:set ts=4 et: */

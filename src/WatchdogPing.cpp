@@ -7,6 +7,8 @@
 
 #include "WatchdogPing.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_WATCHDOGPING
 #include "Reboot.h"
 
 #include <cstdint>
@@ -15,8 +17,6 @@
 // TODO(anyone) - reuse refactored classes for logging and debugging
 #include "debug.h"
 #include "config.h"
-extern void writeEvent(String type, String src, String desc, String data);
-
 
 #if 0
 // Doku/Beispiel zu AsyncPing
@@ -104,19 +104,15 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
     }
     DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
     if (response.answer) {
-        if (_counterFailed > 0 && Config.log_sys) {
-            writeEvent("INFO", "wifi", "Ping " + String(_counterFailed+1) + "/" + String(restartAfterFailed) + " to " + _host + " successful, RTT = " + String(response.total_time), "");
+        if (_counterFailed > 0) {
+            LOG_IP("Ping %u/%u to %s successful, RTT=%u", _counterFailed+1, restartAfterFailed, _host.c_str(), response.total_time);
         }
         _counterFailed = 0;
     } else {
         ++_counterFailed;
-        if (Config.log_sys) {
-            writeEvent("WARN", "wifi", "Ping " + String(_counterFailed) + "/" + String(restartAfterFailed) + " to " + _host + " failed!", "");
-        }
+        LOG_WP("Ping %u/%u to %s failed!", _counterFailed, restartAfterFailed, _host.c_str());
         if (_counterFailed >= restartAfterFailed) {
-            if (Config.log_sys) {
-                writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
-            }
+            LOG_EP("Max ping failures reached, initiating reboot ...");
             Reboot.startReboot();
         }
     }

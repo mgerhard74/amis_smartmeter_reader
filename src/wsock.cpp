@@ -5,37 +5,6 @@
 //#define DEBUG
 #include "debug.h"
 
-void sendEventLog(uint32_t clientId, int page) {
-    const int lines_per_page = 20;
-    int current_line = 1;
-
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    root["page"] = page;                                     // Key name JS
-
-    JsonArray &items = root.createNestedArray("list");       // Key name JS
-    File eventlog = LittleFS.open("/eventlog.json", "r");
-    if (eventlog)
-    {
-        int start_line = (page - 1) * lines_per_page + 1;
-        int end_line = start_line + lines_per_page; // die Zeile wird nicht mehr ausgegeben
-        while (eventlog.available()) {
-            String item = String();
-            item = eventlog.readStringUntil('\n');
-            if(current_line >= start_line && current_line < end_line) {
-                items.add(item);
-            }
-            current_line++;
-        }
-        eventlog.close();
-    }
-    root["haspages"] = (current_line + lines_per_page - 1) / lines_per_page;
-
-    String buffer;
-    root.printTo(buffer);
-    ws->text(clientId, buffer);
-}
-
 void sendZDataWait() {
     // Zählerdaen ausgeben (jedoch noch keine Werte verfügbar)
     DynamicJsonBuffer jsonBuffer;

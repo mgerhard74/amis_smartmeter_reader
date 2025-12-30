@@ -1,5 +1,7 @@
 #include "ModbusSmartmeterEmulation.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_MODBUS
 #include "SystemMonitor.h"
 #include "UA.h"
 #include "unions.h"
@@ -334,7 +336,6 @@ void ModbusSmartmeterEmulationClass::clientOnTimeOut(void* arg, AsyncClient* cli
     //eprintf("[Fronius] client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
 }
 
-void writeEvent(String type, String src, String desc, String data);
 void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client, void *data, size_t len)
 {
     UNUSED_ARG(arg);
@@ -388,22 +389,16 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
     uint16_t reg_cnt = UA::ReadU16BE(&mbap_i->numOfRegisters);
     uint16_t reg_idx_last = reg_idx_begin + reg_cnt - 1;
 
-# if 0
     // Logging des headers
-    {
-        char msg[62];
-        snprintf(msg, sizeof(msg),
-                 "MBAP Header(%d):"      // 14B + %d
-                 " %02x %02x %02x %02x"  // 4*3B
-                 " %02x %02x %02x %02x"  // 4*3B
-                 " %02x %02x %02x %02x", // 4*3B + 1B
+    const uint8_t * header = (const uint8_t*) data;
+    LOG_DP("MBAP Header(%d):"      // 14B + %d
+            " %02x %02x %02x %02x"  // 4*3B
+            " %02x %02x %02x %02x"  // 4*3B
+            " %02x %02x %02x %02x", // 4*3B + 1B
             len,
             header[0], header[1], header[2], header[3],
             header[4], header[5], header[6], header[7],
             header[8], header[9], header[10], header[11]);
-        writeEvent("INFO", "Modbus", msg, "");
-    }
-#endif
 
     //  eprintf("[Fronius] RegIdx:%d RegLen:%02d Dta:", reg_idx_begin, reg_cnt);
     //  char *mHeader = (char *)data;
