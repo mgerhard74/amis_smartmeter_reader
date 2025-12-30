@@ -1,6 +1,8 @@
 #include "AmisReader.h"
 
 #include "aes.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_AMISREADER
 #include "ModbusSmartmeterEmulation.h"
 #include "RemoteOnOff.h"
 #include "SystemMonitor.h"
@@ -13,7 +15,6 @@
 uint32_t a_result[10] = {};
 int valid = 0;
 char timecode[13] = {}; // "0x" + 5*2 + '\0'
-extern void writeEvent(String type, String src, String desc, String data);
 extern bool new_data_for_websocket;
 extern unsigned first_frame;
 uint8_t dow;
@@ -517,7 +518,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
                     _state = initReadCounters;
                     _stateLastSetMs = msNow;
                     _stateErrorCnt = 0;
-                    writeEvent("INFO", "amis", "Serialnumber found", _serialNumber);
+                    LOG_IP("Serialnumber %s found", _serialNumber);
 
                     //serialWrite("\x06" "060\r\n");
                 } else {
@@ -606,7 +607,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     // was it message "<DLE>@ð0<SYN> ??  (= SND_NKE)
                     //MsgOut.writeTimestamp();
                     //MsgOut.println("Received SND_NKE");
-                    //writeEvent("INFO", "amis", "Received SND_NKE", "");
+                    LOG_DP("Received SND_NKE");
                     serialWrite(0xe5);
                     for(size_t i=5; i<_serialReadBufferIdx; i++) {
                         _serialReadBuffer[i-5] = _serialReadBuffer[i];
@@ -626,9 +627,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     */
                     // Expected Length should be 0x5F (see structure enryptedMBUSTelegram_SND_UD)
                     _bytesInBufferExpectd = _serialReadBuffer[1]+6;
-                    //MsgOut.writeTimestamp();
-                    //MsgOut.printf("Found SND_UD head - expected length: %u\r\n", _bytesInBufferExpectd);
-                    //writeEvent("INFO", "amis", "Found SND_UD head", "Expected length:" + String(_bytesInBufferExpectd));
+                    LOG_DP("Found SND_UD head. Expected length: %u", _bytesInBufferExpectd);
 
                     if (_bytesInBufferExpectd != 0x5f + 6) {
                         _serialReadBufferIdx = 0;
@@ -643,7 +642,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         if (_serialReadBufferIdx >= _bytesInBufferExpectd) {
             serialWrite(0xe5); // the receifed datas must be confirmed
 
-            //writeEvent("INFO", "amis", "Got expected bytes", "");
+            LOG_DP("Got expected bytes");
 
             moveSerialBufferToDecodingWorkBuffer(_bytesInBufferExpectd);
             _bytesInBufferExpectd = 0;
@@ -695,7 +694,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
 
             if (!_readerIsOnline) {
                 setTime(l_result);
-                writeEvent("INFO", "amis", "Data synced", "ok");
+                LOG_IP("Data synced with counter");
                 _readerIsOnline = true;
             }
 
@@ -707,12 +706,12 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             // das Zählertelegramm sah prinzipiell gut aus aber nach dem Entschlüsseln passten einige Werte nicht
             // ==> d.h.: vermutlich stimmt der AMIS-Key nicht !
             valid = 1;
-            //writeEvent("INFO", "amis", "Decrypting data", "Failed");
+            LOG_DP("Decrypting data failed: error=%d", r);
         } else {
             // Beim Zählertelegram stimmten schon die Eckdatenm (Header, Checksumme, usw nicht)
             // ==> d.h.: vermutlich ungültige Daten empfangen
             valid = 0;
-            //writeEvent("INFO", "amis", "Invalid data receifed", "Failed");
+            LOG_DP("Invalid data received: error=%d", r);
         }
         _state = readReaderCounters;
 
@@ -756,10 +755,10 @@ void AmisReaderClass::loop()
         _bytesInBufferExpectd = 0;
     }
     if (_stateErrorCnt >= _stateErrorMax) {
-        //writeEvent("INFO", "amis", String(float(msNow)/1000.0) + "Timeout occured", "State:" + String(_state));
+        LOG_DP("Timeout occured! state=%d", (int)_state);
 
         if (_readerIsOnline) {
-            writeEvent("INFO", "amis", "Sync lost", "failure");
+            LOG_IP("Sync lost ... starting resync.");
         }
         _readerIsOnline = false;
         valid = 0;

@@ -14,8 +14,6 @@ LedSingleClass::LedSingleClass(uint8_t pin, LedPinMode pinmode) {
     turnOff();
 }
 
-extern void writeEvent(String, String, String, String);
-
 void LedSingleClass::loop() {
     /* handles a blinking LED */
     if (_state != blinkOn && _state != blinkOff) {

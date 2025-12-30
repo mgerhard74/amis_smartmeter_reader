@@ -1,9 +1,9 @@
 #include "RebootAtMidnight.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_REBOOTATMIDNIGHT
 #include "Reboot.h"
 
-// TODO(anyone): Refactor writeEvent
-extern void writeEvent(String ,String ,String ,String );
 
 // Info:
 //     Till V1.46 this was done only on change of day and if uptime was > 12h
@@ -46,7 +46,7 @@ void RebootAtMidnightClass::adjustTicker(void)
         if (millis()/1000ul > 86400ul) {
             // Das Sytem läuft jetzt aber schon seit über 24 Stunden
             // Also auch in diesem Fall: rebooten!
-            writeEvent("INFO", "RebootAtMidnight", "Starting reboot due runtime > 1 day ...", "");
+            DOLOG_IP("Starting reboot due runtime > 1 day ...");
             Reboot.startReboot();
             return;
         }
@@ -72,12 +72,12 @@ void RebootAtMidnightClass::adjustTicker(void)
 
     _ticker.detach();
     _ticker.attach_scheduled(nextDayPlus5Sec - now, std::bind(&RebootAtMidnightClass::doReboot, this));
-    writeEvent("INFO", "RebootAtMidnight", "Scheduling reboot in seconds ...", String(nextDay - now));
+    LOG_IP("Scheduling reboot in %llu seconds ...", nextDay - now);
 }
 
 void RebootAtMidnightClass::doReboot() {
     // OK wir hatten einen Tageswechsel ... also rebooten
-    writeEvent("INFO", "RebootAtMidnight", "Starting scheduled reboot ...", "");
+    DOLOG_IP("Starting scheduled reboot...");
     Reboot.startReboot();
 }
 

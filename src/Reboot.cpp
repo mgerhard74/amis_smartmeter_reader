@@ -5,6 +5,8 @@
 
 #include "AmisReader.h"
 #include "config.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "RemoteOnOff.h"
@@ -14,7 +16,6 @@
 #include <Ticker.h>
 
 extern Ticker secTicker;
-extern void writeEvent(String, String, String, String);
 extern int valid;
 
 void RebootClass::init()
@@ -105,9 +106,7 @@ void RebootClass::loop()
             ModbusSmartmeterEmulation.disable();
             break;
         case 7:
-            if (Config.log_sys) {
-                writeEvent("INFO", "sys", "System is going to reboot", "");
-            }
+            DOLOG_I("System is going to reboot")
             DBGOUT("Rebooting...");
             break;
         case 8:

@@ -1,6 +1,9 @@
 
 #include "ThingSpeak.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_THINGSPEAK
+
 void ThingSpeakClass::init()
 {
     _enabled = false;

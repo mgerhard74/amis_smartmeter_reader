@@ -17,6 +17,9 @@
 
 #include "Exception.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+
 #include "Utils.h"
 
 #include <EEPROM.h>
@@ -40,8 +43,6 @@ extern const time_t __COMPILED_DATE_TIME_UTC_TIME_T__;
 
 static uint32_t _interrestingAdressesStart = (uint32_t)&_irom0_text_start;
 static uint32_t _interrestingAdressesEnd = (uint32_t)&_irom0_text_end;
-
-extern void writeEvent(String, String, String, String);
 
 struct __attribute__((__packed__)) exceptionInformationV1_s {
     uint8_t version;                // Oberste Bit (0x80) kennzeichnet, ob die Info bereits gelesen und verarbeitet wurde
@@ -257,7 +258,7 @@ void Exception_DumpLastCrashToFile()
     cut_here(f);
     f.close();
 
-    writeEvent("INFO", "sys", "Crashinfo written", fname);
+    DOLOG_IP("Crashinfo %s written", fname.c_str());
 }
 
 
