@@ -12,6 +12,7 @@
 #include "RemoteOnOff.h"
 #include "ThingSpeak.h"
 
+#include <ESP8266mDNS.h>
 #include <LittleFS.h>
 #include <Ticker.h>
 
@@ -44,6 +45,7 @@ bool RebootClass::startUpdateFirmware()
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
+    MDNS.end();
     return true;
 }
 void RebootClass::endUpdateFirmware()
@@ -69,6 +71,7 @@ bool RebootClass::startUpdateLittleFS()
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
+    MDNS.end();
     LittleFS.end(); // we can also end the filesystem as it will be overwritten
     return true;
 }
@@ -101,6 +104,7 @@ void RebootClass::loop()
             break;
         case 5:
             Mqtt.stop();
+            MDNS.end();
             break;
         case 6:
             ModbusSmartmeterEmulation.disable();
