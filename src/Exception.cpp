@@ -179,8 +179,13 @@ void Exception_DumpLastCrashToFile()
     }
     if (i == EXCEPTIONS_MAX_SAVED_ON_DISC) {
         i = 0; // Start overwriting old saved dumps
-        fname = "/crashes" + String("/") + String(i) + ".dump";
+        fname = F("/crashes/0.dump");
     }
+
+    // Remove file for next crash saving
+    String nextFileName = "/crashes/" + String((i+1)%EXCEPTIONS_MAX_SAVED_ON_DISC) + ".dump";
+    LittleFS.remove(nextFileName);
+
     f = LittleFS.open(fname.c_str(), "w");
     if (!f) {
         return;
