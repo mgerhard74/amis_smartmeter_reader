@@ -2,6 +2,7 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_MODBUS
+#include "Network.h"
 #include "SystemMonitor.h"
 #include "UA.h"
 #include "unions.h"
@@ -292,6 +293,9 @@ bool ModbusSmartmeterEmulationClass::enable(void)
 {
     if(_enabled) {
         return true;
+    }
+    if (Network.inAPMode()) {
+        return false;
     }
     _enabled = perpareBuffers();
     if(_enabled) {
