@@ -272,26 +272,28 @@ extern uint32_t _nullValue;
 uint32_t _nullValue = 0;
 
 void Exception_Raise(unsigned int no) {
+    char dummybuffer[20];
     if (no < 1 || no > 5) {
         return;
     }
-    Serial.begin(115200, SERIAL_8N1);
+
     if (no == 1) {
-        Serial.print("Divide by 0\r\n"); Serial.flush();
+        LOG_DP("Divide by 0");
         int i = 1 / _nullValue;
-        Serial.println(i); Serial.flush();
-        Serial.print("Division done\r\n"); Serial.flush();
+        snprintf(dummybuffer, sizeof(dummybuffer), "%d", i);
+        LOG_DP("Divide by 0 done");
     } else if (no == 2) {
-        Serial.print("Read nullptr\r\n"); Serial.flush();
-        Serial.printf("%s\r\n", (char *)_nullValue); Serial.flush();
-        Serial.print("Access nullptr done\r\n"); Serial.flush();
+        LOG_DP("Read nullptr");
+        snprintf(dummybuffer, sizeof(dummybuffer), "%s", (char *)_nullValue);
+        LOG_DP("Read nullptr done");
     } else if (no == 3) {
-        Serial.print("Write nullptr\r\n"); Serial.flush();
+        LOG_DP("Write nullptr");
         *(char *)_nullValue = 0;
+        LOG_DP("Write nullptr done");
     } else if (no == 4) {
-        Serial.print("Hardwrae WDT ... wait\r\n"); Serial.flush();
+        LOG_DP("Hardware WDT ... wait");
         ESP.wdtDisable();
-        while (true)
+        for(;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed
@@ -301,8 +303,8 @@ void Exception_Raise(unsigned int no) {
           // Nothing will be saved in EEPROM for the hardware wdt
         }
     } else if (no == 5) {
-        Serial.print("Software WDT ... wait\r\n"); Serial.flush();
-        while (true)
+        LOG_DP("Software WDT ... wait");
+        for(;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed
