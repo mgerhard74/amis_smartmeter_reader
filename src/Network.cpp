@@ -6,6 +6,7 @@
 #include "LedSingle.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_NETWORK
+#include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "SystemMonitor.h"
 
@@ -24,6 +25,10 @@
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
+
+
+extern const char *__COMPILED_GIT_HASH__;
+
 
 void NetworkClass::init(bool apMode)
 {
@@ -50,13 +55,8 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     LedBlue.turnBlink(4000, 10);
     LOG_IP("WiFi connected to %s with local IP %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
     LOG_VP("mask=%s, gateway=%s", event.mask.toString().c_str(), event.gw.toString().c_str());
-    if (_configWifi.mdns && !MDNS.isRunning()) {
-        if (MDNS.begin(Config.DeviceName)) {              // Start the mDNS responder for esp8266.local
-            LOG_DP("mDNS responder started");
-        } else {
-            LOG_DP("Error setting up MDNS responder!\n");
-        }
-    }
+
+    startMDNSIfNeeded();
 
 #if DEBUGHW==1
     dbg_server.begin();
@@ -72,9 +72,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     _isConnected = false;
     LedBlue.turnOff();
     Mqtt.networkOnStationModeDisconnected(event);
-    if (MDNS.isRunning()) {
-        MDNS.end();
-    }
+    MDNS.end();
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
@@ -298,6 +296,48 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
     }
     return true;
 }
+
+
+void NetworkClass::startMDNSIfNeeded()
+{
+    if (Network.inAPMode()) {
+        return;
+    }
+
+    // Return if no state change
+    if (MDNS.isRunning() == _configWifi.mdns) {
+        return;
+    }
+
+    MDNS.end();
+
+    if (!_configWifi.mdns) {
+        LOG_IP("MDNS is disabled");
+        return;
+    }
+
+    LOG_IP("Starting MDNS responder...");
+
+
+    if (!MDNS.begin(Config.DeviceName)) {
+        LOG_EP("Error setting up MDNS responder!");
+        return;
+    }
+
+    MDNS.addService("http", "tcp", 80);
+    MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
+    MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
+    /*
+    There is no 'modbus' service available
+    see: https://www.dns-sd.org/servicetypes.html abd RFC2782
+
+    if (Config.smart_mtr) {
+        MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
+    }*/
+
+    LOG_IP("MDNS started");
+}
+
 
 NetworkClass Network;
 
