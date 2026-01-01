@@ -10,6 +10,7 @@ class Utils {
         static bool dirExists(const char *fname);
         static bool MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata);
         static uint8_t hexchar2Num(const char v);
+        static int getContext(void);
 };
 
 /* vim:set ts=4 et: */
