@@ -460,7 +460,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         //ws->text(client->id(), String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
         String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname;
         ws->text(client->id(), x);
-
     } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         const SystemMonitorClass::statInfo_t freeStack = SystemMonitor.getFreeStack();
@@ -477,7 +476,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             String x = String(maxFreeBlockSize.value) + String(maxFreeBlockSize.filename) + String(maxFreeBlockSize.lineno) + String(maxFreeBlockSize.functionname);
             ws->text(client->id(), x);
         }
-
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = "{\"r\":1,\"m\":\"Error\"}"; // error
         const char *v = root[F("value")].as<const char*>();
@@ -492,13 +490,25 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             ret_msg = "{\"r\":0,\"m\":\"OK\"}";
         }
         ws->text(client->id(), ret_msg);
-
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();
         Exception_Raise(no);
+    } else if (!strcmp(command, "dev-getHostByName")) {
+        const char* value = root[F("value")].as<const char*>();
+        if (value && value[0]) {
+            IPAddress ipAddr;
+            uint32_t timeout=10000;
+            const char* timeout_c = root[F("timeout")].as<const char*>();
+            if (timeout_c) {
+                timeout=root[F("timeout")].as<uint32_t>();
+            }
+            int r;
+            r = WiFi.hostByName(value, ipAddr, timeout);
+            char ret_msg[128];
+            snprintf(ret_msg, sizeof(ret_msg), R"({"r":%d,"v":"%s"})", r, ipAddr.toString().c_str());
+            ws->text(client->id(), ret_msg);
+        }
     }
-
-
     SYSTEMMONITOR_STAT();
 }
 
