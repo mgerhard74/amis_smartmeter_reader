@@ -136,6 +136,26 @@ static inline void cut_here(File &f)
 }
 
 
+static inline String getCrashFilename(unsigned no)
+{
+#if EXCEPTIONS_MAX_SAVED_ON_DISC > 100
+#error buffer get to small!
+#endif
+    char buffer[17]; // "/crashes/xx.dump"
+
+    snprintf_P(buffer, sizeof(buffer), PSTR("/crashes/%u.dump"), no % EXCEPTIONS_MAX_SAVED_ON_DISC);
+    return String(buffer);
+}
+
+
+void Exception_RemoveAllDumps()
+{
+    for (unsigned i=0; i < EXCEPTIONS_MAX_SAVED_ON_DISC; i++) {
+        LittleFS.remove(getCrashFilename(i+1).c_str());
+    }
+}
+
+
 void Exception_DumpLastCrashToFile()
 {
     struct exceptionInformationV1_s exin = {};
@@ -171,7 +191,7 @@ void Exception_DumpLastCrashToFile()
     File f;
     String fname;
     for (i=0; i < EXCEPTIONS_MAX_SAVED_ON_DISC; i++) {
-        fname = "/crashes/" + String(i) + ".dump";
+        fname = getCrashFilename(i);
         if (Utils::fileExists(fname.c_str())) {
             continue;
         }
@@ -179,13 +199,11 @@ void Exception_DumpLastCrashToFile()
     }
     if (i == EXCEPTIONS_MAX_SAVED_ON_DISC) {
         i = 0; // Start overwriting old saved dumps
-        fname = F("/crashes/0.dump");
+        fname = getCrashFilename(i);
     }
 
     // Remove file for next crash saving
-    String nextFileName = "/crashes/" + String((i+1)%EXCEPTIONS_MAX_SAVED_ON_DISC) + ".dump";
-    LittleFS.remove(nextFileName);
-
+    LittleFS.remove(getCrashFilename(i+1).c_str());
     f = LittleFS.open(fname.c_str(), "w");
     if (!f) {
         return;

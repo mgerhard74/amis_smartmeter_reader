@@ -493,6 +493,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();
         Exception_Raise(no);
+    } else if (!strcmp(command, "dev-remove-exceptiondumpsall")) {
+        Exception_RemoveAllDumps();
     } else if (!strcmp(command, "dev-getHostByName")) {
         const char* value = root[F("value")].as<const char*>();
         if (value && value[0]) {
