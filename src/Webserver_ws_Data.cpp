@@ -404,7 +404,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         if (onOff) {
             Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
             Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
-            ws->text(client->id(), "{\"r\":0,\"m\":\"OK\"}");
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 #if (AMIS_DEVELOPER_MODE)
@@ -477,7 +477,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             ws->text(client->id(), x);
         }
     } else if (!strcmp(command, "dev-set-reader-serial")) {
-        const char *ret_msg = "{\"r\":1,\"m\":\"Error\"}"; // error
+        const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
         const char *v = root[F("value")].as<const char*>();
         if (v) {
             const uint8_t vv = root[F("value")].as<uint8_t>();
@@ -487,7 +487,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 // Wenn die erste serielle nicht für den Reader verwendet wird, nehmen wir diese fürs Loggen
                 Serial.begin(115200, SERIAL_8N1);
             }
-            ret_msg = "{\"r\":0,\"m\":\"OK\"}";
+            ret_msg = R"({"r":0,"m":"OK"})";
         }
         ws->text(client->id(), ret_msg);
     } else if (!strcmp(command, "dev-raise-exception")) {
