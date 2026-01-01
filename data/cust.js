@@ -964,6 +964,33 @@ $(function() {            // main
   $(".button-dev-cmd-clear").on("click", function () {
     websock.send('{"command":"clear"}');
   });
+  $(".button-dev-cmd-raise-exception1").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":1}');
+  });
+  $(".button-dev-cmd-raise-exception2").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":2}');
+  });
+  $(".button-dev-cmd-raise-exception3").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":3}');
+  });
+  $(".button-dev-cmd-raise-exception4").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":4}');
+  });
+  $(".button-dev-cmd-raise-exception5").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":5}');
+  });
+  $(".button-dev-cmd-raise-exception6").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":6}');
+  });
+  $(".button-dev-cmd-raise-exception7").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":7}');
+  });
+  $(".button-dev-remove-exceptiondumpsall").on("click", function () {
+    if (window.confirm("Log-Datei löschen. Sicher?")) {
+      websock.send('{"command":"dev-remove-exceptiondumpsall"}');
+    }
+  });
+
   /* Development - Buttons -  End */
 
   $("input[name='mqtt_enabled']").on("click", mqttDetails);
