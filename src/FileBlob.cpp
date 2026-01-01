@@ -43,8 +43,6 @@ bool FileBlobClass::remove()
     return r;
 }
 
-void checkIfChanged();
-
 
 # if 1
 static time_t blobTimeStamp = (time_t) 0;
