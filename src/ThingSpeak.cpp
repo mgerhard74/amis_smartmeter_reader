@@ -3,6 +3,7 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_THINGSPEAK
+#include "Network.h"
 
 void ThingSpeakClass::init()
 {
@@ -15,6 +16,9 @@ void ThingSpeakClass::init()
 void ThingSpeakClass::enable()
 {
     if (_enabled) {
+        return;
+    }
+    if (Network.inAPMode()) {
         return;
     }
     _enabled = true;
@@ -130,6 +134,7 @@ void ThingSpeakClass::sendData()
     if (!_client.connect("api.thingspeak.com", 80)) {
         //_lastResult = "Connecting http://api.thingspeak.com failed.";
         //_lastResult = "Verbindung zu http://api.thingspeak.com fehlgeschlagen.";
+        LOG_EP("Connecting 'api.thingspeak.com' failed.");
         return;
     }
 #endif
