@@ -160,8 +160,8 @@ void Exception_DumpLastCrashToFile()
     EEPROM.put(0, exin.version); // write exin.version = 0x01 | (not available)
     EEPROM.end();
 
-    if (rst_info.reason == REASON_SOFT_RESTART) {
-        // Skip dumping software-restart
+    if (rst_info.reason == REASON_SOFT_RESTART || rst_info.reason == REASON_DEFAULT_RST) {
+        // Skip dumping SoftwareRestart or PowerOn
         return;
     }
 
