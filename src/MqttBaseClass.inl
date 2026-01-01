@@ -229,6 +229,7 @@ void MqttBaseClass::reloadConfig() {
         LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
         // finished ... try reconnecting if enabled
+        _actionTicker.detach();
         _reloadConfigState = 0;
         if (Network.isConnected()) {
             doConnect();
