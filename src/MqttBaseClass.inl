@@ -98,6 +98,9 @@ void MqttBaseClass::doConnect()
     if (!_config.mqtt_enabled) {
         return;
     }
+    if (Network.inAPMode()) {
+        return;
+    }
 
     IPAddress ipAddr;
     String mqttServer;
