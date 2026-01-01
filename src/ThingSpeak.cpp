@@ -119,7 +119,7 @@ void ThingSpeakClass::sendData()
     _client.stop();
 
 #if (THINGSPEAK_USE_SSL)
-    #warning "Enabling SSL need a lot of CPU. System may become unresponsible!"
+    #warning "Enabling SSL needs a lot of CPU. System may become unresponsible!"
 
     _client.setInsecure();
     if (!_client.connect("api.thingspeak.com", 443)) {
