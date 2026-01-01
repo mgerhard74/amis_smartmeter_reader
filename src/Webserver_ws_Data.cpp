@@ -318,9 +318,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                     doc[String(i)] = dir.fileName();
                 }
                 i++;
+                ESP.wdtFeed();
             }
         }
-        doc["ls"]=i;
+        doc["ls"] = i;
         String buffer;
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
