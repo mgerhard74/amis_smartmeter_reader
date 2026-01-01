@@ -34,7 +34,7 @@ extern "C" {
     extern uint32_t _irom0_text_end;
 }
 
-#define EXCEPTIONS_MAX_SAVED_ON_DISC    50  //    "/crashes/0.dump" ... "/crashes/49.dump"
+#define EXCEPTIONS_MAX_SAVED_ON_DISC    10  //    "/crashes/0.dump" ... "/crashes/9.dump"
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 extern const char *__COMPILED_GIT_HASH__;
