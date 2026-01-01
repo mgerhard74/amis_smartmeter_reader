@@ -108,6 +108,8 @@ extern "C" void custom_crash_callback(struct rst_info *rst_info, uint32_t stack,
         // In place of the detached 'ILL' instruction., redirect attention
         // back to the code that called the ROM divide function.
         __asm__ __volatile__("rsr.excsave1 %0\n\t" : "=r"(exin.excsave1) :: "memory");
+    } else {
+        exin.excsave1 = 0;
     }
 
     // Try fetching some stackvalues which could be a function address
@@ -185,7 +187,7 @@ void Exception_DumpLastCrashToFile()
         return;
     }
 
-    LittleFS.mkdir("/crashes");
+    LittleFS.mkdir(F("/crashes"));
 
     unsigned i;
     File f;
@@ -204,8 +206,11 @@ void Exception_DumpLastCrashToFile()
 
     // Remove file for next crash saving
     LittleFS.remove(getCrashFilename(i+1).c_str());
+
+    // Now write dump
     f = LittleFS.open(fname.c_str(), "w");
     if (!f) {
+        DOLOG_EP("Could not create %s", fname.c_str());
         return;
     }
 
@@ -286,29 +291,46 @@ void Exception_DumpLastCrashToFile()
 
 
 /* Declare _nullValue extern, so the compiler does not know its value */
-extern uint32_t _nullValue;
-uint32_t _nullValue = 0;
+extern volatile uint32_t _nullValue[2];
+volatile uint32_t _nullValue[2] = {0,0};
 
 void Exception_Raise(unsigned int no) {
-    char dummybuffer[20];
-    if (no < 1 || no > 5) {
+    if (no < 1 || no > 7) {
         return;
     }
+    // Set 115200Bd as writing dump to serial (possible with 300Bd) can take too long (Hardware WDT)!
+    Serial.begin(115200, SERIAL_8N1);
 
     if (no == 1) {
         LOG_DP("Divide by 0");
-        int i = 1 / _nullValue;
-        snprintf(dummybuffer, sizeof(dummybuffer), "%d", i);
+        _nullValue[1] = 1 / _nullValue[0];
         LOG_DP("Divide by 0 done");
     } else if (no == 2) {
         LOG_DP("Read nullptr");
-        snprintf(dummybuffer, sizeof(dummybuffer), "%s", (char *)_nullValue);
+        _nullValue[0] = *(uint32_t*)(_nullValue[0]);
         LOG_DP("Read nullptr done");
     } else if (no == 3) {
         LOG_DP("Write nullptr");
-        *(char *)_nullValue = 0;
+        *(char *)_nullValue[0] = 0;
         LOG_DP("Write nullptr done");
     } else if (no == 4) {
+        // TODO(StefanOberhumer): Exception gets not raised ... check why
+        LOG_DP("Unaligned read access");
+        uintptr_t p = (uintptr_t)&_nullValue[0];
+        uint32_t v = *(uint32_t*)(p+1);
+        Serial.printf("p=%08x\r\n", p+1);
+        _nullValue[1] = v;
+        Serial.printf("v=%08x\r\n", v);
+        LOG_DP("Unaligned read access done");
+    } else if (no == 5) {
+        // TODO(StefanOberhumer): Exception gets not raised ... check why
+        LOG_DP("Unaligned write access");
+        uintptr_t p = (uintptr_t)&_nullValue[0];
+        Serial.printf("p=%08x\r\n", p+1);
+        *(uint32_t*)(p+1) = 0xa1b2c3d4;
+        Serial.printf("value=%08x\r\n", _nullValue[1]);
+        LOG_DP("Unaligned write access done");
+    } else if (no == 6) {
         LOG_DP("Hardware WDT ... wait");
         ESP.wdtDisable();
         for(;;)
@@ -320,7 +342,7 @@ void Exception_Raise(unsigned int no) {
           // Hardware wdt kicks in if software wdt is unable to perfrom
           // Nothing will be saved in EEPROM for the hardware wdt
         }
-    } else if (no == 5) {
+    } else if (no == 7) {
         LOG_DP("Software WDT ... wait");
         for(;;)
         {
