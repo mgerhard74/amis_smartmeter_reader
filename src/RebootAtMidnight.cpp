@@ -2,6 +2,7 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_REBOOTATMIDNIGHT
+#include "Network.h"
 #include "Reboot.h"
 
 
@@ -20,7 +21,7 @@ void RebootAtMidnightClass::config(void)
 }
 void RebootAtMidnightClass::enable(void)
 {
-    if (_enabled) {
+    if (_enabled || Network.inAPMode()) {
         return;
     }
     _enabled = true;
