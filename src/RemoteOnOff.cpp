@@ -15,6 +15,7 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_REMOTEONOFF
+#include "Network.h"
 
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
@@ -70,6 +71,9 @@ bool RemoteOnOffClass::enable()
 {
     if (_enabled) {
         return true;
+    }
+    if (Network.inAPMode()) {
+        return false;
     }
     if (_urlOn.length() == 0 || _urlOff.length() == 0) {
         return false;
