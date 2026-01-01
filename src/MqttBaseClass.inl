@@ -102,32 +102,42 @@ void MqttBaseClass::doConnect()
         return;
     }
 
-    IPAddress ipAddr;
-    String mqttServer;
-    if (ipAddr.fromString(_config.mqtt_broker) && ipAddr.isSet()) {
-        eprintf("MQTT init: %s %d\n", ipAddr.toString().c_str(), Config.mqtt_port);
-        _mqttClient.setServer(ipAddr, _config.mqtt_port);
-        mqttServer = ipAddr.toString();
-    } else {
-        eprintf("MQTT init: %s %d\n", Config.mqtt_broker.c_str(), Config.mqtt_port);
-        _mqttClient.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
-        mqttServer = _config.mqtt_broker;
+    if (!_brokerIp.isSet()) {
+        // WiFi.hostByName() is a "blocking call" with a default timeout of 10000ms (that raises watchdog!)
+        // So we set timeout to 1000ms here (which should be enough for DNS lookup / also 1000ms used in HttpClient)
+        // If the FQN is a "local" name, it seems, this does not work proper on the 8266
+
+        if (!WiFi.hostByName(_config.mqtt_broker.c_str(), _brokerIp, 1000) || !_brokerIp.isSet()) {
+            LOG_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
+            _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
+            return;
+        }
+        _brokerByIPAddr = false;
     }
+
+    LOG_DP("MQTT init: %s:%" PRId16, _brokerIp.toString().c_str(), _config.mqtt_port);
+    _mqttClient.setServer(_brokerIp, _config.mqtt_port);
 
     if (!_config.mqtt_will.isEmpty()) {
         _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
-        eprintf("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        LOG_DP("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
     }
     if (!_config.mqtt_user.isEmpty()) {
         _mqttClient.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
-        eprintf("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        LOG_DP("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
     if (!_config.mqtt_client_id.isEmpty()) {
         _mqttClient.setClientId(_config.mqtt_client_id.c_str());
-        eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
+        LOG_DP("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
-    LOG_IP("Connecting to MQTT server [%s]", mqttServer.c_str());
+    if (_brokerByIPAddr) {
+        LOG_IP("Connecting to MQTT server %s:%" PRId16 , _config.mqtt_broker.c_str(), _config.mqtt_port);
+    } else {
+        LOG_IP("Connecting to MQTT server %s:%" PRId16 " [%s:%d]",
+                _config.mqtt_broker.c_str(), _config.mqtt_port,
+                _brokerIp.toString().c_str(), _config.mqtt_port);
+    }
     _mqttClient.connect();
 }
 
@@ -283,6 +293,10 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
         // im Webinterface: 1...65535 / 1883 = default
         config.mqtt_port = 1883;
     }
+
+    _brokerIp = IPAddress();
+    _brokerIp.fromString(config.mqtt_broker.c_str());
+    _brokerByIPAddr = _brokerIp.isSet();
 
     return true;
 }
