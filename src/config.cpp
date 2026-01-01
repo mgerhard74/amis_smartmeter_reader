@@ -8,12 +8,14 @@
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
+#include "Network.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
 #include "ThingSpeak.h"
 #include "Webserver.h"
 
 #include <ArduinoJson.h>
+#include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
 void ConfigClass::init()
@@ -114,6 +116,11 @@ void ConfigClass::applySettingsConfigGeneral()
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
+
+    // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten
+    MDNS.end();
+    Network.startMDNSIfNeeded();
+
     // TODO(anyone): Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 
