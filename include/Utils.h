@@ -6,8 +6,13 @@
 
 class Utils {
     public:
+        static void init();
+
+        static time_t littleFSsetTimeStamp(time_t timeStamp);
+
         static bool fileExists(const char *fname);
         static bool dirExists(const char *fname);
+
         static bool MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata);
         static uint8_t hexchar2Num(const char v);
         static int getContext(void);
