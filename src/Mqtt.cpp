@@ -1,6 +1,7 @@
 #include "Mqtt.h"
 
 #include "AmisReader.h"
+#include "Application.h"
 #include "config.h"
 #include "DefaultConfigurations.h"
 #include "Log.h"

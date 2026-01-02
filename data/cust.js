@@ -605,6 +605,7 @@ function doUpdateGeneral() {                 // button save config
     $(".menu-developer").hide();
   }
   websock.send(JSON.stringify(config_general));
+  websock.send('{"command":"set-amisreader","key":"' + config_general.amis_key + '"}');
   //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
 function doUpdateWiFi() {

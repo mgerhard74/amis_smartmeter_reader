@@ -292,6 +292,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         clearHist();
     } else if(strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
+    } else if (!strcmp(command, "set-amisreader")) {
+        // Im AP Modus wird die Config nicht reloaded.
+        // Danmit aber zumindest der Key auch im AP Modus upgedatet werden kann,
+        // sendet der WebClient einen extra 'set-amisreader'-Request dafür
+        const char *key = root[F("key")].as<const char*>();
+        if (key) {
+            AmisReader.setKey(key);
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        }
     } else if(strcmp(command, "ls") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {

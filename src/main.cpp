@@ -6,6 +6,7 @@
 
 
 #include "AmisReader.h"
+#include "Application.h"
 #include "Exception.h"
 #include "FileBlob.h"
 #include "LedSingle.h"
@@ -92,6 +93,12 @@ void setup() {
 
     Utils::init();
 
+#ifdef AP_PIN
+    Application.init(digitalRead(AP_PIN) == LOW);
+#else
+    Application.init(false);
+#endif
+
     // Init logging
     Log.init("eventlog.json");
     Log.setModules(LOGMODULE_BIT_ALL);
@@ -142,11 +149,7 @@ void setup() {
     Config.applySettingsConfigGeneral();
 
   // Start Network
-#ifdef AP_PIN
-    Network.init(digitalRead(AP_PIN) == LOW);
-#else
-    Network.init(false);
-#endif
+    Network.init(Application.inAPMode());
     NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
     Network.connect();
 

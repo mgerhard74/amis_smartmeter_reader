@@ -246,7 +246,13 @@ const MqttConfig_t &MqttBaseClass::getConfigMqtt(void)
 
 bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 {
-    File configFile = LittleFS.open("/config_mqtt", "r");
+    if (Application.inAPMode()) {
+        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        return false;
+    }
+
+    File configFile;
+    configFile = LittleFS.open("/config_mqtt", "r");
     if (!configFile) {
         LOG_EP("Could not open %s", "/config_mqtt");
 #ifndef DEFAULT_CONFIG_MQTT_JSON
