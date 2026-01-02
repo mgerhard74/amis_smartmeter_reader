@@ -93,7 +93,7 @@ jobs:
           mv .pio/build/${{ matrix.environment }}/firmware.bin .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin
           mv .pio/build/${{ matrix.environment }}/firmware.elf .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.elf
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: firmware-amis-${{ matrix.environment }}
           path: |
