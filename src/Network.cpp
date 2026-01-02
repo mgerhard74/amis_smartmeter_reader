@@ -1,6 +1,7 @@
 #include "Network.h"
 
 #include "AmisReader.h"
+#include "Application.h"
 #include "config.h"
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
@@ -88,9 +89,12 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
 
 bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 {
-    File configFile;
-    DynamicJsonBuffer jsonBuffer;
+    if (Application.inAPMode()) {
+        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        return false;
+    }
 
+    File configFile;
     configFile = LittleFS.open("/config_wifi", "r");
     if (!configFile) {
         LOG_EP("Could not open %s", "/config_wifi");
@@ -102,6 +106,8 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
         }
 #endif
     }
+
+    DynamicJsonBuffer jsonBuffer;
     JsonObject *json = nullptr;
     if (configFile) {
         json = &jsonBuffer.parseObject(configFile);

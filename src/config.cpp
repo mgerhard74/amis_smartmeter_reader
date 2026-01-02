@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "AmisReader.h"
+#include "Application.h"
 #include "DefaultConfigurations.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_SYSTEM
@@ -25,9 +26,13 @@ void ConfigClass::init()
 
 void ConfigClass::loadConfigGeneral()
 {
+    if (Application.inAPMode()) {
+        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        return;
+    }
+
     File configFile;
     configFile = LittleFS.open("/config_general", "r");
-
     if (!configFile) {
         LOG_EP("Could not open %s", "/config_general");
 #ifndef DEFAULT_CONFIG_GENERAL_JSON
