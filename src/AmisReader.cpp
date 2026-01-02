@@ -102,9 +102,17 @@ static_assert(sizeof(struct decryptedTelegramData_SND_UD) == 80);
 
 static void setTime(AmisReaderNumResult_t &result) {
     struct timeval ti;
+    time_t tv_sec_old;
     ti.tv_sec = mktime(&result.time);
-    ti.tv_usec = 0;
+    tv_sec_old = time(NULL);
+    if (ti.tv_sec == tv_sec_old) {
+        return; // skip if we're already in sync!
+    }
+    // Die Übertragung des enryptedMBUSTelegram_SND_UD (101 Bytes) dauert bei 9600 8N1 schon ~105ms
+    // Rechnen wir das Entschlüsseln usw dazu kommen wir wahrscheinlich auf etwa 130ms
+    ti.tv_usec = 130000;  // ti.tv_usec = 0;
     settimeofday(&ti, NULL);
+    LOG_IP("Time synchronized. (ts-old=%llu, ts-new=%llu, millis=%u)", tv_sec_old, ti.tv_sec, millis());
 }
 
 int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)
