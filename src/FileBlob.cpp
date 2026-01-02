@@ -43,6 +43,24 @@ bool FileBlobClass::remove()
     return r;
 }
 
+bool FileBlobClass::removeNonZipped()
+{
+    char filename[LFS_NAME_MAX];
+    char *ext = filename;
+
+    memcpy(filename, _filename, sizeof(filename));
+
+    while (strchr(ext, '.')) {
+        ext = strchr(ext, '.');
+        if (!strcmp(ext, ".gz")) {
+            *ext = 0;
+            return LittleFS.remove(filename);
+        }
+        ext++;
+    }
+    return false;
+}
+
 
 # if 1
 static time_t blobTimeStamp = (time_t) 0;
@@ -279,6 +297,14 @@ void FileBlobsClass::remove(bool force)
         }
     }
     _extractionInProgress = false;
+}
+
+void FileBlobsClass::removeNonZipped()
+{
+    for (size_t i=0; i < std::size(_fileBlobs); i++) {
+        FileBlobClass *blob = _fileBlobs[i];
+        blob->removeNonZipped();
+    }
 }
 
 #if 0

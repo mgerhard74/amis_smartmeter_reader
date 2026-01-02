@@ -964,6 +964,14 @@ $(function() {            // main
   $(".button-dev-cmd-clear").on("click", function () {
     websock.send('{"command":"clear"}');
   });
+  $(".button-dev-extract-webdeveloper-files").on("click", function () {
+    websock.send('{"command":"dev-extract-webdeveloper-files"}');
+  });
+  $(".button-dev-remove-webdeveloper-files").on("click", function () {
+    if (window.confirm("Persönliche Webserverentwicklungsdateien löschen. Sicher?")) {
+      websock.send('{"command":"dev-remove-webdeveloper-files"}');
+    }
+  });
   $(".button-dev-cmd-raise-exception1").on("click", function () {
     websock.send('{"command":"dev-raise-exception","value":1}');
   });
