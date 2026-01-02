@@ -112,6 +112,8 @@ private:
 
     bool _isEnabled = false;
     bool _readerIsOnline = false;
+
+    uint32_t _lastTimeSync;
 };
 
 extern AmisReaderClass AmisReader;

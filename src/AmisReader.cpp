@@ -701,10 +701,14 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             mon = l_result.time.tm_mon + 1; // mon: 1...12  -   tm_mon: 0...11 (months since January)
             myyear = l_result.time.tm_year - 100; // myyear: Jahr nur 2 stellig benötigt (seit 2000)
 
-            if (!_readerIsOnline) {
+            if (!_readerIsOnline || msNow - _lastTimeSync > 1800000u ) {
+                if (!_readerIsOnline) {
+                    LOG_IP("Data synced with counter");
+                    _readerIsOnline = true;
+                }
+                // Sync time afer sync with reader or each 30 minutes avoid internal clock drift
                 setTime(l_result);
-                LOG_IP("Data synced with counter");
-                _readerIsOnline = true;
+                _lastTimeSync = msNow;
             }
 
             _stateLastSetMs = msNow;
