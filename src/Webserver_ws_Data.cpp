@@ -197,14 +197,14 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     }
 
     // Check whatever the command is and act accordingly
-    eprintf("[ INFO ] command: %s\n",command);
+    LOG_VP("websocket command: '%s'", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
         if (filename && filename[0]) {
             LittleFS.remove(filename);
         }
-    } if(strcmp(command,"weekfiles")==0) {
+    } else if(strcmp(command,"weekfiles")==0) {
         uint32_t zstand;
         AmisReader.disable();
         clearHist();
@@ -606,7 +606,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     struct ip_info info;
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
-        DBGOUT(F("[ WARN ] Error getting info on LittleFS"));
+        LOG_EP("Error getting info on LittleFS");
     }
 
     DynamicJsonBuffer jsonBuffer;
@@ -691,13 +691,13 @@ static void sendStatus(AsyncWebSocketClient *client)
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
-    DBGOUT("send file: " + String(filename)+'\n');
+    LOG_DP("Sending file '%s' to client %u", filename, client->id());
     File f = LittleFS.open(filename, "r");
     if (f) {
         client->text(f.readString());
         f.close();
     } else {
-        eprintf("File %s not found\n",filename);
+        LOG_EP("File '%s' not found", filename);
     }
 }
 

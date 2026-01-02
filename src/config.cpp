@@ -54,7 +54,6 @@ void ConfigClass::loadConfigGeneral()
         LOG_EP("Failed parsing %s", "/config_general");
         return;
     }
-    //json.prettyPrintTo(Serial);
 
     DeviceName = (*json)[F("devicename")].as<String>();
     DeviceName.trim();
@@ -113,6 +112,7 @@ void ConfigClass::applySettingsConfigGeneral()
     }
 
     AmisReader.setKey(Config.amis_key.c_str());
+
     RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
 
     ThingSpeak.setInterval(Config.thingspeak_iv);
@@ -122,14 +122,12 @@ void ConfigClass::applySettingsConfigGeneral()
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
 
-    // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten
-    MDNS.end();
+    MDNS.end(); // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten
     Network.startMDNSIfNeeded();
 
     // TODO(anyone): Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 
-    // RemoteOnOffClass
     // WatchdogPingClass
 
     // Smartmeter
