@@ -207,6 +207,13 @@ void Exception_DumpLastCrashToFile()
     // Remove file for next crash saving
     LittleFS.remove(getCrashFilename(i+1).c_str());
 
+    // Set filetime to at minimum compiled time
+    /// So the dump file hast time of exception or at minimum the timestamp of the version the exception occured
+    time_t previousFSTime;
+    time_t exceptionTime;
+    exceptionTime = (exin.ts > exin.tsCompiled) ?exin.ts :exin.tsCompiled;
+    previousFSTime = Utils::littleFSsetTimeStamp(exceptionTime);
+
     // Now write dump
     f = LittleFS.open(fname.c_str(), "w");
     if (!f) {
@@ -285,6 +292,7 @@ void Exception_DumpLastCrashToFile()
     f.printf_P(PSTR("\n<<<stack<<<\n"));
     cut_here(f);
     f.close();
+    Utils::littleFSsetTimeStamp(previousFSTime);
 
     DOLOG_IP("Crashinfo %s written", fname.c_str());
 }
