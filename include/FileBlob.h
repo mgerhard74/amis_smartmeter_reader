@@ -19,6 +19,7 @@ class FileBlobClass
         //bool extractToFile();
         void checkIfChanged(bool checkMd5Sum, bool checkTimeStamp);
         bool remove();
+        bool removeNonZipped();
         bool isChanged();
         const char *getFilename();
         bool extractToFileNextBlock();
@@ -44,6 +45,7 @@ class FileBlobsClass
         void checkIsChanged();
         void loop();            // this proberly extracts
         void remove(bool force);
+        void removeNonZipped();
         //void removeNotPackedFiles();
 
     private:

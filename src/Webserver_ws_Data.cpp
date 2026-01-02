@@ -389,7 +389,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
         EEPROMClear();
         Reboot.startReboot();
-    } else if (!strcmp(command, "extract-files")) {
+    } else if (!strcmp(command, "dev-extract-webdeveloper-files")) {
         // Delete all files contained in the image from filesystem and
         // start recreation/extraction from image into filesystem
         FileBlobs.remove(true);
@@ -400,6 +400,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
         }
 */
+    } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
+        // Delete all "unzipped" files in filesystem contained in the image
+        FileBlobs.removeNonZipped();
     } else if (!strcmp(command, "set-webserverTryGzipFirst")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
