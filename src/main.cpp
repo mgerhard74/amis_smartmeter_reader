@@ -90,6 +90,8 @@ void setup() {
     // Start filesystem early - so we can do some logging
     LittleFS.begin();
 
+    Utils::init();
+
     // Init logging
     Log.init("eventlog.json");
     Log.setModules(LOGMODULE_BIT_ALL);
