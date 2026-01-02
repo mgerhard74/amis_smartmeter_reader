@@ -98,7 +98,6 @@ private:
     const size_t _requestedLogPageClientsMax = 3;
     std::list<_requestedLogPageClient_t> requestedLogPageClients;
     //std::vector<_requestedLogPageClient_t> requestedLogPageClients; // <list> is better as we always handle just one request
-
 };
 
 extern LogfileClass Log;

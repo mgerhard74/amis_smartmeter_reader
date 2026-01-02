@@ -1,4 +1,5 @@
 #include "Log.h"
+#include "unused.h"
 #include "Utils.h"
 
 #include <AsyncJson.h>
