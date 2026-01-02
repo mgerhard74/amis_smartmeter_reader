@@ -690,8 +690,20 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.5.5</h3>
+              Im AP-Modus (wenn Jumper gesetzt), werden außer dem Leser und dem Webserver keine zusätzlichen Dienste gestartet. Es werden auch keine Konfigurationen gelesen.<br>
+              Dies soll verhindern, dass durch Fehlkonfigurationen, der Leser in einer Dauer-Reboot-Schleife hängt und nicht mehr über Webinterface konfigurierbar ist.<br>
+              Die blaue Led blinkt nun wie folgt:<br>
+              * Im AP-Modus: alle 0,5 Sekunden<br>
+              * Wenn WiFi nicht verbunden: alle 0,125 Sekunden<br>
+              * Wenn WiFi verbunden: alle 4 Sekunden ein kurzes blitzen<br>
+              Bei MQTT können nun auch Hostnamen (FQDN) verwendet werden.<br>
+              Logging überarbeitet.<br>
+              Entwicklungswerkzeuge hinzugefügt.<br>
+              <br>
               <h3>Version 1.5.4</h3>
               ModbusTCP: Korrektur Saldo, wenn Erzeugung > Verbrauch<br>
+              <br>
               <h3>Version 1.5.3</h3>
               Weitere Sourcecode Überarbeitung.<br>
               github workflows für Prüfung (cpplint) und automatisierte builds aktiviert.<br>
