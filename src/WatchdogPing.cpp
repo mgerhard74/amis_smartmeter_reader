@@ -9,6 +9,7 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_WATCHDOGPING
+#include "Network.h"
 #include "Reboot.h"
 
 #include <cstdint>
@@ -76,6 +77,9 @@ void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, 
 
 void WatchdogPingClass::enable()
 {
+    if (Network.inAPMode()) {
+        return;
+    }
     _isEnabled = true;
 #if 0
     // This would start the ping immediately!
