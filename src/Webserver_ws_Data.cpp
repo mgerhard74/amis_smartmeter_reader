@@ -607,6 +607,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
         LOG_EP("Error getting info on LittleFS");
+        memset(&fsinfo, 0, sizeof(fsinfo));
     }
 
     DynamicJsonBuffer jsonBuffer;
@@ -658,14 +659,24 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     if (Network.inAPMode()) {
         wifi_get_ip_info(SOFTAP_IF, &info);
+
         struct softap_config conf;
+        memset(&conf, 0, sizeof(conf));
         wifi_softap_get_config(&conf);
+
         root[F("mac")] = WiFi.softAPmacAddress();
     } else {
         wifi_get_ip_info(STATION_IF, &info);
+
         struct station_config conf;
+        memset(&conf, 0, sizeof(conf));
         wifi_station_get_config(&conf);
-        root[F("ssid")] = String(reinterpret_cast<char *>(conf.ssid));
+
+        char ssid_str[sizeof(conf.ssid)+1];
+        memcpy(ssid_str, conf.ssid, sizeof(conf.ssid));
+        ssid_str[sizeof(ssid_str) - 1] = 0;
+
+        root[F("ssid")] = ssid_str;
         root[F("dns")] = WiFi.dnsIP().toString();
         root[F("mac")] = WiFi.macAddress();
         root[F("channel")] = WiFi.channel();
