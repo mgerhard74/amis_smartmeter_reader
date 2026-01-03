@@ -71,7 +71,6 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
 {
     LOG_DP("WiFi onStationModeDisconnected() start");
     _isConnected = false;
-    LedBlue.turnOff();
     Mqtt.networkOnStationModeDisconnected(event);
     MDNS.end();
 
@@ -82,6 +81,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
 #else
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
 #endif
+    LedBlue.turnBlink(150, 150);
     LOG_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
     LOG_DP("WiFi onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
@@ -198,6 +198,7 @@ void NetworkClass::connect(void)
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword);
+    LedBlue.turnBlink(150, 150);
     LOG_DP("WiFi connect() end");
 }
 
