@@ -603,6 +603,7 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 
 static void sendStatus(AsyncWebSocketClient *client)
 {
+    // TODO(anyone): This creates a "Reset" if running with debug-build.
     struct ip_info info;
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
