@@ -1,3 +1,5 @@
+#include "ProjectConfiguration.h"
+
 #include "Network.h"
 
 #include "AmisReader.h"
@@ -189,7 +191,7 @@ void NetworkClass::connect(void)
         LOG_DP("Using DHCP");
         IPAddress ip_0_0_0_0;
         WiFi.config(ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0); // Enforce DHCP enabled (WiFi._useStaticIp = false)
-        WiFi.hostname(Config.DeviceName);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
+        WiFi.hostname(getHostname(Config.DeviceName.c_str()));               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
     } else {
         LOG_DP("Using static IP configuration");
         WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver, _configWifi.ip_nameserver);
@@ -343,6 +345,51 @@ void NetworkClass::startMDNSIfNeeded()
     }*/
 
     LOG_IP("MDNS started");
+}
+
+
+String NetworkClass::getHostname(const char *hostname)
+{
+    // see: LwipIntf::hostname  --> Max 32 chars
+    //
+    // see RFC952: - 24 chars max
+    //             - only a..z A..Z 0..9 '-'
+    //             - no '-' as last char
+
+    char rHostname[32 + 1];
+
+
+    const char *s = hostname;
+    char *t = rHostname;
+    char *te = t + sizeof(rHostname);
+
+    // copy and transform chars from Config.DeviceName into rHostname
+    while (*s && t < te) {
+        if (isalnum(*s)) {
+            *t++ = *s++;
+        } else if (*s == ' ' || *s == '_' || *s == '-' || *s == '+' || *s == '!' || *s == '?' || *s == '*') {
+            *t++ = '-';
+            s++;
+        }
+        /*
+        else {
+            skip that character
+        }
+        */
+    }
+    *t = 0;
+
+    // remove trailing '-'
+    t--;
+    while (t >= &rHostname[0] && *t == '-') {
+        *t-- = 0;
+    }
+
+    if (!rHostname[0]) {
+        // Do now allow an empty hostname
+        snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%" PRIx32), APP_NAME, ESP.getChipId());
+    }
+    return rHostname;
 }
 
 
