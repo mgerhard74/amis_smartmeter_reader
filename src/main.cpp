@@ -171,7 +171,7 @@ void setup() {
 
     // initiate ping watchdog
     WatchdogPing.init();
-    WatchdogPing.config(networkConfigWifi.pingrestart_ip.c_str(), networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
+    WatchdogPing.config(networkConfigWifi.pingrestart_ip, networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
         LOG_VP("WatchdogPing enabled");

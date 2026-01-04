@@ -125,15 +125,19 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     }
 
     config.pingrestart_do = (*json)[F("pingrestart_do")].as<bool>();
-    config.pingrestart_ip = (*json)[F("pingrestart_ip")].as<String>();
-    config.pingrestart_ip.trim();
+    IPAddress pingrestart_ip;
+    pingrestart_ip.fromString((*json)[F("pingrestart_ip")] | "");
+    config.pingrestart_ip[0] = pingrestart_ip[0];
+    config.pingrestart_ip[1] = pingrestart_ip[1];
+    config.pingrestart_ip[2] = pingrestart_ip[2];
+    config.pingrestart_ip[3] = pingrestart_ip[3];
     config.pingrestart_interval = (*json)[F("pingrestart_interval")].as<unsigned int>();
     config.pingrestart_max = (*json)[F("pingrestart_max")].as<unsigned int>();
 
     config.allow_sleep_mode = (*json)[F("allow_sleep_mode")].as<bool>();
 
-    config.ssid = (*json)[F("ssid")].as<String>();
-    config.wifipassword = (*json)[F("wifipassword")].as<String>();
+    strlcpy(config.ssid, (*json)[F("ssid")] | "", sizeof(config.ssid));
+    strlcpy(config.wifipassword, (*json)[F("wifipassword")] | "", sizeof(config.wifipassword));
 
     config.dhcp = (*json)[F("dhcp")].as<bool>();
 
@@ -147,19 +151,33 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
         }
     }
 
-    String v;
-    v = (*json)[F("ip_static")].as<String>();
-    v.trim();
-    config.ip_static.fromString(v);
-    v = (*json)[F("ip_netmask")].as<String>();
-    v.trim();
-    config.ip_netmask.fromString(v);
-    v = (*json)[F("ip_nameserver")].as<String>();
-    v.trim();
-    config.ip_nameserver.fromString(v);
-    v = (*json)[F("ip_gateway")].as<String>();
-    v.trim();
-    config.ip_gateway.fromString(v);
+    IPAddress ip_static;
+    ip_static.fromString((*json)[F("ip_static")] | "");
+    config.ip_static[0] = ip_static[0];
+    config.ip_static[1] = ip_static[1];
+    config.ip_static[2] = ip_static[2];
+    config.ip_static[3] = ip_static[3];
+
+    IPAddress ip_netmask;
+    ip_netmask.fromString((*json)[F("ip_netmask")] | "");
+    config.ip_netmask[0] = ip_netmask[0];
+    config.ip_netmask[1] = ip_netmask[1];
+    config.ip_netmask[2] = ip_netmask[2];
+    config.ip_netmask[3] = ip_netmask[3];
+
+    IPAddress ip_nameserver;
+    ip_nameserver.fromString((*json)[F("ip_nameserver")] | "");
+    config.ip_nameserver[0] = ip_nameserver[0];
+    config.ip_nameserver[1] = ip_nameserver[1];
+    config.ip_nameserver[2] = ip_nameserver[2];
+    config.ip_nameserver[3] = ip_nameserver[3];
+
+    IPAddress ip_gateway;
+    ip_gateway.fromString((*json)[F("ip_gateway")] | "");
+    config.ip_gateway[0] = ip_gateway[0];
+    config.ip_gateway[1] = ip_gateway[1];
+    config.ip_gateway[2] = ip_gateway[2];
+    config.ip_gateway[3] = ip_gateway[3];
 
     return true;
 }
@@ -219,20 +237,21 @@ const NetworkConfigWifi_t &NetworkClass::getConfigWifi(void)
     return _configWifi;
 }
 
-static String readStringFromEEPROM(int beginaddress)
+static void readStringFromEEPROM(int beginaddress, size_t size, char *buffer, size_t bufferlen)
 {
-    size_t cnt;
-    char buffer[33];
-    for(cnt = 0; cnt < sizeof(buffer)-1; cnt++) {
+    if (size == 0 || bufferlen == 0) {
+        return;
+    }
+
+    for(size_t cnt = 0; cnt < size && cnt < bufferlen-1; cnt++) {
         char ch;
         ch = EEPROM.read(beginaddress + cnt);
-        buffer[cnt] = ch;
+        *buffer++ = ch;
         if (ch == 0) {
-            break;
+            return;
         }
     }
-    buffer[sizeof(buffer) - 1] = 0;
-    return String(buffer);
+    *buffer = 0;
 }
 
 bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
@@ -251,12 +270,10 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
         return false;
     }
 
-    uint8_t ip_addr[4];
-    ip_addr[0] = EEPROM.read(12);
-    ip_addr[1] = EEPROM.read(13);
-    ip_addr[2] = EEPROM.read(14);
-    ip_addr[3] = EEPROM.read(15);
-    config.ip_nameserver = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_nameserver[0] = EEPROM.read(12);
+    config.ip_nameserver[1] = EEPROM.read(13);
+    config.ip_nameserver[2] = EEPROM.read(14);
+    config.ip_nameserver[3] = EEPROM.read(15);
 
     config.dhcp = EEPROM.read(16) ?true :false;
     config.rfpower = EEPROM.read(26);
@@ -264,26 +281,23 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
         config.rfpower = 21;
     }
 
-    ip_addr[0] = EEPROM.read(32);
-    ip_addr[1] = EEPROM.read(33);
-    ip_addr[2] = EEPROM.read(34);
-    ip_addr[3] = EEPROM.read(35);
-    config.ip_static = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_static[0] = EEPROM.read(32);
+    config.ip_static[1] = EEPROM.read(33);
+    config.ip_static[2] = EEPROM.read(34);
+    config.ip_static[3] = EEPROM.read(35);
 
-    ip_addr[0] = EEPROM.read(36);
-    ip_addr[1] = EEPROM.read(37);
-    ip_addr[2] = EEPROM.read(38);
-    ip_addr[3] = EEPROM.read(39);
-    config.ip_netmask = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_netmask[0] = EEPROM.read(36);
+    config.ip_netmask[1] = EEPROM.read(37);
+    config.ip_netmask[2] = EEPROM.read(38);
+    config.ip_netmask[3] = EEPROM.read(39);
 
-    ip_addr[0] = EEPROM.read(40);
-    ip_addr[1] = EEPROM.read(41);
-    ip_addr[2] = EEPROM.read(42);
-    ip_addr[3] = EEPROM.read(43);
-    config.ip_gateway = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_gateway[0] = EEPROM.read(40);
+    config.ip_gateway[1] = EEPROM.read(41);
+    config.ip_gateway[2] = EEPROM.read(42);
+    config.ip_gateway[3] = EEPROM.read(43);
 
-    config.ssid = readStringFromEEPROM(62);
-    config.wifipassword = readStringFromEEPROM(94);
+    readStringFromEEPROM(62, 32, config.ssid, sizeof(config.ssid));
+    readStringFromEEPROM(94, 32, config.wifipassword, sizeof(config.wifipassword));
 
     EEPROM.end();
 

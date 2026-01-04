@@ -7,8 +7,8 @@
 typedef struct {
     bool allow_sleep_mode;
 
-    String wifipassword;        // max uint8_t[64] - see WiFi.begin(ssid, password);
-    String ssid;                // max uint8_t[32] - see WiFi.begin(ssid, password);
+    char ssid[32+1];                // max uint8_t[32] - see WiFi.begin(ssid, password);
+    char wifipassword[64+1];        // max uint8_t[64] - see WiFi.begin(ssid, password);
 
     bool mdns;
     unsigned int rfpower;
@@ -20,7 +20,7 @@ typedef struct {
     IPAddress ip_nameserver;
 
     bool pingrestart_do;
-    String pingrestart_ip;      // as we just use an ip: "aaa.bbb.ccc.ddd\0" 16 bytes needed
+    IPAddress pingrestart_ip;
     unsigned pingrestart_interval;
     unsigned pingrestart_max;
 } NetworkConfigWifi_t;

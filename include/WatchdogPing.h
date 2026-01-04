@@ -6,7 +6,7 @@
 class WatchdogPingClass {
 public:
     void init();
-    void config(const char *host, unsigned int checkIntervalSec, unsigned int failCount);
+    void config(const IPAddress &targetIP, unsigned int checkIntervalSec, unsigned int failCount);
     void loop();
     unsigned int restartAfterFailed;
     uint32_t checkIntervalMs;
@@ -22,7 +22,7 @@ private:
     unsigned int _counterFailed;
     bool _isWaitingForPingResult;
     bool _isEnabled;
-    String _host;
+    IPAddress _targetIP;
 };
 
 extern WatchdogPingClass WatchdogPing;
