@@ -1,5 +1,10 @@
 #pragma once
 
+// Eckdaten der Applikation
+#define APP_NAME        "Amis"
+#define APP_VERSION_STR "1.5.4"
+
+
 // Pin, mit dem der Zähler mittels Jumper auf Masse
 // in den Access-Point-Modus (AP-Mode) gesetzt wird
 #ifndef AP_PIN

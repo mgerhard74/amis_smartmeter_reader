@@ -3,14 +3,13 @@
 //
 // Liefert aktuell keine Zählerdaten oder Echtzeitwerte aus
 
+#include "ProjectConfiguration.h"
 
 #include "Mqtt.h"
 
 #include "config.h"
 
 #include <AsyncJson.h>
-
-#include "proj.h"
 
 
 struct HASensor {
@@ -116,7 +115,7 @@ void MqttHAClass::getTopicPayloadSingleSensor(String &topic, String &payload, co
     ids.add(Config.DeviceName);
     devn[F("name")] = Config.DeviceName;
     devn[F("model")] = APP_NAME;
-    devn[F("sw_version")] = VERSION;
+    devn[F("sw_version")] = APP_VERSION_STR;
     if (e.device_class && e.device_class[0]) {
         root[F("device_class")] = e.device_class;
     }

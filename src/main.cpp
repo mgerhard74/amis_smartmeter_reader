@@ -106,7 +106,7 @@ void setup() {
 
     // Log some booting information
     DOLOG_IP("System starting...");
-    DOLOG_IP("  " APP_NAME " Version " VERSION);
+    DOLOG_IP("  " APP_NAME " Version " APP_VERSION_STR);
     DOLOG_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
     DOLOG_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
     DOLOG_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
