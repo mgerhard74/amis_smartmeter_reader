@@ -2,6 +2,8 @@
     Handle websocket communication of socket ws://<espiIp>/ws
 */
 
+#include "ProjectConfiguration.h"
+
 #include "Webserver_ws_Data.h"
 
 #include "config.h"
@@ -619,7 +621,7 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     root[F("core")] = ESP.getCoreVersion();
     root[F("sdk")] = ESP.getSdkVersion();
-    root[F("version")] = VERSION;
+    root[F("version")] = APP_VERSION_STR;
     root[F("app_name")] = APP_NAME;
     root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
     root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
