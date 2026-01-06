@@ -212,7 +212,7 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
         _valuesInBuffer.v2_7_0 = v2_7_0;
 
         float saldo;
-        saldo = v1_7_0 - v2_7_0;                                    // 1.7.0 - 2.7.0 = Power
+        saldo = (float) v1_7_0 - (float) v2_7_0;                    // 1.7.0 - 2.7.0 = Power
 
         //float2Bytes.f = (float)(saldo) / 230;                     // Total AC Current
         //float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);
