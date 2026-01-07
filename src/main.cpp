@@ -243,6 +243,8 @@ void loop() {
     LedBlue.loop();
     WatchdogPing.loop();
 
+    MDNS.update();
+
     if (doSerialHwTest) {
         for (unsigned i=0; i < 255; i++)  {
             Serial.write(i);
