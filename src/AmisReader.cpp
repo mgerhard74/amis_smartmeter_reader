@@ -264,8 +264,11 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     numresult.results_8  = UA::ReadS32LE(&decrypted.value1_128_0);
 
     // TODO(anyone): "Diese Aufbereitung" Timecode entfernen
-    // Da das eine
-    //        MM(1..12) in Hex
+    // timecode: 10 stelliges hexformat (= 5 bytes) welches vom Webclient verwendet wird
+    // und eigentlich das MBUS CP48 Format ist
+    //                 40    32 31    24 23    16 15     8 7      0
+    //                 YYYYMMMM YYYDDDDD ???hhhhh ?mmmmmmm ?sssssss    Webclient Verwendung
+    //
     snprintf(numresult.timecode, sizeof(numresult.timecode),
              "0x%02x%02x%02x%02x%02x",
              decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
