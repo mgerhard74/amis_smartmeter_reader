@@ -147,11 +147,15 @@ void test_ua(void) {
 }
 #endif
 
-
 #if 0
 #include "unions.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+
 #include <Arduino.h>
-void writeEvent(String type, String src, String desc, String data);
+
+
+
 void validate_ua(void) {
     bool r = true;
     unsigned char buffer[32];
@@ -166,41 +170,41 @@ void validate_ua(void) {
         return;
     }
     test_done = true;
-    writeEvent("INFO", "UA", "validate_ua()", "started");
+    LOG_IP("validate_ua() started");
 
     // Also check union "conversation" float<->bytes<->integers
     // Just to be sure the compiler does it the right way
     U4ByteValues b4;
     b4.f = -1672608870000.0;
     if (b4.ui32t != 0xD3C2B7A1) {
-        writeEvent("INFO", "UA", "Unionconversation b4.ui32t", "failed");
-        writeEvent("INFO", "UA", "b4.f     " + String(b4.f), "");
-        writeEvent("INFO", "UA", "b4.ui32t " + String(b4.ui32t), "");
+        LOG_EP("Unionconversation b4.ui32t failed");
+        LOG_EP("b4.f     %f", b4.f);
+        LOG_EP("b4.ui32t %" PRIu32, b4.ui32t);
         r = false;
     }
     if (b4.i32t != -742213727) {
-        writeEvent("INFO", "UA", "Unionconversation b4.i32t", "failed");
-        writeEvent("INFO", "UA", "b4.f    " + String(b4.f), "");
-        writeEvent("INFO", "UA", "b4.i32t " + String(b4.i32t), "");
+        LOG_EP("Unionconversation b4.i32t failed");
+        LOG_EP("b4.f     %f", b4.f);
+        LOG_EP("b4.i32t  %" PRId32, b4.i32t);
         r = false;
     }
 
-    writeEvent("INFO", "UA", "validate_ua() 16bit tests", "started");
+    LOG_IP("validate_ua() 16bit tests started");
     for (size_t offset = 0; offset < 16; offset++) { // run thru alignments 0...15
         p = &buffer[offset];
 
         memset(buffer, 0, sizeof(buffer));
         UA::WriteU16LE(p, 0xDCBA);
         if (memcmp(p, "\xBA\xDC", 2)) {
-            writeEvent("INFO", "UA", "UA::WriteU16LE()", "failed");
+            LOG_EP("UA::WriteU16LE() failed");
             r = false;
         }
         if (UA::ReadU16LE(p) != 0xDCBA) {
-            writeEvent("INFO", "UA", "UA::ReadU16LE()" + String(UA::ReadU16LE(p)), "failed");
+            LOG_EP("UA::ReadU16LE() %" PRIu16 " failed", UA::ReadU16LE(p));
             r = false;
         }
         if (UA::ReadU16BE(p) != 0xBADC) {
-            writeEvent("INFO", "UA", "UA::ReadU16BE()" + String(UA::ReadU16BE(p)), "failed");
+            LOG_EP("UA::ReadU16BE() %" PRIu16 " failed", UA::ReadU16BE(p));
             r = false;
         }
 
@@ -208,36 +212,36 @@ void validate_ua(void) {
         memset(buffer, 0, sizeof(buffer));
         UA::WriteU16BE(p, 0xDCBA);
         if (memcmp(p, "\xDC\xBA", 2)) {
-            writeEvent("INFO", "UA", "UA::WriteU16BE()", "failed");
+            LOG_EP("UA::WriteU16BE() failed");
             r = false;
         }
         if (UA::ReadU16LE(p) != 0xBADC) {
-            writeEvent("INFO", "UA", "UA::ReadU16LE() " + String(UA::ReadU16LE(p)), "failed");
+            LOG_EP("UA::ReadU16LE() %" PRIu16 " failed", UA::ReadU16LE(p));
             r = false;
         }
         if (UA::ReadU16BE(p) != 0xDCBA) {
-            writeEvent("INFO", "UA", "UA::ReadU16BE()" + String(UA::ReadU16BE(p)), "failed");
+            LOG_EP("UA::ReadU16BE() %" PRIu16 " failed", UA::ReadU16BE(p));
             r = false;
         }
     }
-    writeEvent("INFO", "UA", "validate_ua() 16bit tests", "ended");
+    LOG_IP("validate_ua() 16bit tests ended");
 
 
-    writeEvent("INFO", "UA", "validate_ua() 32bit tests", "started");
+    LOG_IP("validate_ua() 132bit tests started");
     for (size_t offset = 0; offset < 16; offset++) { // run thru alignments 0...15
         p = &buffer[offset];
         memset(buffer, 0, sizeof(buffer));
         UA::WriteU32LE(p, 0xA1B7C2D3);
         if (memcmp(p, "\xD3\xC2\xB7\xA1", 4)) {
-            writeEvent("INFO", "UA", "UA::WriteU32LE()", "failed");
+            LOG_EP("UA::WriteU32LE() failed");
             r = false;
         }
         if (UA::ReadU32LE(p) != 0xA1B7C2D3) {
-            writeEvent("INFO", "UA", "UA::ReadU32LE() " + String(UA::ReadU32LE(p)), "failed");
+            LOG_EP("UA::ReadU32LE() %" PRIu32 " failed", UA::ReadU32LE(p));
             r = false;
         }
         if (UA::ReadS32LE(p) != -1581792557) {
-            writeEvent("INFO", "UA", "UA::ReadS32LE() " + String(UA::ReadS32LE(p)), "failed");
+            LOG_EP("UA::ReadS32LE() %" PRIi32 " failed", UA::ReadS32LE(p));
             r = false;
         }
 
@@ -245,28 +249,28 @@ void validate_ua(void) {
         memset(buffer, 0, sizeof(buffer));
         UA::WriteU32BE(p, 0xA1B7C2D3); // ABCD
         if (memcmp(p, "\xA1\xB7\xC2\xD3", 4)) {
-            writeEvent("INFO", "UA", "UA::WriteU32BE()", "failed");
+            LOG_EP("UA::WriteU32BE() failed");
             r = false;
         }
         /*
         Nicht implementiert, weil wir das aktuell (noch) nicht brauchen
 
         if (UA::ReadU32BE(p) != 0xD3C2B7A1) {
-            writeEvent("INFO", "UA", "UA::ReadU32BE()", "failed");
+            LOG_EP("UA::ReadU32BE() %" PRIu32 " failed", UA::ReadU32BE(p));
             r = false;
         }
         if (UA::ReadS32BE(p) != -1581792557) {
-            writeEvent("INFO", "UA", "UA::ReadS32BE()", "failed");
+            LOG_EP("UA::ReadS32BE() %" PRIi32 " failed", UA::ReadS32BE(p));
             r = false;
         }
         */
     }
-    writeEvent("INFO", "UA", "validate_ua() 32bit tests", "ended");
+    LOG_IP("validate_ua() 32bit tests ended");
 
     if (r) {
-        writeEvent("INFO", "UA", "validate_ua()", "success");
+        LOG_IP("validate_ua() tests success");
     } else {
-        writeEvent("INFO", "UA", "validate_ua()", "failed");
+        LOG_EP("validate_ua() tests failed");
     }
 }
 #endif

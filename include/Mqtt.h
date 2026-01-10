@@ -81,6 +81,9 @@ private:
 
     bool loadConfigMqtt(MqttConfig_t &config);
     MqttConfig_t _config;
+    IPAddress _brokerIp;
+    bool _brokerByIPAddr;
+
     int _reloadConfigState;
 
     MqttReaderDataClass _mqttReaderData;

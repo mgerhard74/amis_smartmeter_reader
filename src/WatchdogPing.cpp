@@ -7,6 +7,9 @@
 
 #include "WatchdogPing.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_WATCHDOGPING
+#include "Network.h"
 #include "Reboot.h"
 
 #include <cstdint>
@@ -15,8 +18,6 @@
 // TODO(anyone) - reuse refactored classes for logging and debugging
 #include "debug.h"
 #include "config.h"
-extern void writeEvent(String type, String src, String desc, String data);
-
 
 #if 0
 // Doku/Beispiel zu AsyncPing
@@ -52,13 +53,16 @@ void WatchdogPingClass::init()
     _ping.on(false, std::bind(&WatchdogPingClass::onPingEndOfPing, this, _1));
 }
 
-void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, unsigned int failCount)
+void WatchdogPingClass::config(const IPAddress &targetIP, unsigned int checkIntervalSec, unsigned int failCount)
 {
     bool wasWaitingForPingResult = _isWaitingForPingResult;
 
     stopSinglePing();
 
-    _host = String(host);
+    _targetIP[0] = targetIP[0];
+    _targetIP[1] = targetIP[1];
+    _targetIP[2] = targetIP[2];
+    _targetIP[3] = targetIP[3];
 
     _counterFailed = 0;
     checkIntervalMs = static_cast<uint32_t>(checkIntervalSec) * 1000;
@@ -76,6 +80,9 @@ void WatchdogPingClass::config(const char *host, unsigned int checkIntervalSec, 
 
 void WatchdogPingClass::enable()
 {
+    if (Network.inAPMode()) {
+        return;
+    }
     _isEnabled = true;
 #if 0
     // This would start the ping immediately!
@@ -104,19 +111,15 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
     }
     DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
     if (response.answer) {
-        if (_counterFailed > 0 && Config.log_sys) {
-            writeEvent("INFO", "wifi", "Ping " + String(_counterFailed+1) + "/" + String(restartAfterFailed) + " to " + _host + " successful, RTT = " + String(response.total_time), "");
+        if (_counterFailed > 0) {
+            LOG_IP("Ping %u/%u to %s successful, RTT=%u", _counterFailed+1, restartAfterFailed, _targetIP.toString().c_str(), response.total_time);
         }
         _counterFailed = 0;
     } else {
         ++_counterFailed;
-        if (Config.log_sys) {
-            writeEvent("WARN", "wifi", "Ping " + String(_counterFailed) + "/" + String(restartAfterFailed) + " to " + _host + " failed!", "");
-        }
+        LOG_WP("Ping %u/%u to %s failed!", _counterFailed, restartAfterFailed, _targetIP.toString().c_str());
         if (_counterFailed >= restartAfterFailed) {
-            if (Config.log_sys) {
-                writeEvent("WARN", "wifi", "Max ping failures reached, initiating reboot ...", "");
-            }
+            LOG_EP("Max ping failures reached, initiating reboot ...");
             Reboot.startReboot();
         }
     }
@@ -132,7 +135,7 @@ void WatchdogPingClass::startSinglePing()
     // bool begin(const IPAddress &addr, u8_t count = 3, u32_t timeout = 1000);
     // bool begin(const char *host, u8_t count = 3, u32_t timeout = 1000);
     _lastPingStartedMs = millis();
-    _ping.begin(_host.c_str(), 1, 1500); // single ping with timeout of 1500ms
+    _ping.begin(_targetIP, 1, 1500); // single ping with timeout of 1500ms
     _isWaitingForPingResult = true;
 }
 

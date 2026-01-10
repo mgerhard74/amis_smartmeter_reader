@@ -17,6 +17,9 @@
 
 #include "Exception.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+
 #include "Utils.h"
 
 #include <EEPROM.h>
@@ -31,7 +34,7 @@ extern "C" {
     extern uint32_t _irom0_text_end;
 }
 
-#define EXCEPTIONS_MAX_SAVED_ON_DISC    50  //    "/crashes/0.dump" ... "/crashes/49.dump"
+#define EXCEPTIONS_MAX_SAVED_ON_DISC    10  //    "/crashes/0.dump" ... "/crashes/9.dump"
 
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 extern const char *__COMPILED_GIT_HASH__;
@@ -40,8 +43,6 @@ extern const time_t __COMPILED_DATE_TIME_UTC_TIME_T__;
 
 static uint32_t _interrestingAdressesStart = (uint32_t)&_irom0_text_start;
 static uint32_t _interrestingAdressesEnd = (uint32_t)&_irom0_text_end;
-
-extern void writeEvent(String, String, String, String);
 
 struct __attribute__((__packed__)) exceptionInformationV1_s {
     uint8_t version;                // Oberste Bit (0x80) kennzeichnet, ob die Info bereits gelesen und verarbeitet wurde
@@ -107,6 +108,8 @@ extern "C" void custom_crash_callback(struct rst_info *rst_info, uint32_t stack,
         // In place of the detached 'ILL' instruction., redirect attention
         // back to the code that called the ROM divide function.
         __asm__ __volatile__("rsr.excsave1 %0\n\t" : "=r"(exin.excsave1) :: "memory");
+    } else {
+        exin.excsave1 = 0;
     }
 
     // Try fetching some stackvalues which could be a function address
@@ -135,6 +138,26 @@ static inline void cut_here(File &f)
 }
 
 
+static inline String getCrashFilename(unsigned no)
+{
+#if EXCEPTIONS_MAX_SAVED_ON_DISC > 100
+#error buffer get to small!
+#endif
+    char buffer[17]; // "/crashes/xx.dump"
+
+    snprintf_P(buffer, sizeof(buffer), PSTR("/crashes/%u.dump"), no % EXCEPTIONS_MAX_SAVED_ON_DISC);
+    return String(buffer);
+}
+
+
+void Exception_RemoveAllDumps()
+{
+    for (unsigned i=0; i < EXCEPTIONS_MAX_SAVED_ON_DISC; i++) {
+        LittleFS.remove(getCrashFilename(i+1).c_str());
+    }
+}
+
+
 void Exception_DumpLastCrashToFile()
 {
     struct exceptionInformationV1_s exin = {};
@@ -159,18 +182,18 @@ void Exception_DumpLastCrashToFile()
     EEPROM.put(0, exin.version); // write exin.version = 0x01 | (not available)
     EEPROM.end();
 
-    if (rst_info.reason == REASON_SOFT_RESTART) {
-        // Skip dumping software-restart
+    if (rst_info.reason == REASON_SOFT_RESTART || rst_info.reason == REASON_DEFAULT_RST) {
+        // Skip dumping SoftwareRestart or PowerOn
         return;
     }
 
-    LittleFS.mkdir("/crashes");
+    LittleFS.mkdir(F("/crashes"));
 
     unsigned i;
     File f;
     String fname;
     for (i=0; i < EXCEPTIONS_MAX_SAVED_ON_DISC; i++) {
-        fname = "/crashes/" + String(i) + ".dump";
+        fname = getCrashFilename(i);
         if (Utils::fileExists(fname.c_str())) {
             continue;
         }
@@ -178,10 +201,23 @@ void Exception_DumpLastCrashToFile()
     }
     if (i == EXCEPTIONS_MAX_SAVED_ON_DISC) {
         i = 0; // Start overwriting old saved dumps
-        fname = "/crashes" + String("/") + String(i) + ".dump";
+        fname = getCrashFilename(i);
     }
+
+    // Remove file for next crash saving
+    LittleFS.remove(getCrashFilename(i+1).c_str());
+
+    // Set filetime to at minimum compiled time
+    /// So the dump file hast time of exception or at minimum the timestamp of the version the exception occured
+    time_t previousFSTime;
+    time_t exceptionTime;
+    exceptionTime = (exin.ts > exin.tsCompiled) ?exin.ts :exin.tsCompiled;
+    previousFSTime = Utils::littleFSsetTimeStamp(exceptionTime);
+
+    // Now write dump
     f = LittleFS.open(fname.c_str(), "w");
     if (!f) {
+        DOLOG_EP("Could not create %s", fname.c_str());
         return;
     }
 
@@ -256,36 +292,56 @@ void Exception_DumpLastCrashToFile()
     f.printf_P(PSTR("\n<<<stack<<<\n"));
     cut_here(f);
     f.close();
+    Utils::littleFSsetTimeStamp(previousFSTime);
 
-    writeEvent("INFO", "sys", "Crashinfo written", fname);
+    DOLOG_IP("Crashinfo %s written", fname.c_str());
 }
 
 
 /* Declare _nullValue extern, so the compiler does not know its value */
-extern uint32_t _nullValue;
-uint32_t _nullValue = 0;
+extern volatile uint32_t _nullValue[2];
+volatile uint32_t _nullValue[2] = {0,0};
 
 void Exception_Raise(unsigned int no) {
-    if (no < 1 || no > 5) {
+    if (no < 1 || no > 7) {
         return;
     }
+    // Set 115200Bd as writing dump to serial (possible with 300Bd) can take too long (Hardware WDT)!
     Serial.begin(115200, SERIAL_8N1);
+
     if (no == 1) {
-        Serial.print("Divide by 0\r\n"); Serial.flush();
-        int i = 1 / _nullValue;
-        Serial.println(i); Serial.flush();
-        Serial.print("Division done\r\n"); Serial.flush();
+        LOG_DP("Divide by 0");
+        _nullValue[1] = 1 / _nullValue[0];
+        LOG_DP("Divide by 0 done");
     } else if (no == 2) {
-        Serial.print("Read nullptr\r\n"); Serial.flush();
-        Serial.printf("%s\r\n", (char *)_nullValue); Serial.flush();
-        Serial.print("Access nullptr done\r\n"); Serial.flush();
+        LOG_DP("Read nullptr");
+        _nullValue[0] = *(uint32_t*)(_nullValue[0]);
+        LOG_DP("Read nullptr done");
     } else if (no == 3) {
-        Serial.print("Write nullptr\r\n"); Serial.flush();
-        *(char *)_nullValue = 0;
+        LOG_DP("Write nullptr");
+        *(char *)_nullValue[0] = 0;
+        LOG_DP("Write nullptr done");
     } else if (no == 4) {
-        Serial.print("Hardwrae WDT ... wait\r\n"); Serial.flush();
+        // TODO(StefanOberhumer): Exception gets not raised ... check why
+        LOG_DP("Unaligned read access");
+        uintptr_t p = (uintptr_t)&_nullValue[0];
+        uint32_t v = *(uint32_t*)(p+1);
+        Serial.printf("p=%08x\r\n", p+1);
+        _nullValue[1] = v;
+        Serial.printf("v=%08x\r\n", v);
+        LOG_DP("Unaligned read access done");
+    } else if (no == 5) {
+        // TODO(StefanOberhumer): Exception gets not raised ... check why
+        LOG_DP("Unaligned write access");
+        uintptr_t p = (uintptr_t)&_nullValue[0];
+        Serial.printf("p=%08x\r\n", p+1);
+        *(uint32_t*)(p+1) = 0xa1b2c3d4;
+        Serial.printf("value=%08x\r\n", _nullValue[1]);
+        LOG_DP("Unaligned write access done");
+    } else if (no == 6) {
+        LOG_DP("Hardware WDT ... wait");
         ESP.wdtDisable();
-        while (true)
+        for(;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed
@@ -294,9 +350,9 @@ void Exception_Raise(unsigned int no) {
           // Hardware wdt kicks in if software wdt is unable to perfrom
           // Nothing will be saved in EEPROM for the hardware wdt
         }
-    } else if (no == 5) {
-        Serial.print("Software WDT ... wait\r\n"); Serial.flush();
-        while (true)
+    } else if (no == 7) {
+        LOG_DP("Software WDT ... wait");
+        for(;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed

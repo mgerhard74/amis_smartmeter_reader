@@ -29,10 +29,7 @@ MqttBaseClass::MqttBaseClass()
 
 void MqttBaseClass::onPublish(uint16_t packetId) {
     // seems that callback is not not working!!!
-    DBGOUT ("onMqttPublish\n");
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "MQTT publish acknowledged", String(packetId));
-    }
+    LOG_WP("Unexpected onPublish() call: %d", packetId);
 }
 
 
@@ -47,9 +44,7 @@ void MqttBaseClass::onMessage(char* topic, char* payload, AsyncMqttClientMessage
     UNUSED_ARG(index);
     UNUSED_ARG(total);
 
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Unexpected onMessage() call", String(topic));
-    }
+    LOG_WP("Unexpected onMessage() call: %s", topic);
 #ifdef STROMPREIS
     char p[20];
     memcpy(p,payload,len);
@@ -63,7 +58,7 @@ void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
 
     if (!_mqttClient.connected()) {
-        DBGOUT("MQTT publish: not connected\n");
+        LOG_WP("MQTT publishTickerCb() but not connected!");
         return; // _actionTicker will be armed in onConnect()
     }
 
@@ -88,10 +83,7 @@ void MqttBaseClass::onConnect(bool sessionPresent)
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
-    eprintf("MQTT onConnect %u\n", sessionPresent);
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Connected to MQTT Server", "sessionPresent=" + String(sessionPresent));
-    }
+    LOG_IP("Connected to MQTT server");
 
     // Für HA melden wir uns mal "Online" und "verbreiten" alle unsere Sensoren
     if (_config.mqtt_ha_discovery) {
@@ -106,34 +98,45 @@ void MqttBaseClass::doConnect()
     if (!_config.mqtt_enabled) {
         return;
     }
-
-    IPAddress ipAddr;
-    String mqttServer;
-    if (ipAddr.fromString(_config.mqtt_broker) && ipAddr.isSet()) {
-        eprintf("MQTT init: %s %d\n", ipAddr.toString().c_str(), Config.mqtt_port);
-        _mqttClient.setServer(ipAddr, _config.mqtt_port);
-        mqttServer = ipAddr.toString();
-    } else {
-        eprintf("MQTT init: %s %d\n", Config.mqtt_broker.c_str(), Config.mqtt_port);
-        _mqttClient.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
-        mqttServer = _config.mqtt_broker;
+    if (Network.inAPMode()) {
+        return;
     }
+
+    if (!_brokerIp.isSet()) {
+        // WiFi.hostByName() is a "blocking call" with a default timeout of 10000ms (that raises watchdog!)
+        // So we set timeout to 1000ms here (which should be enough for DNS lookup / also 1000ms used in HttpClient)
+        // If the FQN is a "local" name, it seems, this does not work proper on the 8266
+
+        if (!WiFi.hostByName(_config.mqtt_broker.c_str(), _brokerIp, 1000) || !_brokerIp.isSet()) {
+            LOG_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
+            _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
+            return;
+        }
+        _brokerByIPAddr = false;
+    }
+
+    LOG_DP("MQTT init: %s:%" PRId16, _brokerIp.toString().c_str(), _config.mqtt_port);
+    _mqttClient.setServer(_brokerIp, _config.mqtt_port);
 
     if (!_config.mqtt_will.isEmpty()) {
         _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
-        eprintf("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        LOG_DP("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
     }
     if (!_config.mqtt_user.isEmpty()) {
         _mqttClient.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
-        eprintf("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        LOG_DP("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
     if (!_config.mqtt_client_id.isEmpty()) {
         _mqttClient.setClientId(_config.mqtt_client_id.c_str());
-        eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
+        LOG_DP("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
-    if (Config.log_sys) {
-        writeEvent("INFO", "mqtt", "Connecting to MQTT server " + mqttServer, "...");
+    if (_brokerByIPAddr) {
+        LOG_IP("Connecting to MQTT server %s:%" PRId16 , _config.mqtt_broker.c_str(), _config.mqtt_port);
+    } else {
+        LOG_IP("Connecting to MQTT server %s:%" PRId16 " [%s:%d]",
+                _config.mqtt_broker.c_str(), _config.mqtt_port,
+                _brokerIp.toString().c_str(), _config.mqtt_port);
     }
     _mqttClient.connect();
 }
@@ -185,10 +188,7 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
         reasonstr = F("Unknown");
         break;
     }
-    if (Config.log_sys) {
-        writeEvent("WARN", "mqtt", "Disconnected from MQTT server", reasonstr);
-    }
-    eprintf("Disconnected from MQTT server: %s\n", reasonstr.c_str());
+    LOG_WP("Disconnected from MQTT server: %s", reasonstr.c_str());
 }
 
 
@@ -226,11 +226,10 @@ void MqttBaseClass::reloadConfig() {
         // disconnection finished --> reload configuration
         loadConfigMqtt(_config);
         _reloadConfigState = 3;
-        if (Config.log_sys) {
-            writeEvent("INFO", "mqtt", "Config reloaded", "");
-        }
+        LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
         // finished ... try reconnecting if enabled
+        _actionTicker.detach();
         _reloadConfigState = 0;
         if (Network.isConnected()) {
             doConnect();
@@ -247,9 +246,15 @@ const MqttConfig_t &MqttBaseClass::getConfigMqtt(void)
 
 bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 {
-    File configFile = LittleFS.open("/config_mqtt", "r");
+    if (Application.inAPMode()) {
+        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        return false;
+    }
+
+    File configFile;
+    configFile = LittleFS.open("/config_mqtt", "r");
     if (!configFile) {
-        DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
+        LOG_EP("Could not open %s", "/config_mqtt");
 #ifndef DEFAULT_CONFIG_MQTT_JSON
         return false;
 #endif
@@ -266,7 +271,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
+        LOG_EP("Failed parsing %s", "/config_mqtt");
         return false;
     }
     ///json.prettyPrintTo(Serial);
@@ -295,6 +300,10 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
         // im Webinterface: 1...65535 / 1883 = default
         config.mqtt_port = 1883;
     }
+
+    _brokerIp = IPAddress();
+    _brokerIp.fromString(config.mqtt_broker.c_str());
+    _brokerByIPAddr = _brokerIp.isSet();
 
     return true;
 }

@@ -7,8 +7,8 @@
 typedef struct {
     bool allow_sleep_mode;
 
-    String wifipassword;
-    String ssid;
+    char ssid[32+1];                // max uint8_t[32] - see WiFi.begin(ssid, password);
+    char wifipassword[64+1];        // max uint8_t[64] - see WiFi.begin(ssid, password);
 
     bool mdns;
     unsigned int rfpower;
@@ -20,7 +20,7 @@ typedef struct {
     IPAddress ip_nameserver;
 
     bool pingrestart_do;
-    String pingrestart_ip;
+    IPAddress pingrestart_ip;
     unsigned pingrestart_interval;
     unsigned pingrestart_max;
 } NetworkConfigWifi_t;
@@ -33,6 +33,7 @@ public:
     bool inAPMode(void);
     bool isConnected(void);
     const NetworkConfigWifi_t &getConfigWifi();
+    void startMDNSIfNeeded();
 
 private:
     WiFiEventHandler _onStationModeGotIP;
@@ -42,6 +43,8 @@ private:
 
     bool loadConfigWifi(NetworkConfigWifi_t &config);
     bool loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config);
+
+    String getHostname(const char *hostname);
 
     Ticker _tickerReconnect;
 

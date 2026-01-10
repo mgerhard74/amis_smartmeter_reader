@@ -1,8 +1,11 @@
 #include "Mqtt.h"
 
 #include "AmisReader.h"
+#include "Application.h"
 #include "config.h"
 #include "DefaultConfigurations.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_MQTT
 #include "Network.h"
 #include "unused.h"
 
@@ -15,10 +18,6 @@
 #ifdef STROMPREIS
 extern String strompreis;
 #endif
-
-
-extern void writeEvent(String, String, String, String);
-
 
 #include "MqttReaderDataClass.inl"  // Handling "normal" data publishing        (topic = homeassistant/sensor/ .... )
 #include "MqttHAClass.inl"          // Handling HomeAssistant data publishing   (topic = config.mqtt_pub)
