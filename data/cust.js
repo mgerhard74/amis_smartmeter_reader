@@ -68,7 +68,7 @@ var config_wifi= {
     "command": "/config_wifi"
 };
 var config_mqtt={
-    "mqtt_enabled": 0,
+    "mqtt_enabled": false,
     "mqtt_broker": "192.168.",
     "mqtt_port": 1883,
     "mqtt_user": "",
