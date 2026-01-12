@@ -377,7 +377,7 @@ function updateElements(obj) {
       }
     }
     else if (key === 'stations') {        // WiFi-Scan
-      let tab = '<table class="pure-table pure-table-striped"><thead><tr><th>SSID</th><th>RSSI</th><th>Channel</th><th>Encryption</th></tr></thead><Tbody>';
+      let tab = '<table class="pure-table pure-table-striped"><thead><tr><th>SSID</th><th>RSSI</th><th>Channel</th><th>Encryption</th><th>BSSID</th></tr></thead><Tbody>';
       for (let i = 0; i < value.length; i++) {
         let station = JSON.parse(value[i]);
         let encr="Unknown";
@@ -388,7 +388,7 @@ function updateElements(obj) {
           case '4': encr="WPA2_PSK";break;
           case '8': encr="auto";break;
         }
-        tab+='<tr><td>'+station.ssid+'</td><td>'+station.rssi+' dB</td><td>'+station.channel+'</td><td>'+encr+'</td></tr>'
+        tab+='<tr><td>'+station.ssid+'</td><td>'+station.rssi+' dB</td><td>'+station.channel+'</td><td>'+encr+'</td><td>'+station.bssid+'</td></tr>'
       }
       tab += '</tbody></table>';
       value = tab;

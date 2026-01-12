@@ -589,6 +589,7 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
         root[F("rssi")]    = WiFi.RSSI(i);
         root[F("channel")] = WiFi.channel(i);
         root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
+        root[F("bssid")]  = WiFi.BSSIDstr(i);
         root.printTo(buffer);
         array.add(buffer);
     }
