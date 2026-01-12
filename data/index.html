@@ -162,7 +162,7 @@
             <div class="pure-u-1-2">Chip ID</div>
             <div class="pure-u-11-24"><span class="right" name="chipid"></span></div>
             <div class="pure-u-1-2">Wifi MAC</div>
-            <div class="pure-u-11-24"><span class="right" name="mac"></span></div>
+            <div class="pure-u-11-24"><span class="right" name="status_wifi_mac"></span></div>
             <div class="pure-u-1-2">App name</div>
             <div class="pure-u-11-24"><span class="right" name="app_name"></span></div>
             <div class="pure-u-1-2">Firmware size</div>
@@ -231,19 +231,19 @@
         </div>
         <div class="pure-u-1 pure-u-lg-11-24 state">
             <div class="pure-u-1-2">Network</div>
-            <div class="pure-u-11-24"><span name="ssid"></span></div>
-            <div class="pure-u-1-2">Channel</div>
-            <div class="pure-u-11-24"><span  name="channel"></span></div>
+            <div class="pure-u-11-24"><span name="status_wifi_ssid"></span></div>
+            <div class="pure-u-1-2">Kanal</div>
+            <div class="pure-u-11-24"><span  name="status_wifi_channel"></span></div>
             <div class="pure-u-1-2">RSSI</div>
-            <div class="pure-u-11-24"><span name="rssi" post=" dB"></span></div>
+            <div class="pure-u-11-24"><span name="status_wifi_rssi" post=" dB"></span></div>
             <div class="pure-u-1-2">IP</div>
-            <div class="pure-u-11-24"><span name="deviceip"></span></div>
+            <div class="pure-u-11-24"><span name="status_wifi_ip"></span></div>
             <div class="pure-u-1-2">DNS</div>
-            <div class="pure-u-11-24"><span name="dns"></span></div>
+            <div class="pure-u-11-24"><span name="status_wifi_dns"></span></div>
             <div class="pure-u-1-2">Gateway</div>
-            <div class="pure-u-11-24"><span name="gateway"></span></div>
+            <div class="pure-u-11-24"><span name="status_wifi_gateway"></span></div>
             <div class="pure-u-1-2">Netmask</div>
-            <div class="pure-u-11-24"><span name="netmask"></span></div>
+            <div class="pure-u-11-24"><span name="status_wifi_netmask"></span></div>
             <div class="pure-u-1-2 module-mqtt">MQTT Status</div>
             <div class="pure-u-11-24 module-mqtt"><span name="mqttStatus"></span></div>
             <div class="pure-u-1-2 module-ntp">NTP Status</div>
@@ -423,6 +423,27 @@
           <input class="pure-u-2-3 wifi" name="wifipassword" maxlength="64" type="password"/>
           <span class="no-select password-reveal"></span>
         </div>
+
+        <div class="pure-g">
+          <label class="pure-u-1-3">Kanal:</label>
+          <select class="pure-u-2-3 wifi" name="channel">
+            <option value="0">auto</option>
+            <option value="1">1 (2412 Mhz)</option>
+            <option value="2">2 (2417 Mhz)</option>
+            <option value="3">3 (2422 Mhz)</option>
+            <option value="4">4 (2427 Mhz)</option>
+            <option value="5">5 (2432 Mhz)</option>
+            <option value="6">6 (2437 Mhz)</option>
+            <option value="7">7 (2442 Mhz)</option>
+            <option value="8">8 (2447 Mhz)</option>
+            <option value="9">9 (2452 Mhz)</option>
+            <option value="10">10 (2457 Mhz)</option>
+            <option value="11">11 (2462 Mhz)</option>
+            <option value="12">12 (2467 Mhz)</option>
+            <option value="13">13 (2472 Mhz)</option>
+          </select>
+        </div>
+
         <div class="pure-g">
           <label class="pure-u-1-3 ">DHCP</label>
           <div class="pure-u-2-3 on_off"><input type="checkbox" name="dhcp" id="dhcp" class="wifi" /></div>

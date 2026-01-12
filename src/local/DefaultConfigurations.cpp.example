@@ -70,6 +70,7 @@ const char *defaultConfigWifiJson = R"(
 {
     "ssid": "your-ssid",
     "wifipassword": "your-wifi-password",
+    "channel" : 0,
     "dhcp": false,
     "ip_static": "192.168.xx.aa",
     "ip_netmask": "255.255.255.0",

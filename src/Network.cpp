@@ -56,7 +56,7 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);
-    LOG_IP("WiFi connected to %s with local IP %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+    LOG_IP("WiFi connected to %s channel %" PRId8 " with local IP %s", WiFi.SSID().c_str(), WiFi.channel(), WiFi.localIP().toString().c_str());
     LOG_VP("mask=%s, gateway=%s", event.mask.toString().c_str(), event.gw.toString().c_str());
 
     startMDNSIfNeeded();
@@ -139,6 +139,11 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     strlcpy(config.ssid, (*json)[F("ssid")] | "", sizeof(config.ssid));
     strlcpy(config.wifipassword, (*json)[F("wifipassword")] | "", sizeof(config.wifipassword));
 
+    config.channel = (*json)[F("channel")].as<int32_t>();
+    if (config.channel < 0 || config.channel > 13) {
+        config.channel = 0;
+    }
+
     config.dhcp = (*json)[F("dhcp")].as<bool>();
 
     config.mdns = (*json)[F("mdns")].as<bool>();
@@ -217,7 +222,9 @@ void NetworkClass::connect(void)
 
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
-    WiFi.begin(_configWifi.ssid, _configWifi.wifipassword);
+    LOG_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+
+    WiFi.begin(_configWifi.ssid, _configWifi.wifipassword, _configWifi.channel);
     LedBlue.turnBlink(150, 150);
     LOG_DP("WiFi connect() end");
 }

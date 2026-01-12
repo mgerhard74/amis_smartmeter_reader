@@ -667,7 +667,7 @@ static void sendStatus(AsyncWebSocketClient *client)
         memset(&conf, 0, sizeof(conf));
         wifi_softap_get_config(&conf);
 
-        root[F("mac")] = WiFi.softAPmacAddress();
+        root[F("status_wifi_mac")] = WiFi.softAPmacAddress();
     } else {
         wifi_get_ip_info(STATION_IF, &info);
 
@@ -679,18 +679,18 @@ static void sendStatus(AsyncWebSocketClient *client)
         memcpy(ssid_str, conf.ssid, sizeof(conf.ssid));
         ssid_str[sizeof(ssid_str) - 1] = 0;
 
-        root[F("ssid")] = ssid_str;
-        root[F("dns")] = WiFi.dnsIP().toString();
-        root[F("mac")] = WiFi.macAddress();
-        root[F("channel")] = WiFi.channel();
-        root[F("rssi")] = WiFi.RSSI();
+        root[F("status_wifi_ssid")] = ssid_str;
+        root[F("status_wifi_dns")] = WiFi.dnsIP().toString();
+        root[F("status_wifi_mac")] = WiFi.macAddress();
+        root[F("status_wifi_channel")] = WiFi.channel();
+        root[F("status_wifi_rssi")] = WiFi.RSSI();
     }
     IPAddress ipaddr = IPAddress(info.ip.addr);
     IPAddress gwaddr = IPAddress(info.gw.addr);
     IPAddress nmaddr = IPAddress(info.netmask.addr);
-    root[F("deviceip")] = ipaddr.toString();
-    root[F("gateway")] = gwaddr.toString();
-    root[F("netmask")] = nmaddr.toString();
+    root[F("status_wifi_ip")] = ipaddr.toString();
+    root[F("status_wifi_gateway")] = gwaddr.toString();
+    root[F("status_wifi_netmask")] = nmaddr.toString();
     //root["loadaverage"] = systemLoadAverage();
     //if (ADC_MODE_VALUE == ADC_VCC) {
     root[F("vcc")] = ESP.getVcc();
