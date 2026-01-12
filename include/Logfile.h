@@ -64,6 +64,8 @@ public:
 
     void log(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...) __attribute__ ((format (printf, 5, 6)));
 
+    void remove(bool allPrevious=false);
+
     uint32_t logMask;
 
 private:

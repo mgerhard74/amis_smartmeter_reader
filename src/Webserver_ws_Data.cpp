@@ -353,6 +353,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
         LittleFS.remove(F("/config_mqtt"));
+        Log.remove(true);
         //    LittleFS.remove(F("/.idea"));
     } else if (strcmp(command, "test") == 0) {
         doSerialHwTest = !doSerialHwTest;

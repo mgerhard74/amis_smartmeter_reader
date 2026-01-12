@@ -184,6 +184,20 @@ void LogfileClass::loop()
 #endif
 }
 
+void LogfileClass::remove(bool allPrevious)
+{
+    LittleFS.remove(_filename);
+    _size = 0xffffffff;
+
+    if (allPrevious) {
+        char filenamePrev[LFS_NAME_MAX];
+        for (unsigned int prev=1; prev < _keepPreviousFiles; prev++) {
+            _prevFilename(prev, filenamePrev);
+            LittleFS.remove(filenamePrev);
+        }
+    }
+}
+
 void LogfileClass::_reset()
 {
     requestedLogPageClients.clear();
