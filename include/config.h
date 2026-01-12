@@ -50,7 +50,7 @@ public:
     String switch_url_off;
     unsigned switch_intervall;
 
-    String amis_key;
+    char amis_key[32 + 1]; // max Amiskey length = 32 + "\0"
 
     bool developerModeEnabled;
     bool webserverTryGzipFirst;

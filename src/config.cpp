@@ -21,6 +21,7 @@
 
 void ConfigClass::init()
 {
+    amis_key[0] = 0;
     webserverTryGzipFirst = true;
 }
 
@@ -70,8 +71,7 @@ void ConfigClass::loadConfigGeneral()
     shelly_smart_mtr_udp_offset = (*json)[F("shelly_smart_mtr_udp_offset")].as<int>();
     shelly_smart_mtr_udp_hardware_id_appendix = (*json)[F("shelly_smart_mtr_udp_hardware_id_appendix")].as<String>();
 
-    amis_key = (*json)[F("amis_key")].as<String>();
-    amis_key.trim();
+    strlcpy(amis_key, (*json)["amis_key"] | "", sizeof(amis_key));
 
     thingspeak_aktiv = (*json)[F("thingspeak_aktiv")].as<bool>();
     channel_id = (*json)[F("channel_id")].as<unsigned int>();
@@ -115,7 +115,7 @@ void ConfigClass::applySettingsConfigGeneral()
         Log.setLoglevel(LOGLEVEL_NONE);
     }
 
-    AmisReader.setKey(Config.amis_key.c_str());
+    AmisReader.setKey(Config.amis_key);
 
     RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
 
