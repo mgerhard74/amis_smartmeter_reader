@@ -293,19 +293,29 @@ function updateElements(obj) {
        else value="";
     }
     else if (key==='page') {             // Logpanel
-      logpage=obj["page"];
-      logpages=obj["pages"];
-      value="Seite "+value+" von "+logpages;
+      logpage = obj["page"];
+      logpages = obj["pages"];
+      if (logpages <= 0) {
+        logpages = 1;
+      }
+      value = "Seite " + value + " von " + logpages;
     }
-    else if (key==='list') {             // Logpanel
-      let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Inhalt</th><th>Daten</th></tr></thead><Tbody>';
+    else if (key==='loglines') {             // Logpanel
+      let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Information</th></tr></thead><Tbody>';
       for (let i=0;i<value.length;i++ ) {
         let line=JSON.parse(value[i]);
         let t='- - -';
         if (line.time) {
           t=timeDecoder(line.time);
         }
-        tab += '<tr><td>'+t+'</td><td>'+line.type+'</td><td>'+line.src+'</td><td>'+line.desc+'</td><td>'+line.data+'</td></tr>';
+        let desc = line.desc;
+        if (line.data) {
+          if (desc != '') {
+            desc += ' ';
+          }
+          desc += line.data;
+        }
+        tab += '<tr><td>'+t+'</td><td>'+line.type+'</td><td>'+line.src+'</td><td>'+desc+'</td></tr>';
       }
       tab+='</tbody></table>';
       value=tab;
