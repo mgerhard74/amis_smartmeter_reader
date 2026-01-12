@@ -9,6 +9,7 @@ typedef struct {
 
     char ssid[32+1];                // max uint8_t[32] - see WiFi.begin(ssid, password);
     char wifipassword[64+1];        // max uint8_t[64] - see WiFi.begin(ssid, password);
+    int32_t channel;                // 2.4Ghz channels: 0(=auto) and 1 ... 13
 
     bool mdns;
     unsigned int rfpower;

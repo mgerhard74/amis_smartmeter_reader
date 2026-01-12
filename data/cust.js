@@ -52,6 +52,7 @@ var config_general = {
 var config_wifi= {
     "ssid": "",
     "wifipassword": "",
+    "channel": 0,
     "dhcp": false,
     "ip_static": "192.168.",
     "ip_netmask": "255.255.255.0",
