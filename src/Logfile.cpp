@@ -103,9 +103,9 @@ void LogfileClass::loop()
         request.pageNo = noOfPages();
     }
     root["page"] = request.pageNo;
+    JsonArray &loglines = root.createNestedArray("loglines");
 
     if (_noOfEntriesInFile) {
-        JsonArray &items = root.createNestedArray("list");
         File f = LittleFS.open(_filename, "r");
         if (f) {
             uint32_t firstEntry, lastEntry;
@@ -113,7 +113,7 @@ void LogfileClass::loop()
             _pageToEntries(request.pageNo, firstEntry, lastEntry);
             if (fileSkipLines(f, firstEntry-1) ) {
                 for(uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
-                    items.add(f.readStringUntil('\n'));
+                    loglines.add(f.readStringUntil('\n'));
                 }
             }
             f.close();
