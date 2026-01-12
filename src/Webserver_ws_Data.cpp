@@ -42,7 +42,7 @@ WebserverWsDataClass::WebserverWsDataClass()
 
 void WebserverWsDataClass::init(AsyncWebServer& server)
 {
-    _subscribedClientsWifiScanLen = 0;
+    _wifiScanInProgress = false;
 
     using std::placeholders::_1;
     using std::placeholders::_2;
@@ -76,7 +76,6 @@ void WebserverWsDataClass::reload()
     _ws.addMiddleware(&_simpleDigestAuth);
     //_ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
     _ws.closeAll();
-    _subscribedClientsWifiScanLen = 0;
     _ws.enable(true);
 }
 
@@ -273,12 +272,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if(strcmp(command, "clearevent") == 0) {
         Log.clear();
     } else if(strcmp(command, "scan_wifi") == 0) {
-        if (_subscribedClientsWifiScanLen < std::size(_subscribedClientsWifiScan)) {
+        if (!_wifiScanInProgress) {
+            _wifiScanInProgress = true;
             using std::placeholders::_1;
-            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = client->id();
-            if (_subscribedClientsWifiScanLen == 1) {
-                WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
-            }
+            WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
         }
     } else if(strcmp(command, "getconf") == 0) {
         wsSendFile("/config_general", client);
@@ -573,9 +570,9 @@ static void sendWeekData(AsyncWebSocketClient *client)
 void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 {
 
-    if(_subscribedClientsWifiScanLen == 0 || nFound == 0) {
+    if(!_wifiScanInProgress || nFound == 0) {
         WiFi.scanDelete();
-        _subscribedClientsWifiScanLen = 0;
+        _wifiScanInProgress = false;
         return;
     }
 
@@ -584,25 +581,24 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
     JsonArray &array = jsonBuffer.createArray();
     String buffer;
     for (int i = 0; i < nFound; ++i) {           // esp_event_legacy.h
-        buffer = "";
         root[F("ssid")]    = WiFi.SSID(i);
         root[F("rssi")]    = WiFi.RSSI(i);
         root[F("channel")] = WiFi.channel(i);
         root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
         root[F("bssid")]  = WiFi.BSSIDstr(i);
+        buffer = "";
         root.printTo(buffer);
         array.add(buffer);
     }
     WiFi.scanDelete();
+    _wifiScanInProgress = false;
 
     buffer = "";
     array.printTo(buffer);
-    buffer = "{\"stations\":"+buffer+"}";
+    buffer = "{\"stations\":" + buffer + "}";
 
-    for (size_t i=0; i < _subscribedClientsWifiScanLen; i++) {
-        ws->text(_subscribedClientsWifiScan[i], buffer);
-    }
-    _subscribedClientsWifiScanLen = 0;
+    // If we have a new Wifi-Scan-Result: Publish to *ALL* clients
+    ws->textAll(buffer);
     SYSTEMMONITOR_STAT();
 }
 
