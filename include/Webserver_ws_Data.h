@@ -28,8 +28,7 @@ class WebserverWsDataClass
         void sendDataTaskCb();
 
         void onWifiScanCompletedCb(int nFound);
-        uint32_t _subscribedClientsWifiScan[3];
-        size_t   _subscribedClientsWifiScanLen;
+        bool _wifiScanInProgress;
 
         void wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength);
 };
