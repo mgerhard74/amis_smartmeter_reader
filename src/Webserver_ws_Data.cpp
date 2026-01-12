@@ -332,7 +332,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         doc["ls"] = i;
         String buffer;
         doc.printTo(buffer);
-        //DBGOUT(buffer+"\n");
         ws->text(client->id(), buffer);
     } else if(strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
@@ -491,8 +490,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
-        const char *v = root[F("value")].as<const char*>();
-        if (v) {
+        if (root.containsKey(F("value"))) {
             const uint8_t vv = root[F("value")].as<uint8_t>();
             AmisReader.end();
             AmisReader.init(vv);
@@ -512,10 +510,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         const char* value = root[F("value")].as<const char*>();
         if (value && value[0]) {
             IPAddress ipAddr;
-            uint32_t timeout=10000;
-            const char* timeout_c = root[F("timeout")].as<const char*>();
-            if (timeout_c) {
-                timeout=root[F("timeout")].as<uint32_t>();
+            uint32_t timeout = 10000;
+            if (root.containsKey(F("timeout"))) {
+                timeout = root[F("timeout")].as<uint32_t>();
             }
             int r;
             r = WiFi.hostByName(value, ipAddr, timeout);
