@@ -19,6 +19,81 @@
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
+
+
+
+#define CONFIG_AMIS_KEY_JSON_NAME "\"amis_key\""
+#define CONFIG_AMIS_KEY_JSON_NAME_LEN (sizeof(CONFIG_AMIS_KEY_JSON_NAME)-1)
+
+// If we're in AP mode, we just read "amis_key" and DO NOT use the json parser
+// This should avoid bricking the device due invalid configuration files
+// We brutally search for something like:   "KEY"\s*:\s*"VALUE
+void ConfigClass::loadConfigGeneralMinimal()
+{
+    char buffer[128];
+
+    File configFile;
+    configFile = LittleFS.open("/config_general", "r");
+    if (!configFile) {
+        return;
+    }
+    if (configFile.size() > 1024*7) {
+        // Do not parse "big" (>7kiB) files
+        configFile.close();
+        return;
+    }
+    size_t rlen;
+    while (configFile.available()) {
+        rlen = configFile.readBytes(buffer, sizeof(buffer));
+        if (rlen == 0) {
+            break;
+        }
+
+        char *found;
+        {
+            found = (char*) memmem(buffer, rlen, CONFIG_AMIS_KEY_JSON_NAME, CONFIG_AMIS_KEY_JSON_NAME_LEN);
+            if (found == nullptr) {
+                continue;
+            }
+            if (found != buffer) {
+                // move file so the next read start exacly with our searched key
+                configFile.seek(-rlen + (found - buffer), SeekCur);
+                continue;
+            }
+
+            found += CONFIG_AMIS_KEY_JSON_NAME_LEN;
+            buffer[sizeof(buffer)-1] = 0;   // just to be sure the string ends
+
+            while (isspace(*found)) {       // skip over spaces
+                found++;
+            }
+            if (*found != ':') {            // check  if we found ':'
+                break;
+            }
+            found++;
+
+            while (isspace(*found)) {       // skip over spaces
+                found++;
+            }
+            if (*found != '"') {            // check  if we found '"'
+                break;
+            }
+            found++;
+
+            size_t i;                       // grab the value into amis_key
+            for (i = 0; i < sizeof(amis_key)-1 && isxdigit(*found); i++) {
+                amis_key[i] = *found++;
+            }
+            amis_key[i] = 0;
+            //Serial.printf("Amiskey='%s'\n", amis_key);
+            break;
+        }
+    }
+    configFile.close();
+}
+
+
+
 void ConfigClass::init()
 {
     amis_key[0] = 0;
@@ -28,7 +103,9 @@ void ConfigClass::init()
 void ConfigClass::loadConfigGeneral()
 {
     if (Application.inAPMode()) {
-        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        // just load some values not using any json parser or syntax check in AP Mode
+        // (so we should not be able bricking the device using invalid config files)
+        loadConfigGeneralMinimal();
         return;
     }
 
