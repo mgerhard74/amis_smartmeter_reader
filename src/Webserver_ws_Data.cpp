@@ -593,6 +593,8 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
         root.printTo(buffer);
         array.add(buffer);
     }
+    WiFi.scanDelete();
+
     buffer = "";
     array.printTo(buffer);
     buffer = "{\"stations\":"+buffer+"}";
@@ -601,7 +603,6 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
         ws->text(_subscribedClientsWifiScan[i], buffer);
     }
     _subscribedClientsWifiScanLen = 0;
-    WiFi.scanDelete();
     SYSTEMMONITOR_STAT();
 }
 
