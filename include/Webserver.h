@@ -19,7 +19,6 @@ class WebserverClass
 
     private:
         void onNotFound(AsyncWebServerRequest *request);
-        void onRequest_Upgrade(AsyncWebServerRequest *request);
         void reload();
 
         AsyncWebServer _server;
