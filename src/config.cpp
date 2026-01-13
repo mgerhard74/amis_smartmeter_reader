@@ -97,7 +97,6 @@ void ConfigClass::loadConfigGeneralMinimal()
 void ConfigClass::init()
 {
     amis_key[0] = 0;
-    webserverTryGzipFirst = true;
 }
 
 void ConfigClass::loadConfigGeneral()
@@ -179,9 +178,6 @@ void ConfigClass::loadConfigGeneral()
     switch_intervall = (*json)[F("switch_intervall")].as<unsigned int>();
 
     developerModeEnabled = (*json)[F("developerModeEnabled")].as<bool>();
-
-    // 'webserverTryGzipFirst' wird nicht ausgewertet sondern nur bis zum nächsten Reboot mitgeführt
-    // webserverTryGzipFirst = (*json)[F("webserverTryGzipFirst")].as<bool>();
 }
 
 void ConfigClass::applySettingsConfigGeneral()
@@ -201,7 +197,6 @@ void ConfigClass::applySettingsConfigGeneral()
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
-    Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
 
     MDNS.end(); // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten
     Network.startMDNSIfNeeded();

@@ -40,7 +40,6 @@ var config_general = {
     "shelly_smart_mtr_udp_offset": 0,
     "shelly_smart_mtr_udp_hardware_id_appendix": "",
     "developerModeEnabled": false,
-    "webserverTryGzipFirst": true, // diese Einstellung wird vom AmisLeser beim Lesen der Konfig nicht beachtet
     "switch_on": 0,
     "switch_off": 0,
     "switch_url_on": "",
@@ -81,6 +80,11 @@ var config_mqtt={
     "mqtt_will": "",
     "mqtt_ha_discovery": true,
     "command": "/config_mqtt"
+};
+
+var config_runtime = {
+    "webUseFilesFromFirmware": true,
+    "command": "config_runtime" // ohne führendes "/"
 };
 
 function toNumberString(value, numberOfDecimals) {
@@ -199,6 +203,10 @@ function updateElements(obj) {
         case "/config_mqtt":
           config_mqtt=obj;
           break;
+        case "config_runtime":
+          config_runtime = obj;
+          $("input[name='webUseFilesFromFirmware']").value = config_runtime.webUseFilesFromFirmware;
+          break;
       }
     }
     else if (key==='now') {
@@ -300,7 +308,7 @@ function updateElements(obj) {
       }
       value = "Seite " + value + " von " + logpages;
     }
-    else if (key==='loglines') {             // Logpanel
+    else if (key==='loglines') {         // Logpanel
       let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Information</th></tr></thead><Tbody>';
       for (let i=0;i<value.length;i++ ) {
         let line=JSON.parse(value[i]);
@@ -655,7 +663,6 @@ function doUpdateMQTT() {
 
 function doReboot(msg) {
   if(window.confirm(msg+"Neustart mit OK bestätigen, dann 25s warten...")) {
-    config_general.webserverTryGzipFirst = true;
     websock.send('{"command":"restart"}');
     doReload(25000);
   }
@@ -744,11 +751,13 @@ function developerModeEnabled() {  // display settings only if auth active
   }
 }
 
-function webserverTryGzipFirst() {  // display settings only if auth active
+function webUseFilesFromFirmware() {
   if ($(this).prop('checked')) {
-    websock.send('{"command":"set-webserverTryGzipFirst", "value":"on"}');
+    websock.send('{"command":"set-runtime-useFilesFromFirmware", "value":"on"}');
+    config_runtime.webUseFilesFromFirmware = true;
   } else {
-    websock.send('{"command":"set-webserverTryGzipFirst", "value":"off"}');
+    websock.send('{"command":"set-runtime-useFilesFromFirmware", "value":"off"}');
+    config_runtime.webUseFilesFromFirmware = false;
   }
 }
 
@@ -970,7 +979,6 @@ $(function() {            // main
   });
   $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
     if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
-      config_general.webserverTryGzipFirst = true;
       websock.send('{"command":"factory-reset-reboot"}');
       doReload(25000);
     }
@@ -988,11 +996,8 @@ $(function() {            // main
   $(".button-dev-cmd-clear").on("click", function () {
     websock.send('{"command":"clear"}');
   });
-  $(".button-dev-extract-webdeveloper-files").on("click", function () {
-    websock.send('{"command":"dev-extract-webdeveloper-files"}');
-  });
   $(".button-dev-remove-webdeveloper-files").on("click", function () {
-    if (window.confirm("Persönliche Webserverentwicklungsdateien löschen. Sicher?")) {
+    if (window.confirm("Webserverentwicklungsdateien löschen (auch *.gz und *.md5). Sicher?")) {
       websock.send('{"command":"dev-remove-webdeveloper-files"}');
     }
   });
@@ -1029,7 +1034,7 @@ $(function() {            // main
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
   $("input[name='developerModeEnabled']").on("click", developerModeEnabled);
-  $("input[name='webserverTryGzipFirst']").on("click", webserverTryGzipFirst);
+  $("input[name='webUseFilesFromFirmware']").on("click", webUseFilesFromFirmware);
   //$("input[name='smart_aktiv']").on("click", smart_mtr);
   $("input[name='use_auth']").on("click", authDetails);
   $(".button-upgrade").on("click", doUpgrade);      // firmware update
