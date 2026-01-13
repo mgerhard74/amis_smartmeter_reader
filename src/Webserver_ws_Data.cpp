@@ -687,6 +687,7 @@ static void sendStatus(AsyncWebSocketClient *client)
         root[F("status_wifi_mac")] = WiFi.macAddress();
         root[F("status_wifi_channel")] = WiFi.channel();
         root[F("status_wifi_rssi")] = WiFi.RSSI();
+        root[F("status_wifi_bssid")] = WiFi.BSSIDstr();
     }
     IPAddress ipaddr = IPAddress(info.ip.addr);
     IPAddress gwaddr = IPAddress(info.gw.addr);
