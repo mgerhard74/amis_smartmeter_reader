@@ -6,9 +6,9 @@
 
 #include "Webserver_ws_Data.h"
 
+#include "Application.h"
 #include "config.h"
 #include "Exception.h"
-#include "FileBlob.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_BIT_WEBSSOCKET
 #include "Mqtt.h"
@@ -26,10 +26,12 @@
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
 static void sendStatus(AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
+static void wsSendRuntimeConfigAll(AsyncWebSocket *ws);
 static void clearHist();
 static bool EEPROMClear();
 
 extern bool doSerialHwTest;
+
 
 
 AsyncWebSocket *ws;
@@ -281,6 +283,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         wsSendFile("/config_general", client);
         wsSendFile("/config_wifi", client);
         wsSendFile("/config_mqtt", client);
+        wsSendRuntimeConfigAll(ws);
     } else if(strcmp(command, "energieWeek") == 0) {
         energieWeekUpdate();         // Wochentagfiles an Webclient senden
     } else if(strcmp(command, "energieMonth") == 0) {
@@ -397,26 +400,29 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
         EEPROMClear();
         Reboot.startReboot();
-    } else if (!strcmp(command, "dev-extract-webdeveloper-files")) {
-        // Delete all files contained in the image from filesystem and
-        // start recreation/extraction from image into filesystem
-        FileBlobs.remove(true);
-        FileBlobs.checkIsChanged();
-/*  } else if (!strcmp(command, "set-developer-mode")) {
+    } else if (!strcmp(command, "set-runtime-useFilesFromFirmware")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
-            Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
-        }
-*/
-    } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
-        // Delete all "unzipped" files in filesystem contained in the image
-        FileBlobs.removeNonZipped();
-    } else if (!strcmp(command, "set-webserverTryGzipFirst")) {
-        const char *onOff = root[F("value")].as<const char*>();
-        if (onOff) {
-            Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
-            Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
+            ApplicationRuntime.webUseFilesFromFirmware(strcmp(onOff, "on") == 0);
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        }
+    } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
+        // Remove use self uploaded and old/unused files from filesystem
+        const char *filenamesToDelete[] = {
+            "amis.css",
+            "chart.js",
+            "cust.js",
+            "index.html",
+            "jquery371slim.js",
+            "pure-min.css"
+        };
+        for (size_t i=0; i<std::size(filenamesToDelete); i++) {
+            String filename = "/" + String(filenamesToDelete[i]);
+            LittleFS.remove(filename);
+            filename += ".gz";
+            LittleFS.remove(filename);
+            filename += ".md5";
+            LittleFS.remove(filename);
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 #if (AMIS_DEVELOPER_MODE)
@@ -710,6 +716,18 @@ static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
     } else {
         LOG_EP("File '%s' not found", filename);
     }
+}
+
+static void wsSendRuntimeConfigAll(AsyncWebSocket *ws)
+{
+    // send the runtime-config to all clients
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &doc = jsonBuffer.createObject();
+    doc[F("command")] = F("config_runtime");
+    doc[F("webUseFilesFromFirmware")] = ApplicationRuntime.webUseFilesFromFirmware();
+    String buffer;
+    doc.printTo(buffer);
+    ws->textAll(buffer);
 }
 
 static bool EEPROMClear()

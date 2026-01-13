@@ -58,8 +58,7 @@ const char *defaultConfigGerneralJson = R"(
     "switch_url_on": "",
     "switch_url_off": "",
     "switch_intervall": 60,
-    "developerModeEnabled": false,
-    "webserverTryGzipFirst": true
+    "developerModeEnabled": false
 }
 )";
 #endif
