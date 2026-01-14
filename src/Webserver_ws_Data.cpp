@@ -406,6 +406,21 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             ApplicationRuntime.webUseFilesFromFirmware(strcmp(onOff, "on") == 0);
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
+    } else if (!strcmp(command, "set-loglevel")) {
+        // {"command":"set-loglevel", "module":5, "level":5} // THINGSPEAK
+        // {"command":"set-loglevel", "module":6, "level":5} // MQTT
+        // {"command":"set-loglevel", "module":11, "level":5} // WATCHDOGPING
+        // {"command":"set-loglevel", "module":10, "level":5} // WEBSOCKET
+        uint32_t level = LOGLEVEL_INFO;
+        uint32_t module = LOGMODULE_ALL;
+        if (root.containsKey(F("level"))) {
+            level = root[F("level")].as<uint32_t>();
+        }
+        if (root.containsKey(F("module"))) {
+            module = root[F("module")].as<uint32_t>();
+        }
+        Log.setLoglevel(level, module);
+        ws->text(client->id(), R"({"r":0,"m":"OK"})");
     } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
         // Remove use self uploaded and old/unused files from filesystem
         const char *filenamesToDelete[] = {
