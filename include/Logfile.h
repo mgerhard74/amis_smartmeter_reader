@@ -5,31 +5,31 @@
 #include <ESPAsyncWebServer.h>
 
 
-#define IFLOG_I()               ((Log.logMask & (LOGTYPE_BIT_INFO | LOGMODULE)) == (LOGTYPE_BIT_INFO | LOGMODULE))
+#define IFLOG_I()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_INFO))
 #define DOLOG_I(FORMAT, ...)    DOLOG(LOGTYPE_BIT_INFO, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define DOLOG_IP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_INFO, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define LOG_I(FORMAT, ...)      if (IFLOG_I()) { DOLOG_I(FORMAT, ##__VA_ARGS__); } ((void)(0))
 #define LOG_IP(FORMAT, ...)     if (IFLOG_I()) { DOLOG_IP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_W()               ((Log.logMask & (LOGTYPE_BIT_WARN | LOGMODULE)) == (LOGTYPE_BIT_WARN | LOGMODULE))
+#define IFLOG_W()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_WARN))
 #define DOLOG_W(FORMAT, ...)    DOLOG(LOGTYPE_BIT_WARN, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define DOLOG_WP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_WARN, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define LOG_W(FORMAT, ...)      if (IFLOG_W()) { DOLOG_W(FORMAT, ##__VA_ARGS__); } ((void)(0))
 #define LOG_WP(FORMAT, ...)     if (IFLOG_W()) { DOLOG_WP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_E()               ((Log.logMask & (LOGTYPE_BIT_ERROR | LOGMODULE)) == (LOGTYPE_BIT_ERROR | LOGMODULE))
+#define IFLOG_E()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_ERROR))
 #define DOLOG_E(FORMAT, ...)    DOLOG(LOGTYPE_BIT_ERROR, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define DOLOG_EP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_ERROR, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define LOG_E(FORMAT, ...)      if (IFLOG_E()) { DOLOG_E(FORMAT, ##__VA_ARGS__); } ((void)(0))
 #define LOG_EP(FORMAT, ...)     if (IFLOG_E()) { DOLOG_EP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_D()               ((Log.logMask & (LOGTYPE_BIT_DEBUG | LOGMODULE)) == (LOGTYPE_BIT_DEBUG | LOGMODULE))
+#define IFLOG_D()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_DEBUG))
 #define DOLOG_D(FORMAT, ...)    DOLOG(LOGTYPE_BIT_DEBUG, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define DOLOG_DP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_DEBUG, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define LOG_D(FORMAT, ...)      if (IFLOG_D()) { DOLOG_D(FORMAT, ##__VA_ARGS__); } ((void)(0))
 #define LOG_DP(FORMAT, ...)     if (IFLOG_D()) { DOLOG_DP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_V()               ((Log.logMask & (LOGTYPE_BIT_VERBOSE | LOGMODULE)) == (LOGTYPE_BIT_VERBOSE | LOGMODULE))
+#define IFLOG_V()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_VERBOSE))
 #define DOLOG_V(FORMAT, ...)    DOLOG(LOGTYPE_BIT_VERBOSE, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define DOLOG_VP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_VERBOSE, LOGMODULE, FORMAT, ##__VA_ARGS__)
 #define LOG_V(FORMAT, ...)      if (IFLOG_V()) { DOLOG_V(FORMAT, ##__VA_ARGS__); } ((void)(0))
@@ -41,22 +41,25 @@
 
 
 
+#define LOG_ENABLE_UNNEEDED_FUNCTIONS   0
+
 class LogfileClass {
 public:
     void init(const char *filename);
     void loop();
     void clear();
 
-    void setTypes(uint32_t types);
-    void enableType(uint32_t type);
-    void disableType(uint32_t type);
+    void setLogLevelBits(uint32_t loglevelbits, uint32_t module);
 
-    void setModules(uint32_t modules);
-    void enableModule(uint32_t module);
-    void disableModule(uint32_t module);
+#if (LOG_ENABLE_UNNEEDED_FUNCTIONS)
+    void enableLogLevelBits(uint32_t loglevelbits, uint32_t module);
+    void disableLogLevelBits(uint32_t loglevelbits, uint32_t module);
+#endif
 
-    void setLoglevel(uint32_t loglevel);
-    uint32_t getLoglevel();
+    void setLoglevel(uint32_t loglevel, uint32_t module);
+#if (LOG_ENABLE_UNNEEDED_FUNCTIONS)
+    uint32_t getLoglevel(uint32_t module);
+#endif
 
     uint32_t noOfEntries();
     uint32_t noOfPages(uint32_t entriesPerPage=DEFAULT_ENTRIES_PER_PAGE);
@@ -66,7 +69,7 @@ public:
 
     void remove(bool allPrevious=false);
 
-    uint32_t logMask;
+    uint32_t _logLevelBits[LOGMODULE_LAST+1]; // we need it public readable but we should not set it directly (so use _)
 
 private:
     void _prevFilename(unsigned int prevNo, char f[LFS_NAME_MAX]);

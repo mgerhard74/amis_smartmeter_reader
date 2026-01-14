@@ -18,7 +18,7 @@
 #include "Exception.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
 
 #include "Utils.h"
 

@@ -1,7 +1,7 @@
 #include "RebootAtMidnight.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_REBOOTATMIDNIGHT
+#define LOGMODULE   LOGMODULE_REBOOTATMIDNIGHT
 #include "Network.h"
 #include "Reboot.h"
 

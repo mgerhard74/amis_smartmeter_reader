@@ -6,7 +6,7 @@
 
 #include "config.h"
 #include "Log.h"
-#define LOGMODULE LOGMODULE_BIT_WEBSERVER
+#define LOGMODULE LOGMODULE_WEBSERVER
 
 void WebserverLoginClass::init(AsyncWebServer& server)
 {

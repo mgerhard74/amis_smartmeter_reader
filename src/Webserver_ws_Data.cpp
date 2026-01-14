@@ -10,7 +10,7 @@
 #include "config.h"
 #include "Exception.h"
 #include "Log.h"
-#define LOGMODULE LOGMODULE_BIT_WEBSSOCKET
+#define LOGMODULE LOGMODULE_WEBSSOCKET
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"

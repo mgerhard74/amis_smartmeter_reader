@@ -9,7 +9,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "Log.h"
-#define LOGMODULE LOGMODULE_BIT_UPDATE
+#define LOGMODULE LOGMODULE_UPDATE
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"

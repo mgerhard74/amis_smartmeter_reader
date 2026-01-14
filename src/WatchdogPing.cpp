@@ -8,7 +8,7 @@
 #include "WatchdogPing.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_WATCHDOGPING
+#define LOGMODULE   LOGMODULE_WATCHDOGPING
 #include "Network.h"
 #include "Reboot.h"
 

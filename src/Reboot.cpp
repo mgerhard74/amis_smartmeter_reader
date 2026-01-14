@@ -6,7 +6,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "RemoteOnOff.h"

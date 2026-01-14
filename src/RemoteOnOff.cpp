@@ -14,7 +14,7 @@
 #include "RemoteOnOff.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_REMOTEONOFF
+#define LOGMODULE   LOGMODULE_REMOTEONOFF
 #include "Network.h"
 
 #include <WiFiClient.h>

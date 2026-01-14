@@ -2,7 +2,7 @@
 #include "ThingSpeak.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_THINGSPEAK
+#define LOGMODULE   LOGMODULE_THINGSPEAK
 #include "Network.h"
 
 void ThingSpeakClass::init()

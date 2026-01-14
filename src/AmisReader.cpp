@@ -2,7 +2,7 @@
 
 #include "aes.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_AMISREADER
+#define LOGMODULE   LOGMODULE_AMISREADER
 #include "ModbusSmartmeterEmulation.h"
 #include "ShellySmartmeterEmulation.h"
 #include "RemoteOnOff.h"
