@@ -76,6 +76,22 @@ Current state:
 #define LOGLEVEL_VERBOSE                0x00000005
 
 
+#if 1
+// Helper for printing IP Numbers:
+// Using IP.toString().c_str() creates a temporary String() object
+// which could increase memory fragmentation.
+// So instead:
+//    printf("ip=%s netmask=%s", ipnumber.toString().c_str(), netmask.toString().c_str());
+// use
+//    printf("ip=" PRsIP " netmask=" PRsIP, PRIPVal(ipnumber), PRIPVal(netmask));
+#define PRsIP                           "%d.%d.%d.%d"
+#define PRIPVal(__IP)                   __IP[0], __IP[1], __IP[2], __IP[3]
+#else
+#define PRsIP                           "%s"
+#define PRIPVal(__IP)                   __IP.toString().c_str()
+#endif
+
+
 #include "Logfile.h"
 
 // vim:set ts=4 sw=4 et:

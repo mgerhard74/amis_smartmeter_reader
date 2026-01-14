@@ -56,8 +56,9 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);
-    LOG_IP("WiFi connected to %s channel %" PRId8 " with local IP %s", WiFi.SSID().c_str(), WiFi.channel(), WiFi.localIP().toString().c_str());
-    LOG_VP("mask=%s, gateway=%s", event.mask.toString().c_str(), event.gw.toString().c_str());
+
+    LOG_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    LOG_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
 
     startMDNSIfNeeded();
 

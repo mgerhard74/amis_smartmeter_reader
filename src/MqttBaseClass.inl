@@ -115,7 +115,7 @@ void MqttBaseClass::doConnect()
         _brokerByIPAddr = false;
     }
 
-    LOG_DP("MQTT init: %s:%" PRId16, _brokerIp.toString().c_str(), _config.mqtt_port);
+    LOG_DP("MQTT init: " PRsIP ":%" PRId16, PRIPVal(_brokerIp), _config.mqtt_port);
     _mqttClient.setServer(_brokerIp, _config.mqtt_port);
 
     if (!_config.mqtt_will.isEmpty()) {
@@ -134,9 +134,9 @@ void MqttBaseClass::doConnect()
     if (_brokerByIPAddr) {
         LOG_IP("Connecting to MQTT server %s:%" PRId16 , _config.mqtt_broker.c_str(), _config.mqtt_port);
     } else {
-        LOG_IP("Connecting to MQTT server %s:%" PRId16 " [%s:%d]",
+        LOG_IP("Connecting to MQTT server %s:%" PRId16 " [" PRsIP ":%d]",
                 _config.mqtt_broker.c_str(), _config.mqtt_port,
-                _brokerIp.toString().c_str(), _config.mqtt_port);
+                PRIPVal(_brokerIp), _config.mqtt_port);
     }
     _mqttClient.connect();
 }
@@ -188,7 +188,7 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
         reasonstr = F("Unknown");
         break;
     }
-    LOG_WP("Disconnected from MQTT server: %s", reasonstr.c_str());
+    LOG_WP("Disconnected from MQTT server " PRsIP ": %s", PRIPVal(_brokerIp), reasonstr.c_str());
 }
 
 
