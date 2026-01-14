@@ -10,9 +10,11 @@
 
 #define LOGMODULE   LOGMODULE_SYSTEM
 
+#define LOGFILE_LINE_LEN_MAX    768
+
 static bool fileSkipLines(File &f, uint32_t lines)
 {
-    size_t rlen;
+    size_t rlen, linelen = 0;
     char buffer[128];
 
     for (;lines != 0;) {
@@ -26,6 +28,11 @@ static bool fileSkipLines(File &f, uint32_t lines)
                 if (lines == 0) {
                     f.seek(-rlen + i, SeekCur);
                     break;
+                }
+                linelen = 0;
+            } else {
+                if (++linelen > LOGFILE_LINE_LEN_MAX) {
+                    return false;
                 }
             }
         }
@@ -386,7 +393,7 @@ uint32_t LogfileClass::noOfEntries()
     }
 
     // Count number of entries
-    size_t rlen;
+    size_t rlen, linelen = 0;
     char buffer[128];
     for(;;) {
         rlen = f.readBytes(buffer, std::size(buffer));
@@ -396,6 +403,15 @@ uint32_t LogfileClass::noOfEntries()
         for (size_t i=0; i<rlen; ) {
             if (buffer[i++] == '\n') {
                 _noOfEntriesInFile++;
+                linelen = 0;
+            } else {
+                if (++linelen > LOGFILE_LINE_LEN_MAX) {
+                    // something is wrong with this logfile - it could blast our memory
+                    // so: start a new logfile
+                    f.close();
+                    _startNewFile();
+                    return _noOfEntriesInFile;
+                }
             }
         }
 
