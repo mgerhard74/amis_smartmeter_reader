@@ -112,12 +112,12 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
     DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
     if (response.answer) {
         if (_counterFailed > 0) {
-            LOG_IP("Ping %u/%u to %s successful, RTT=%u", _counterFailed+1, restartAfterFailed, _targetIP.toString().c_str(), response.total_time);
+            LOG_IP("Ping %u/%u to " PRsIP " successful, RTT=%u", _counterFailed+1, restartAfterFailed, PRIPVal(_targetIP), response.total_time);
         }
         _counterFailed = 0;
     } else {
         ++_counterFailed;
-        LOG_WP("Ping %u/%u to %s failed!", _counterFailed, restartAfterFailed, _targetIP.toString().c_str());
+        LOG_WP("Ping %u/%u to " PRsIP " failed!", _counterFailed, restartAfterFailed, PRIPVal(_targetIP));
         if (_counterFailed >= restartAfterFailed) {
             LOG_EP("Max ping failures reached, initiating reboot ...");
             Reboot.startReboot();
