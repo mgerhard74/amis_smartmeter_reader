@@ -5,7 +5,7 @@
 #include "config.h"
 #include "DefaultConfigurations.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_MQTT
+#define LOGMODULE   LOGMODULE_MQTT
 #include "Network.h"
 #include "unused.h"
 

@@ -2,7 +2,7 @@
 #include <ArduinoJson.h>
 #include "proj.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_SHELLY
+#define LOGMODULE   LOGMODULE_SHELLY
 #include "unused.h"
 #include <functional>
 /*

@@ -8,7 +8,7 @@
 #include <stdarg.h>
 
 
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
 
 static bool fileSkipLines(File &f, uint32_t lines)
 {
@@ -201,7 +201,9 @@ void LogfileClass::remove(bool allPrevious)
 void LogfileClass::_reset()
 {
     requestedLogPageClients.clear();
-    logMask = LOGMODULE_BIT_ALL | LOGTYPE_BIT_ALL;
+    for (size_t i = 0; i < std::size(_logLevelBits); i++) {
+        _logLevelBits[i] = LOGTYPE_BIT_ALL;
+    }
     _size = 0xffffffff;
 }
 
@@ -237,31 +239,31 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
     }
 
     const char *modulName = "";
-    if (module & LOGMODULE_BIT_SETUP) {
+    if (module & LOGMODULE_SETUP) {
         modulName = "setup";
-    } else if (module & LOGMODULE_BIT_NETWORK) {
+    } else if (module & LOGMODULE_NETWORK) {
         modulName = "network";
-    } else if (module & LOGMODULE_BIT_AMISREADER) {
+    } else if (module & LOGMODULE_AMISREADER) {
         modulName = "reader";
-    } else if (module & LOGMODULE_BIT_MODBUS) {
+    } else if (module & LOGMODULE_MODBUS) {
         modulName = "modbus";
-    } else if (module & LOGMODULE_BIT_THINGSPEAK) {
+    } else if (module & LOGMODULE_THINGSPEAK) {
         modulName = "thingspeak";
-    } else if (module & LOGMODULE_BIT_MQTT) {
+    } else if (module & LOGMODULE_MQTT) {
         modulName = "mqtt";
-    } else if (module & LOGMODULE_BIT_SYSTEM) {
+    } else if (module & LOGMODULE_SYSTEM) {
         modulName = "system";
-    } else if (module & LOGMODULE_BIT_WEBSERVER) {
+    } else if (module & LOGMODULE_WEBSERVER) {
         modulName = "webserver";
-    } else if (module & LOGMODULE_BIT_UPDATE) {
+    } else if (module & LOGMODULE_UPDATE) {
         modulName = "update";
-    } else if (module & LOGMODULE_BIT_REBOOTATMIDNIGHT) {
+    } else if (module & LOGMODULE_REBOOTATMIDNIGHT) {
         modulName = "rebootAtMidnight";
-    } else if (module & LOGMODULE_BIT_WEBSSOCKET) {
+    } else if (module & LOGMODULE_WEBSSOCKET) {
         modulName = "websocket";
-    } else if (module & LOGMODULE_BIT_WATCHDOGPING) {
+    } else if (module & LOGMODULE_WATCHDOGPING) {
         modulName = "watchdogPing";
-    } else if (module & LOGMODULE_BIT_REMOTEONOFF) {
+    } else if (module & LOGMODULE_REMOTEONOFF) {
         modulName = "remoteOnOff";
     }
 
@@ -282,7 +284,7 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
     #include "unused.h"
     UNUSED_ARG(typeChar);
 
-    const char *t="";
+    const char *t = "";
     if (type & LOGTYPE_BIT_ERROR) {
         t = "ERROR";
     } else if (type & LOGTYPE_BIT_WARN) {
@@ -295,7 +297,7 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
         t = "INFO";
     }
 
-    char temp[128];
+    char temp[192];
     char* buffer = temp;
     size_t len;
     va_start(args, format);
@@ -319,10 +321,9 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
         va_end(args);
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
-    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","data":"","desc":"%s"})",
+    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","data":"","desc":"%s"})" "\n",
                 (unsigned int) millis(), t, modulName, timecode, buffer);
     va_end(args);
-    _size += f.write('\n');
 
     if (buffer != temp) {
         delete[] buffer;
@@ -455,68 +456,114 @@ void LogfileClass::_pageToEntries(uint32_t pagNo, uint32_t &entryFrom, uint32_t 
 }
 
 
-void LogfileClass::setTypes(uint32_t types)
+void LogfileClass::setLogLevelBits(uint32_t loglevelbits, uint32_t module)
 {
-    logMask &= (~LOGTYPE_BIT_ALL);
-    logMask |= (types & LOGTYPE_BIT_ALL);
-}
-void LogfileClass::enableType(uint32_t type)
-{
-    logMask |= (type & LOGTYPE_BIT_ALL);
-}
-void LogfileClass::disableType(uint32_t type)
-{
-    logMask &= (~(type & LOGTYPE_BIT_ALL));
-}
-void LogfileClass::setModules(uint32_t modules)
-{
-    logMask &= (~LOGMODULE_BIT_ALL);
-    logMask |= (modules & LOGMODULE_BIT_ALL);
-}
-void LogfileClass::enableModule(uint32_t module)
-{
-    logMask |= (module & LOGMODULE_BIT_ALL);
-}
-void LogfileClass::disableModule(uint32_t module)
-{
-    logMask &= (~(module & LOGMODULE_BIT_ALL));
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return;
+    }
+    for(; i < m; i++) {
+        _logLevelBits[i] = loglevelbits;
+    }
 }
 
-void LogfileClass::setLoglevel(uint32_t loglevel)
+#if (LOG_ENABLE_UNNEEDED_FUNCTIONS)
+void LogfileClass::enableLogLevelBits(uint32_t loglevelbits, uint32_t module)
 {
-    uint32_t logtypes = LOGTYPE_BIT_NONE;
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return;
+    }
+    for(; i < m; i++) {
+        _logLevelBits[i] |= loglevelbits;
+    }
+}
+void LogfileClass::disableLogLevelBits(uint32_t loglevelbits, uint32_t module)
+{
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return;
+    }
+    for(; i < m; i++) {
+        _logLevelBits[i] &= (~loglevelbits);
+    }
+}
+#endif
+
+void LogfileClass::setLoglevel(uint32_t loglevel, uint32_t module)
+{
+    uint32_t loglevelbits = LOGTYPE_BIT_NONE;
     if (loglevel >= LOGLEVEL_VERBOSE) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG | LOGTYPE_BIT_VERBOSE;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG | LOGTYPE_BIT_VERBOSE;
     } else if (loglevel >= LOGLEVEL_DEBUG) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG;
     } else if (loglevel >= LOGLEVEL_INFO) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO;
     } else if (loglevel >= LOGLEVEL_WARNING) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN;
     } else if (loglevel >= LOGLEVEL_ERROR) {
-        logtypes = LOGTYPE_BIT_ERROR;
+        loglevelbits = LOGTYPE_BIT_ERROR;
     }
-    setTypes(logtypes);
+    setLogLevelBits(loglevelbits, module);
 }
-uint32_t LogfileClass::getLoglevel()
+
+
+#if (LOG_ENABLE_UNNEEDED_FUNCTIONS)
+#define MAX(A,B) (((A)>(B)) ?(A) :(B))
+uint32_t LogfileClass::getLoglevel(uint32_t module)
 {
-    if (logMask & LOGTYPE_BIT_VERBOSE) {
-        return LOGLEVEL_VERBOSE;
+    uint32_t loglevel=LOGLEVEL_NONE;
+
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return loglevel;
+
     }
-    if (logMask & LOGTYPE_BIT_DEBUG) {
-        return LOGLEVEL_DEBUG;
+    for(; i < m; i++) {
+        if (_logLevelBits[module] & LOGTYPE_BIT_VERBOSE) {
+            loglevel = LOGLEVEL_VERBOSE;
+            return loglevel;
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_DEBUG) {
+            loglevel = MAX(loglevel, LOGLEVEL_DEBUG);
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_INFO) {
+            loglevel = MAX(loglevel, LOGLEVEL_INFO);
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_WARN) {
+            loglevel = MAX(loglevel, LOGLEVEL_WARNING);
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_ERROR) {
+            loglevel = MAX(loglevel, LOGLEVEL_ERROR);
+        }
     }
-    if (logMask & LOGTYPE_BIT_INFO) {
-        return LOGLEVEL_INFO;
-    }
-    if (logMask & LOGTYPE_BIT_WARN) {
-        return LOGLEVEL_WARNING;
-    }
-    if (logMask & LOGTYPE_BIT_ERROR) {
-        return LOGLEVEL_ERROR;
-    }
-    return LOGLEVEL_NONE;
+    return loglevel;
 }
+#endif
 
 
 LogfileClass Log;

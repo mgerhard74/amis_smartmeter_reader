@@ -1,7 +1,7 @@
 #include "ModbusSmartmeterEmulation.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_MODBUS
+#define LOGMODULE   LOGMODULE_MODBUS
 #include "Network.h"
 #include "SystemMonitor.h"
 #include "UA.h"

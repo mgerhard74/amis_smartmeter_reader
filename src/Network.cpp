@@ -8,7 +8,7 @@
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_NETWORK
+#define LOGMODULE   LOGMODULE_NETWORK
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "SystemMonitor.h"

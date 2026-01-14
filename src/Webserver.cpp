@@ -2,7 +2,7 @@
 
 #include "Application.h"
 #include "Log.h"
-#define LOGMODULE LOGMODULE_BIT_WEBSERVER
+#define LOGMODULE LOGMODULE_WEBSERVER
 #include "Utils.h"
 
 #include <LittleFS.h>

@@ -7,7 +7,7 @@
 #include "Application.h"
 #include "DefaultConfigurations.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "Network.h"
 #include "RebootAtMidnight.h"
@@ -183,9 +183,9 @@ void ConfigClass::loadConfigGeneral()
 void ConfigClass::applySettingsConfigGeneral()
 {
     if (Config.log_sys) {
-        Log.setLoglevel(LOGLEVEL_INFO);
+        Log.setLoglevel(LOGLEVEL_INFO, LOGMODULE_ALL);
     } else {
-        Log.setLoglevel(LOGLEVEL_NONE);
+        Log.setLoglevel(LOGLEVEL_NONE, LOGMODULE_ALL);
     }
 
     AmisReader.setKey(Config.amis_key);
