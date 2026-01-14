@@ -208,6 +208,32 @@ void LogfileClass::_reset()
 }
 
 
+static const char* _moduleNames[LOGMODULE_LAST+1] = {
+    "setup",
+    "network",
+    "reader",
+    "update",
+    "modbus",
+    "thingspeak",
+    "mqtt",
+    "system",
+    "webserver",
+    "rebootAtMidnight",
+    "websocket",
+    "watchdogPing",
+    "remoteOnOff"
+};
+const char *LogfileClass::_getModuleName(uint32_t module)
+{
+    if (module == LOGMODULE_ALL) {
+        return "ALL";
+    }
+    if (module >= std::size(_moduleNames)) {
+        return "UNDEFINED";
+    }
+    return _moduleNames[module];
+}
+
 extern char timecode[13];
 void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...)
 {
@@ -238,39 +264,11 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
         typeChar = 'I';
     }
 
-    const char *modulName = "";
-    if (module & LOGMODULE_SETUP) {
-        modulName = "setup";
-    } else if (module & LOGMODULE_NETWORK) {
-        modulName = "network";
-    } else if (module & LOGMODULE_AMISREADER) {
-        modulName = "reader";
-    } else if (module & LOGMODULE_MODBUS) {
-        modulName = "modbus";
-    } else if (module & LOGMODULE_THINGSPEAK) {
-        modulName = "thingspeak";
-    } else if (module & LOGMODULE_MQTT) {
-        modulName = "mqtt";
-    } else if (module & LOGMODULE_SYSTEM) {
-        modulName = "system";
-    } else if (module & LOGMODULE_WEBSERVER) {
-        modulName = "webserver";
-    } else if (module & LOGMODULE_UPDATE) {
-        modulName = "update";
-    } else if (module & LOGMODULE_REBOOTATMIDNIGHT) {
-        modulName = "rebootAtMidnight";
-    } else if (module & LOGMODULE_WEBSSOCKET) {
-        modulName = "websocket";
-    } else if (module & LOGMODULE_WATCHDOGPING) {
-        modulName = "watchdogPing";
-    } else if (module & LOGMODULE_REMOTEONOFF) {
-        modulName = "remoteOnOff";
-    }
 
 #if 0
 // neues Format
     // Type[IWEVD] Module[Name] millis() time() message
-    _size += f.printf("%c %s %lu %llu", typeChar, modulName, millis(), time(NULL));
+    _size += f.printf("%c %s %lu %llu", typeChar, _getModuleName(module), millis(), time(NULL));
     va_start(args, format);
     if (use_progmem) {
         _size += f.printf_P(format, args);
@@ -284,17 +282,17 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
     #include "unused.h"
     UNUSED_ARG(typeChar);
 
-    const char *t = "";
+    const char *typeStr = "";
     if (type & LOGTYPE_BIT_ERROR) {
-        t = "ERROR";
+        typeStr = "ERROR";
     } else if (type & LOGTYPE_BIT_WARN) {
-        t = "WARN";
+        typeStr = "WARN";
     } else if (type & LOGTYPE_BIT_DEBUG) {
-        t = "DEBUG";
+        typeStr = "DEBUG";
     } else if (type & LOGTYPE_BIT_VERBOSE) {
-        t = "VERBOSE";
+        typeStr = "VERBOSE";
     } else if (type & LOGTYPE_BIT_INFO) {
-        t = "INFO";
+        typeStr = "INFO";
     }
 
     char temp[192];
@@ -322,7 +320,7 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
     _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","data":"","desc":"%s"})" "\n",
-                (unsigned int) millis(), t, modulName, timecode, buffer);
+                (unsigned int) millis(), typeStr, _getModuleName(module), timecode, buffer);
     va_end(args);
 
     if (buffer != temp) {

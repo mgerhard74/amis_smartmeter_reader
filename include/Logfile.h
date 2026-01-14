@@ -76,7 +76,7 @@ private:
     void _reset();
     void _startNewFile();
     void _pageToEntries(uint32_t pagNo, uint32_t &entryFrom, uint32_t &entryTo, uint32_t entriesPerPage=DEFAULT_ENTRIES_PER_PAGE);
-
+    const char *_getModuleName(uint32_t module);
 
     char _filename[LFS_NAME_MAX]; // this includes already trailing '\0' --> so only 31 chars for filename
 
