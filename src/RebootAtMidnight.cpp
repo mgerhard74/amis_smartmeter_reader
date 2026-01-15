@@ -47,7 +47,7 @@ void RebootAtMidnightClass::adjustTicker(void)
         if (millis()/1000ul > 86400ul) {
             // Das Sytem läuft jetzt aber schon seit über 24 Stunden
             // Also auch in diesem Fall: rebooten!
-            DOLOG_IP("Starting reboot due runtime > 1 day ...");
+            DOLOG_IP("Starting reboot due runtime > 1 day.");
             Reboot.startReboot();
             return;
         }
@@ -73,7 +73,7 @@ void RebootAtMidnightClass::adjustTicker(void)
 
     _ticker.detach();
     _ticker.attach_scheduled(nextDayPlus5Sec - now, std::bind(&RebootAtMidnightClass::doReboot, this));
-    LOG_IP("Scheduling reboot in %llu seconds ...", nextDay - now);
+    LOG_IP("Scheduled reboot in %llu seconds.", nextDay - now);
 }
 
 void RebootAtMidnightClass::doReboot() {
