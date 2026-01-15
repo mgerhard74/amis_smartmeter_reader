@@ -190,6 +190,9 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     case(AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE):
         reasonstr = F("ESP8266_NOT_ENOUGH_SPACE");
         break;
+    case(AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT):
+        reasonstr = F("TLS_BAD_FINGERPRINT");
+        break;
     default:
         reasonstr = F("Unknown");
         break;
