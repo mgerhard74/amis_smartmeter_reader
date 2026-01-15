@@ -170,17 +170,19 @@ void Exception_DumpLastCrashToFile()
     EEPROM.begin(sizeof(exin));
     EEPROM.get(0, exin.version);
     if (!(exin.version & 0x80)) { // exin.version = 0x01 | 0x80 (dump available)
+        // No info in eeprom: Use Information from ESP.getResetInfoPtr()
         EEPROM.end();
-        return;
+        memset(&exin, 0, sizeof(exin));
+        memcpy(&rst_info, ESP.getResetInfoPtr(), sizeof(rst_info));
+    } else {
+        EEPROM.get(0, exin);
+        memcpy(&rst_info, &exin.rst_info, sizeof(rst_info)); // get aligned values
+
+        exin.version &= 0x7f;
+        EEPROM.begin(sizeof(exin.version));
+        EEPROM.put(0, exin.version); // write exin.version = 0x01 | (not available)
+        EEPROM.end();
     }
-
-    EEPROM.get(0, exin);
-    memcpy(&rst_info, &exin.rst_info, sizeof(rst_info)); // get aligned values
-
-    exin.version &= 0x7f;
-    EEPROM.begin(sizeof(exin.version));
-    EEPROM.put(0, exin.version); // write exin.version = 0x01 | (not available)
-    EEPROM.end();
 
     if (rst_info.reason == REASON_SOFT_RESTART || rst_info.reason == REASON_DEFAULT_RST) {
         // Skip dumping SoftwareRestart or PowerOn
