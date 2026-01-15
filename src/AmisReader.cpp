@@ -474,6 +474,7 @@ void AmisReaderClass::end()
 void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
+        LOG_DP("Initalizing reading serialnumber");
         _baudRateIdentifier = 0; _serialNumber[0] = 0;
 
         if (_readSerialNumberMode == disabled ) {
@@ -500,6 +501,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         // siehe AMIS TD-351x Benutzerhandbuch
         _serialReadBufferIdx = 0;
         clearSerialRx();
+        LOG_DP("Requesting serialnumber");
         serialWrite("/?!\r\n");
         // vor dem nächsten Senden muss zwischen 1500 und 2200ms gewartet werden
         // Übertragen der Gerätenummer dauert etwa 1200ms
@@ -537,6 +539,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
                 } else {
                     // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
                     _state = requestReaderSerial;
+                    LOG_WP("Serialnumber invalid response #1");
                 }
                 return;
             }
@@ -544,6 +547,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
             if (_serialReadBufferIdx >= 4 + 32 + 2) {
                 // das wäre eine ganze Serialnummer gewesen ... alles wegwerfen und nochmals probieren
                 _state = requestReaderSerial;
+                LOG_WP("Serialnumber invalid response #2");
             }
         }
     }
@@ -592,6 +596,7 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
 void AmisReaderClass::processStateCounters(const uint32_t msNow)
 {
     if (_state == initReadCounters) {
+        LOG_DP("Initalizing reading counter values");
         if (_serial) {
             _serial->begin(9600, SERIAL_8E1); /* Zählerdaten kommen angeblich mit 9600 8E1 */
             _serial->setTimeout(5);           // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
