@@ -183,7 +183,7 @@ void ConfigClass::loadConfigGeneral()
 void ConfigClass::applySettingsConfigGeneral()
 {
     if (Config.log_sys) {
-        Log.setLoglevel(LOGLEVEL_INFO, LOGMODULE_ALL);
+        Log.setLoglevel(CONFIG_LOG_DEFAULT_LEVEL, LOGMODULE_ALL);
     } else {
         Log.setLoglevel(LOGLEVEL_NONE, LOGMODULE_ALL);
     }

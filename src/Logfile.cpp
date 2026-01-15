@@ -202,7 +202,7 @@ void LogfileClass::_reset()
 {
     requestedLogPageClients.clear();
     for (size_t i = 0; i < std::size(_logLevelBits); i++) {
-        _logLevelBits[i] = LOGTYPE_BIT_ALL;
+        _logLevelBits[i] = CONFIG_LOG_DEFAULT_LEVEL;
     }
     _size = 0xffffffff;
 }
