@@ -62,7 +62,18 @@ void MqttReaderDataClass::init(MqttBaseClass &mqttBase)
     //root.prettyPrintTo(mqttBuffer);
     root.printTo(mqttBuffer);
     _mqttBase->publish(config.mqtt_pub.c_str(), config.mqtt_qos, config.mqtt_retain, mqttBuffer.c_str());
-    //DBGOUT("MQTT publish " + config.mqtt_pub + ": " + mqttBuffer+"\n");
+    /*
+    // TODO(StefanOberhumer): Fix the json logging problem
+    LOG_VP("publish(\"%s\", %" PRIu8 ", \"%s\", \"%s\")",
+                    config.mqtt_pub.c_str(), config.mqtt_qos,
+                    (config.mqtt_retain) ?"true" :"false",
+                    Utils::escapeJson(mqttBuffer.c_str(), -1, -1).c_str());
+    */
+    LOG_VP("publish(%s, %" PRIu8 ", %s, %s)",
+                    config.mqtt_pub.c_str(), config.mqtt_qos,
+                    (config.mqtt_retain) ?"true" :"false",
+                    Utils::escapeJson(mqttBuffer.c_str(), -1, -1).c_str());
+
 }
 
 /* vim:set ft=cpp ts=4 et: */
