@@ -8,6 +8,7 @@
 #define LOGMODULE   LOGMODULE_MQTT
 #include "Network.h"
 #include "unused.h"
+#include "Utils.h"
 
 #include <AsyncJson.h>
 #include <LittleFS.h>
