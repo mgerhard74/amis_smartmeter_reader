@@ -411,7 +411,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // {"command":"set-loglevel", "module":6, "level":5} // MQTT
         // {"command":"set-loglevel", "module":11, "level":5} // WATCHDOGPING
         // {"command":"set-loglevel", "module":10, "level":5} // WEBSOCKET
-        uint32_t level = LOGLEVEL_INFO;
+        uint32_t level = CONFIG_LOG_DEFAULT_LEVEL;
         uint32_t module = LOGMODULE_ALL;
         if (root.containsKey(F("level"))) {
             level = root[F("level")].as<uint32_t>();

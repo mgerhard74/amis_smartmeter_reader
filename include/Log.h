@@ -76,6 +76,10 @@ Current state:
 #define LOGLEVEL_VERBOSE                0x00000005
 
 
+#ifndef CONFIG_LOG_DEFAULT_LEVEL
+#define CONFIG_LOG_DEFAULT_LEVEL    LOGLEVEL_INFO
+#endif
+
 #if 1
 // Helper for printing IP Numbers:
 // Using IP.toString().c_str() creates a temporary String() object

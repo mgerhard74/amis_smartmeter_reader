@@ -101,7 +101,7 @@ void setup() {
 
     // Init logging
     Log.init("eventlog.json");
-    Log.setLoglevel(LOGLEVEL_INFO, LOGMODULE_ALL);
+    Log.setLoglevel(CONFIG_LOG_DEFAULT_LEVEL, LOGMODULE_ALL);
 
     // Log some booting information
     DOLOG_IP("System starting...");
