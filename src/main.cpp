@@ -110,7 +110,8 @@ void setup() {
     DOLOG_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
     DOLOG_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
     DOLOG_IP("  PIO environment " PIOENV);
-    DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
+    //DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
+    DOLOG_IP("  Reset info %s", ESP.getResetInfo().c_str());
 
     // Sichern des letzten Crashes
     Exception_DumpLastCrashToFile();
