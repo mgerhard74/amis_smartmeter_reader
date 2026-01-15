@@ -613,6 +613,7 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 
     buffer = "";
     array.printTo(buffer);
+    jsonBuffer.clear();
     buffer = "{\"stations\":" + buffer + "}";
 
     // If we have a new Wifi-Scan-Result: Publish to *ALL* clients
@@ -718,6 +719,7 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     String buffer;
     root.printTo(buffer);
+    jsonBuffer.clear();
     client->text(buffer);
     SYSTEMMONITOR_STAT();
 }
@@ -742,6 +744,7 @@ static void wsSendRuntimeConfigAll(AsyncWebSocket *ws)
     doc[F("webUseFilesFromFirmware")] = ApplicationRuntime.webUseFilesFromFirmware();
     String buffer;
     doc.printTo(buffer);
+    jsonBuffer.clear();
     ws->textAll(buffer);
 }
 

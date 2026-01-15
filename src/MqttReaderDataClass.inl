@@ -61,6 +61,7 @@ void MqttReaderDataClass::init(MqttBaseClass &mqttBase)
     String mqttBuffer;
     //root.prettyPrintTo(mqttBuffer);
     root.printTo(mqttBuffer);
+    jsonBuffer.clear();
     _mqttBase->publish(config.mqtt_pub.c_str(), config.mqtt_qos, config.mqtt_retain, mqttBuffer.c_str());
     /*
     // TODO(StefanOberhumer): Fix the json logging problem
