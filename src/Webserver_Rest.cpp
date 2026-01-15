@@ -21,7 +21,7 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         return;
     }
 
-    AsyncResponseStream *response = request->beginResponseStream(F("application/json;charset=UTF-8"));
+    AsyncResponseStream *response = request->beginResponseStream(F("application/json; charset=utf-8"));
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
 
