@@ -58,11 +58,12 @@ void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
 
     if (!_mqttClient.connected()) {
-        LOG_WP("MQTT publishTickerCb() but not connected!");
+        LOG_WP("publishTickerCb() but not connected!");
         return; // _actionTicker will be armed in onConnect()
     }
 
     if (valid == 5 && first_frame == 1) {
+        LOG_DP("Publishing reader data");
         _mqttReaderData.publish();
         _actionTicker.once_scheduled(_config.mqtt_keep, std::bind(&MqttBaseClass::publishTickerCb, this));
     } else {
@@ -83,7 +84,7 @@ void MqttBaseClass::onConnect(bool sessionPresent)
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
-    LOG_IP("Connected to MQTT server");
+    LOG_IP("Connected to server " PRsIP ":%" PRIu16, PRIPVal(_brokerIp), _config.mqtt_port);
 
     // Für HA melden wir uns mal "Online" und "verbreiten" alle unsere Sensoren
     if (_config.mqtt_ha_discovery) {
@@ -120,26 +121,26 @@ void MqttBaseClass::doConnect()
         _brokerByIPAddr = false;
     }
 
-    LOG_DP("MQTT init: " PRsIP ":%" PRId16, PRIPVal(_brokerIp), _config.mqtt_port);
+    LOG_DP("setServer: " PRsIP ":%" PRIu16, PRIPVal(_brokerIp), _config.mqtt_port);
     _mqttClient.setServer(_brokerIp, _config.mqtt_port);
 
     if (!_config.mqtt_will.isEmpty()) {
         _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
-        LOG_DP("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        LOG_DP("setWill: %s %u %u %s", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
     }
     if (!_config.mqtt_user.isEmpty()) {
         _mqttClient.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
-        LOG_DP("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        LOG_VP("user: '%s' password: '%s'", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
     if (!_config.mqtt_client_id.isEmpty()) {
         _mqttClient.setClientId(_config.mqtt_client_id.c_str());
-        LOG_DP("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
+        LOG_DP("setClientId: %s", _config.mqtt_client_id.c_str());
     }
 
     if (_brokerByIPAddr) {
-        LOG_IP("Connecting to MQTT server %s:%" PRId16 , _config.mqtt_broker.c_str(), _config.mqtt_port);
+        LOG_DP("Connecting to server %s:%" PRIu16 "...", _config.mqtt_broker.c_str(), _config.mqtt_port);
     } else {
-        LOG_IP("Connecting to MQTT server %s:%" PRId16 " [" PRsIP ":%d]",
+        LOG_DP("Connecting to server %s:%" PRIu16 " [" PRsIP ":%d]...",
                 _config.mqtt_broker.c_str(), _config.mqtt_port,
                 PRIPVal(_brokerIp), _config.mqtt_port);
     }
@@ -193,7 +194,7 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
         reasonstr = F("Unknown");
         break;
     }
-    LOG_WP("Disconnected from MQTT server " PRsIP ": %s", PRIPVal(_brokerIp), reasonstr.c_str());
+    LOG_WP("Disconnected from server " PRsIP ":%" PRIu16 " reason=%s", PRIPVal(_brokerIp), _config.mqtt_port, reasonstr.c_str());
 }
 
 
