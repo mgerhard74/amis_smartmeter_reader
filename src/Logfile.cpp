@@ -275,7 +275,8 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
 #if 0
 // neues Format
     // Type[IWEVD] Module[Name] millis() time() message
-    _size += f.printf("%c %s %lu %llu", typeChar, _getModuleName(module), millis(), time(NULL));
+    // [18:04:50.591] V (7493926) temperature: Raw temperature value: 103
+    _size += f.printf("%llu %c (%lu) %s: %s", time(NULL), typeChar, _getModuleName(module), millis(), "daten");
     va_start(args, format);
     if (use_progmem) {
         _size += f.printf_P(format, args);
@@ -428,7 +429,7 @@ bool LogfileClass::websocketRequestPage(AsyncWebSocket *webSocket, uint32_t clie
         LOG_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
         return false;
     }
-    LOG_VP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
+    LOG_DP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
     _requestedLogPageClient_t newRequest;
     newRequest.webSocket = webSocket;
     newRequest.clientId = clientId;
@@ -473,6 +474,9 @@ void LogfileClass::_pageToEntries(uint32_t pagNo, uint32_t &entryFrom, uint32_t 
 void LogfileClass::setLogLevelBits(uint32_t loglevelbits, uint32_t module)
 {
     size_t i, m;
+
+    LOG_DP("Called setLogLevelBits(0x%02x, 0x%02x[=%s]);", loglevelbits, module, _getModuleName(module));
+
     if (module == LOGMODULE_ALL) {
         i = 0;
         m = std::size(_logLevelBits);
