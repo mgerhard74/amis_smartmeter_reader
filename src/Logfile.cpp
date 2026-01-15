@@ -327,7 +327,7 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
         va_end(args);
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
-    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","data":"","desc":"%s"})" "\n",
+    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","desc":"%s"})" "\n",
                 (unsigned int) millis(), typeStr, _getModuleName(module), timecode, buffer);
     va_end(args);
 
