@@ -1,6 +1,7 @@
 #pragma once
 
 #include <time.h>
+#include <WString.h>
 
 #define UTILS_IS_VALID_YEAR(YEAR) (((YEAR) >= 2025) && ((YEAR) < 2040))
 
@@ -16,6 +17,8 @@ class Utils {
         static bool MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata);
         static uint8_t hexchar2Num(const char v);
         static int getContext(void);
+
+        static String escapeJson(const char *str, size_t strlen/*=0xffffffff*/, size_t maxlen/*=0xffffffff*/);
 };
 
 /* vim:set ts=4 et: */
