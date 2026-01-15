@@ -107,11 +107,16 @@ void MqttBaseClass::doConnect()
         // So we set timeout to 1000ms here (which should be enough for DNS lookup / also 1000ms used in HttpClient)
         // If the FQN is a "local" name, it seems, this does not work proper on the 8266
 
-        if (!WiFi.hostByName(_config.mqtt_broker.c_str(), _brokerIp, 1000) || !_brokerIp.isSet()) {
+        IPAddress ip;
+        if (!WiFi.hostByName(_config.mqtt_broker.c_str(), ip, 1000) || !ip.isSet()) {
             LOG_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
             _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
             return;
         }
+        _brokerIp[0] = ip[0];
+        _brokerIp[1] = ip[1];
+        _brokerIp[2] = ip[2];
+        _brokerIp[3] = ip[3];
         _brokerByIPAddr = false;
     }
 
@@ -301,9 +306,13 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
         config.mqtt_port = 1883;
     }
 
-    _brokerIp = IPAddress();
-    _brokerIp.fromString(config.mqtt_broker.c_str());
-    _brokerByIPAddr = _brokerIp.isSet();
+    IPAddress ip;
+    ip.fromString(config.mqtt_broker);
+    _brokerIp[0] = ip[0];
+    _brokerIp[1] = ip[1];
+    _brokerIp[2] = ip[2];
+    _brokerIp[3] = ip[3];
+    _brokerByIPAddr = ip.isSet();
 
     return true;
 }
