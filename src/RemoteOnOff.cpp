@@ -58,9 +58,8 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     httpResultCode = http.GET();
     http.end();
     _lastSentStateMs = millis();
-    if (httpResultCode == HTTP_CODE_OK || !_honorHttpResult) {
+    if (!_honorHttpResult || httpResultCode == HTTP_CODE_OK) {
         _lastSentState = newState;
-
     } else {
         // Failure
         _lastSentStateMs += 5000u - _switchIntervalMs; // Try again in 5 secs
