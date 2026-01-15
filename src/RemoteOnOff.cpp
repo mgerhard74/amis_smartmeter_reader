@@ -53,7 +53,8 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     LOG_DP("Sending http get request: %s", url.c_str());
     http.begin(client, url);
     http.setReuse(false);
-    //http.setTimeout(4000);
+    // Do not block the ESP too long! ... DefaultTimeout = 5000 (see HTTPClient::_tcpTimeout)
+    http.setTimeout(3500);
     httpResultCode = http.GET();
     http.end();
     _lastSentStateMs = millis();
