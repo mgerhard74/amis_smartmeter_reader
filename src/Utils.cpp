@@ -37,6 +37,29 @@ void Utils::init()
 }
 
 
+String Utils::escapeJson(const char *str, size_t strlen, size_t maxlen) {
+    String escaped = "";
+    if (str) {
+        size_t m = 0;
+        for (size_t i = 0; str[i] && i < strlen && m < maxlen; i++) {
+            char c = str[i];
+            m += 2;
+            if (c == '"') escaped += "\\\"";
+            else if (c == '\\') escaped += "\\\\";
+            else if (c == '\b') escaped += "\\b";
+            else if (c == '\f') escaped += "\\f";
+            else if (c == '\n') escaped += "\\n";
+            else if (c == '\r') escaped += "\\r";
+            else if (c == '\t') escaped += "\\t";
+            else { escaped += c; m--; }
+        }
+    } else {
+        escaped = F("<nullptr>");
+    }
+    return escaped;
+}
+
+
 /* getcontext: system or user determined based on stackpointer value */
 int Utils::getContext(void)
 {
