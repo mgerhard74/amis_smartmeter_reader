@@ -49,9 +49,9 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     int httpResultCode;
     HTTPClient http;
     WiFiClient client;
-    String *url = (newState == on) ?&_urlOn :&_urlOff;
-    LOG_DP("Sending http get request: %s", *url->c_str());
-    http.begin(client, *url);
+    const String &url = (newState == on) ?_urlOn :_urlOff;
+    LOG_DP("Sending http get request: %s", url.c_str());
+    http.begin(client, url);
     http.setReuse(false);
     //http.setTimeout(4000);
     httpResultCode = http.GET();
