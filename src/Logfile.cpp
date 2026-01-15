@@ -129,6 +129,7 @@ void LogfileClass::loop()
 
     String buffer;
     root.printTo(buffer);
+    jsonBuffer.clear();
     if (!request.webSocket->text(request.clientId, buffer)) {
         LOG_EP("Could not send logfile via websocket.");
     }

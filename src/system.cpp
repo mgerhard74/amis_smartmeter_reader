@@ -83,6 +83,7 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
   }
   String buffer;
   root.printTo(buffer);
+  jsonBuffer.clear();
   ws->textAll(buffer);
 }
 
@@ -104,6 +105,7 @@ void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients se
 
   String buffer;
   root.printTo(buffer);
+  jsonBuffer.clear();
   ws->textAll(buffer);
 }
 

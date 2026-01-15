@@ -61,6 +61,7 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         //root.prettyPrintTo(*response);
     }
     root.printTo(*response);
+    jsonBuffer.clear();
     request->send(response);
 }
 

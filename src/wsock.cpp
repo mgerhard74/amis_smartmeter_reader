@@ -15,6 +15,7 @@ void sendZDataWait() {
     //  doc["things_up"] = ThingSpeak.getLastResult();
     String buffer;
     doc.printTo(buffer);
+    jsonBuffer.clear();
     ws->textAll(buffer);
 }
 
@@ -38,6 +39,7 @@ void sendZData() {
 
     String buffer;
     doc.printTo(buffer);
+    jsonBuffer.clear();
     ws->textAll(buffer);
 }
 
