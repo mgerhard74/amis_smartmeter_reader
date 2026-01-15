@@ -16,7 +16,6 @@
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "Webserver.h"
-#include "unused.h"
 #include "Utils.h"
 
 #include <ArduinoJson.h>
@@ -99,8 +98,6 @@ void WebserverWsDataClass::sendDataTaskCb()
 
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
-    UNUSED_ARG(server);
-
     if(type == WS_EVT_ERROR) {
         LOG_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
@@ -182,12 +179,26 @@ static void clearHist() {
 }
 
 void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength) {
-    UNUSED_ARG(tempObjectLength);
-
+    if (!tempObjectLength) {
+        return;
+    }
+    //LOG_EP("Websock %d", (int)tempObjectLength);
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {
-        DBGOUT(F("[ WARN ] Couldn't parse WebSocket message"));
+        /*
+        TODO(anyone): sending
+        {"comm
+
+        and":"set-loglevel", "module":10, "level":5}
+
+        raises an exception
+
+        if (root == JsonObject::invalid()) { ... does not help as JsonObject::invalid().sucess() returns false
+        */
+        LOG_EP("Parsing failed: message[%u]='%s'",
+                            tempObjectLength,
+                            Utils::escapeJson((char *)(client->_tempObject), tempObjectLength, 64).c_str());
         return;
     }
     // Web Browser sends some commands, check which command is given
@@ -200,7 +211,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     }
 
     // Check whatever the command is and act accordingly
-    LOG_VP("websocket command: '%s'", command);
+    LOG_DP("websocket command: '%s'", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
