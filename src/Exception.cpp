@@ -308,40 +308,58 @@ void Exception_Raise(unsigned int no) {
     if (no < 1 || no > 7) {
         return;
     }
-    // Set 115200Bd as writing dump to serial (possible with 300Bd) can take too long (Hardware WDT)!
-    Serial.begin(115200, SERIAL_8N1);
+
+    //Set 115200Bd as writing dump to serial (possible with 300Bd) can take too long (Hardware WDT)!
+    //Serial.begin(115200, SERIAL_8N1);
 
     if (no == 1) {
-        LOG_DP("Divide by 0");
+        LOG_EP("Divide by 0");
         _nullValue[1] = 1 / _nullValue[0];
-        LOG_DP("Divide by 0 done");
+        LOG_EP("Divide by 0 done");
     } else if (no == 2) {
-        LOG_DP("Read nullptr");
+        LOG_EP("Read nullptr");
         _nullValue[0] = *(uint32_t*)(_nullValue[0]);
-        LOG_DP("Read nullptr done");
+        LOG_EP("Read nullptr done");
     } else if (no == 3) {
-        LOG_DP("Write nullptr");
+        LOG_EP("Write nullptr");
         *(char *)_nullValue[0] = 0;
-        LOG_DP("Write nullptr done");
+        LOG_EP("Write nullptr done");
     } else if (no == 4) {
         // TODO(StefanOberhumer): Exception gets not raised ... check why
-        LOG_DP("Unaligned read access");
-        uintptr_t p = (uintptr_t)&_nullValue[0];
-        uint32_t v = *(uint32_t*)(p+1);
-        Serial.printf("p=%08x\r\n", p+1);
-        _nullValue[1] = v;
-        Serial.printf("v=%08x\r\n", v);
-        LOG_DP("Unaligned read access done");
+        LOG_EP("Unaligned read access uint32_t");
+        uintptr_t pu32 = (uintptr_t)&_nullValue[0];
+        uint32_t u32 = *(uint32_t*)(pu32+1);
+        Serial.printf("pu32=%08x\r\n", pu32+1);
+        _nullValue[1] = u32;
+        Serial.printf("u32=%08x\r\n", u32);
+        LOG_EP("Unaligned read access uint32_t done");
+
+        LOG_EP("Unaligned read access float");
+        uintptr_t pf = (uintptr_t)&_nullValue[0];
+        float f = *(uint32_t*)(pf+1);
+        Serial.printf("pf=%08x\r\n", pf+1);
+        _nullValue[1] = (uint32_t) f;
+        Serial.printf("f=%f\r\n", f);
+        LOG_EP("Unaligned read access float done");
+
     } else if (no == 5) {
         // TODO(StefanOberhumer): Exception gets not raised ... check why
-        LOG_DP("Unaligned write access");
-        uintptr_t p = (uintptr_t)&_nullValue[0];
-        Serial.printf("p=%08x\r\n", p+1);
-        *(uint32_t*)(p+1) = 0xa1b2c3d4;
+        LOG_EP("Unaligned write access uint32_t");
+        uintptr_t pu32 = (uintptr_t)&_nullValue[0];
+        Serial.printf("pu32=%08x\r\n", pu32+1);
+        *(uint32_t*)(pu32+1) = 0xa1b2c3d4;
         Serial.printf("value=%08x\r\n", _nullValue[1]);
-        LOG_DP("Unaligned write access done");
+        LOG_EP("Unaligned write access done uint32_t");
+
+        LOG_EP("Unaligned write access float");
+        uintptr_t pf = (uintptr_t)&_nullValue[0];
+        Serial.printf("p=%08x\r\n", pf+1);
+        *(float*)(pf+1) = 0xa1b2c3d4;
+        Serial.printf("value=%08x\r\n", _nullValue[1]);
+        LOG_EP("Unaligned write access done float");
+
     } else if (no == 6) {
-        LOG_DP("Hardware WDT ... wait");
+        LOG_EP("Hardware WDT ... wait");
         ESP.wdtDisable();
         for(;;)
         {
@@ -353,7 +371,7 @@ void Exception_Raise(unsigned int no) {
           // Nothing will be saved in EEPROM for the hardware wdt
         }
     } else if (no == 7) {
-        LOG_DP("Software WDT ... wait");
+        LOG_EP("Software WDT ... wait");
         for(;;)
         {
           // stay in an infinite loop doing nothing
