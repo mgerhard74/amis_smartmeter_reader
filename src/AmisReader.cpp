@@ -527,6 +527,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
                     crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
                     *crlf = 0;
                     const char *serialNr = (const char *)_serialReadBuffer+5;
+                    // TODO(StefanOberhumer): Use strlcpy
                     strncpy(_serialNumber, serialNr, std::min(size_t(AMISREADER_MAX_SERIALNUMER), strlen(serialNr)));
                     _serialNumber[sizeof(_serialNumber)-1] = 0;
 
@@ -544,7 +545,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
                 return;
             }
 
-            if (_serialReadBufferIdx >= 4 + 32 + 2) {
+            if (_serialReadBufferIdx >= 4 + AMISREADER_MAX_SERIALNUMER + 2) {
                 // das wäre eine ganze Serialnummer gewesen ... alles wegwerfen und nochmals probieren
                 _state = requestReaderSerial;
                 LOG_WP("Serialnumber invalid response #2");
@@ -626,7 +627,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     //MsgOut.writeTimestamp();
                     //MsgOut.println("Received SND_NKE");
                     LOG_DP("Received SND_NKE");
-                    serialWrite(0xe5);
+                    serialWrite(0xe5); // send ACK
                     for(size_t i=5; i<_serialReadBufferIdx; i++) {
                         _serialReadBuffer[i-5] = _serialReadBuffer[i];
                     }
