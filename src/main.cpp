@@ -104,14 +104,14 @@ void setup() {
     Log.setLoglevel(CONFIG_LOG_DEFAULT_LEVEL, LOGMODULE_ALL);
 
     // Log some booting information
-    DOLOG_IP("System starting...");
-    DOLOG_IP("  " APP_NAME " Version " APP_VERSION_STR);
-    DOLOG_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
-    DOLOG_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
-    DOLOG_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
-    DOLOG_IP("  PIO environment " PIOENV);
+    LOG_PRINTF_IP("System starting...");
+    LOG_PRINTF_IP("  " APP_NAME " Version " APP_VERSION_STR);
+    LOG_PRINTF_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
+    LOG_PRINTF_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
+    LOG_PRINTF_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
+    LOG_PRINTF_IP("  PIO environment " PIOENV);
     //DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
-    DOLOG_IP("  Reset info %s", ESP.getResetInfo().c_str());
+    LOG_PRINTF_IP("  Reset info %s", ESP.getResetInfo().c_str());
 
     // Sichern des letzten Crashes
     Exception_DumpLastCrashToFile();
@@ -168,7 +168,7 @@ void setup() {
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
-        LOG_DP("ModbusSmartmeterEmulation enabled");
+        LOGF_DP("ModbusSmartmeterEmulation enabled");
     }
 
     // Shelly Smart Meter Emulator
@@ -184,7 +184,7 @@ void setup() {
     WatchdogPing.config(networkConfigWifi.pingrestart_ip, networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
-        LOG_DP("WatchdogPing enabled");
+        LOGF_DP("WatchdogPing enabled");
     }
 
     // Netzwerksteckdose (On/Off via Netzwerk)
@@ -203,14 +203,14 @@ void setup() {
     RebootAtMidnight.config();
     if (Config.reboot0) {
         RebootAtMidnight.enable();
-        LOG_DP("RebootAtMidnight enabled");
+        LOGF_DP("RebootAtMidnight enabled");
     }
 
     secTicker.attach_scheduled(1, secTick);
 
     SYSTEMMONITOR_STAT();
 
-    LOG_IP("System setup completed, running");
+    LOGF_IP("System setup completed, running");
 }
 
 void loop() {

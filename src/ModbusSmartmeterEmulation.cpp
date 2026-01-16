@@ -258,7 +258,7 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
 void ModbusSmartmeterEmulationClass::clientOnClient(void* arg, AsyncClient* client)
 {
     UNUSED_ARG(arg);
-    LOG_VP("New client has been connected to server, ip: " PRsIP, PRIPVal(client->remoteIP()));
+    LOGF_VP("New client has been connected to server, ip: " PRsIP, PRIPVal(client->remoteIP()));
     if (_clientsConnectedCnt++ == 0) {
         // First client connected so prepare internal Modbus register buffer with our actual values
         setCurrentValues(_currentValues.dataAreValid,
@@ -317,7 +317,7 @@ void ModbusSmartmeterEmulationClass::disable(void)
 void ModbusSmartmeterEmulationClass::clientOnError(void* arg, AsyncClient* client, int8_t error)
 {
     UNUSED_ARG(arg);
-    LOG_VP("Connection error %s from client " PRsIP, client->errorToString(error), PRIPVal(client->remoteIP()));
+    LOGF_VP("Connection error %s from client " PRsIP, client->errorToString(error), PRIPVal(client->remoteIP()));
 }
 
 void ModbusSmartmeterEmulationClass::clientOnDisconnect(void* arg, AsyncClient* client)
@@ -326,20 +326,20 @@ void ModbusSmartmeterEmulationClass::clientOnDisconnect(void* arg, AsyncClient* 
     if (_clientsConnectedCnt) {
         _clientsConnectedCnt--;
     }
-    LOG_VP("Client " PRsIP " disconnected", PRIPVal(client->remoteIP()));
+    LOGF_VP("Client " PRsIP " disconnected", PRIPVal(client->remoteIP()));
 }
 
 void ModbusSmartmeterEmulationClass::clientOnTimeOut(void* arg, AsyncClient* client, uint32_t time)
 {
     UNUSED_ARG(arg);
     UNUSED_ARG(time);
-    LOG_VP("Client ACK timeout ip:" PRsIP, PRIPVal(client->remoteIP()));
+    LOGF_VP("Client ACK timeout ip:" PRsIP, PRIPVal(client->remoteIP()));
 }
 
 void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client, void *data, size_t len)
 {
     UNUSED_ARG(arg);
-    LOG_VP("Client " PRsIP " requests data", PRIPVal(client->remoteIP()));
+    LOGF_VP("Client " PRsIP " requests data", PRIPVal(client->remoteIP()));
     if (!_currentValues.dataAreValid) {
         // nur beantworten wenn gültige Zählerdaten vorhanden
         client->close(false);
@@ -391,7 +391,7 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
 
     // Logging des headers
     const uint8_t * header = (const uint8_t*) data;
-    LOG_DP("MBAP Header(%d):"      // 14B + %d
+    LOGF_DP("MBAP Header(%d):"      // 14B + %d
             " %02x %02x %02x %02x"  // 4*3B
             " %02x %02x %02x %02x"  // 4*3B
             " %02x %02x %02x %02x", // 4*3B + 1B

@@ -107,14 +107,14 @@ static void setTime(AmisReaderNumResult_t &result) {
     ti.tv_sec = mktime(&result.time);
     tv_sec_old = time(NULL);
     if (ti.tv_sec == tv_sec_old) {
-        LOG_DP("Time already in sync");
+        LOGF_DP("Time already in sync");
         return; // skip if we're already in sync!
     }
     // Transfer of enryptedMBUSTelegram_SND_UD (101 bytes) needs ~105ms at 9600 8N1
     ti.tv_usec = 105000;
     settimeofday(&ti, NULL);
 
-    LOG_IP("Time synchronized. (ts-old=%llu, ts-new=%llu, millis=%u)", tv_sec_old, ti.tv_sec, millis());
+    LOGF_IP("Time synchronized. (ts-old=%llu, ts-new=%llu, millis=%u)", tv_sec_old, ti.tv_sec, millis());
 }
 
 int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)
@@ -474,7 +474,7 @@ void AmisReaderClass::end()
 void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
-        LOG_DP("Initalizing reading serialnumber");
+        LOGF_DP("Initalizing reading serialnumber");
         _baudRateIdentifier = 0; _serialNumber[0] = 0;
 
         if (_readSerialNumberMode == disabled ) {
@@ -501,7 +501,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         // siehe AMIS TD-351x Benutzerhandbuch
         _serialReadBufferIdx = 0;
         clearSerialRx();
-        LOG_DP("Requesting serialnumber");
+        LOGF_DP("Requesting serialnumber");
         serialWrite("/?!\r\n");
         // vor dem nächsten Senden muss zwischen 1500 und 2200ms gewartet werden
         // Übertragen der Gerätenummer dauert etwa 1200ms
@@ -534,13 +534,13 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
                     _state = initReadCounters;
                     _stateLastSetMs = msNow;
                     _stateErrorCnt = 0;
-                    LOG_IP("Serialnumber %s found", _serialNumber);
+                    LOGF_IP("Serialnumber %s found", _serialNumber);
 
                     //serialWrite("\x06" "060\r\n");
                 } else {
                     // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
                     _state = requestReaderSerial;
-                    LOG_WP("Serialnumber invalid response #1");
+                    LOGF_WP("Serialnumber invalid response #1");
                 }
                 return;
             }
@@ -548,7 +548,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
             if (_serialReadBufferIdx >= 4 + AMISREADER_MAX_SERIALNUMER + 2) {
                 // das wäre eine ganze Serialnummer gewesen ... alles wegwerfen und nochmals probieren
                 _state = requestReaderSerial;
-                LOG_WP("Serialnumber invalid response #2");
+                LOGF_WP("Serialnumber invalid response #2");
             }
         }
     }
@@ -597,7 +597,7 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
 void AmisReaderClass::processStateCounters(const uint32_t msNow)
 {
     if (_state == initReadCounters) {
-        LOG_DP("Initalizing reading counter values");
+        LOGF_DP("Initalizing reading counter values");
         if (_serial) {
             _serial->begin(9600, SERIAL_8E1); /* Zählerdaten kommen angeblich mit 9600 8E1 */
             _serial->setTimeout(5);           // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
@@ -626,7 +626,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     // was it message "<DLE>@ð0<SYN> ??  (= SND_NKE)
                     //MsgOut.writeTimestamp();
                     //MsgOut.println("Received SND_NKE");
-                    LOG_DP("Received SND_NKE");
+                    LOGF_DP("Received SND_NKE");
                     serialWrite(0xe5); // send ACK
                     for(size_t i=5; i<_serialReadBufferIdx; i++) {
                         _serialReadBuffer[i-5] = _serialReadBuffer[i];
@@ -646,7 +646,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     */
                     // Expected Length should be 0x5F (see structure enryptedMBUSTelegram_SND_UD)
                     _bytesInBufferExpectd = _serialReadBuffer[1]+6;
-                    LOG_DP("Found SND_UD head. Expected length: %u", _bytesInBufferExpectd);
+                    LOGF_DP("Found SND_UD head. Expected length: %u", _bytesInBufferExpectd);
 
                     if (_bytesInBufferExpectd != 0x5f + 6) {
                         _serialReadBufferIdx = 0;
@@ -661,7 +661,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         if (_serialReadBufferIdx >= _bytesInBufferExpectd) {
             serialWrite(0xe5); // the receifed datas must be confirmed
 
-            LOG_DP("Got expected bytes");
+            LOGF_DP("Got expected bytes");
 
             moveSerialBufferToDecodingWorkBuffer(_bytesInBufferExpectd);
             _bytesInBufferExpectd = 0;
@@ -713,7 +713,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
 
             if (!_readerIsOnline || msNow - _lastTimeSync > 1800000u ) {
                 if (!_readerIsOnline) {
-                    LOG_IP("Data synced with counter");
+                    LOGF_IP("Data synced with counter");
                     _readerIsOnline = true;
                 }
                 // Sync time afer sync with reader or each 30 minutes avoid internal clock drift
@@ -729,12 +729,12 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             // das Zählertelegramm sah prinzipiell gut aus aber nach dem Entschlüsseln passten einige Werte nicht
             // ==> d.h.: vermutlich stimmt der AMIS-Key nicht !
             valid = 1;
-            LOG_DP("Decrypting data failed: error=%d", r);
+            LOGF_DP("Decrypting data failed: error=%d", r);
         } else {
             // Beim Zählertelegram stimmten schon die Eckdatenm (Header, Checksumme, usw nicht)
             // ==> d.h.: vermutlich ungültige Daten empfangen
             valid = 0;
-            LOG_DP("Invalid data received: error=%d", r);
+            LOGF_DP("Invalid data received: error=%d", r);
         }
         _state = readReaderCounters;
 
@@ -781,10 +781,10 @@ void AmisReaderClass::loop()
         _bytesInBufferExpectd = 0;
     }
     if (_stateErrorCnt >= _stateErrorMax) {
-        LOG_DP("Timeout occured! state=%d", (int)_state);
+        LOGF_DP("Timeout occured! state=%d", (int)_state);
 
         if (_readerIsOnline) {
-            LOG_IP("Sync lost ... starting resync.");
+            LOGF_IP("Sync lost ... starting resync.");
         }
         _readerIsOnline = false;
         valid = 0;

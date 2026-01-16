@@ -99,7 +99,7 @@ void WebserverWsDataClass::sendDataTaskCb()
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
     if(type == WS_EVT_ERROR) {
-        LOG_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
+        LOGF_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
 
@@ -182,7 +182,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     if (!tempObjectLength) {
         return;
     }
-    //LOG_EP("Websock %d", (int)tempObjectLength);
+    //LOGF_EP("Websock %d", (int)tempObjectLength);
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {
@@ -196,7 +196,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 
         if (root == JsonObject::invalid()) { ... does not help as JsonObject::invalid().sucess() returns false
         */
-        LOG_EP("Parsing failed: message[%u]='%s'",
+        LOGF_EP("Parsing failed: message[%u]='%s'",
                             tempObjectLength,
                             Utils::escapeJson((char *)(client->_tempObject), tempObjectLength, 64).c_str());
         return;
@@ -211,7 +211,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     }
 
     // Check whatever the command is and act accordingly
-    LOG_DP("websocket command: '%s'", command);
+    LOGF_DP("websocket command: '%s'", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
@@ -407,7 +407,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
-            LOG_EP("LittleFS.format() failed!");
+            LOGF_EP("LittleFS.format() failed!");
         }
         EEPROMClear();
         Reboot.startReboot();
@@ -638,7 +638,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     struct ip_info info;
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
-        LOG_EP("Error getting info on LittleFS");
+        LOGF_EP("Error getting info on LittleFS");
         memset(&fsinfo, 0, sizeof(fsinfo));
     }
 
@@ -736,13 +736,13 @@ static void sendStatus(AsyncWebSocketClient *client)
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
-    LOG_DP("Sending file '%s' to client %u", filename, client->id());
+    LOGF_DP("Sending file '%s' to client %u", filename, client->id());
     File f = LittleFS.open(filename, "r");
     if (f) {
         client->text(f.readString());
         f.close();
     } else {
-        LOG_EP("File '%s' not found", filename);
+        LOGF_EP("File '%s' not found", filename);
     }
 }
 

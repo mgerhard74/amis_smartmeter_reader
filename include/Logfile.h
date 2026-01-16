@@ -5,40 +5,39 @@
 #include <ESPAsyncWebServer.h>
 
 
-#define IFLOG_I()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_INFO))
-#define DOLOG_I(FORMAT, ...)    DOLOG(LOGTYPE_BIT_INFO, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define DOLOG_IP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_INFO, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define LOG_I(FORMAT, ...)      if (IFLOG_I()) { DOLOG_I(FORMAT, ##__VA_ARGS__); } ((void)(0))
-#define LOG_IP(FORMAT, ...)     if (IFLOG_I()) { DOLOG_IP(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define IFLOG_I()                   (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_INFO))
+#define LOG_PRINTF_I(FORMAT, ...)   LOG_PRINTF(LOGTYPE_BIT_INFO, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOG_PRINTF_IP(FORMAT, ...)  LOG_PRINTFP(LOGTYPE_BIT_INFO, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOGF_I(FORMAT, ...)         if (IFLOG_I()) { LOG_PRINTF_I(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define LOGF_IP(FORMAT, ...)        if (IFLOG_I()) { LOG_PRINTF_IP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_W()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_WARN))
-#define DOLOG_W(FORMAT, ...)    DOLOG(LOGTYPE_BIT_WARN, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define DOLOG_WP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_WARN, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define LOG_W(FORMAT, ...)      if (IFLOG_W()) { DOLOG_W(FORMAT, ##__VA_ARGS__); } ((void)(0))
-#define LOG_WP(FORMAT, ...)     if (IFLOG_W()) { DOLOG_WP(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define IFLOG_W()                   (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_WARN))
+#define LOG_PRINTF_W(FORMAT, ...)   LOG_PRINTF(LOGTYPE_BIT_WARN, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOG_PRINTF_WP(FORMAT, ...)  LOG_PRINTFP(LOGTYPE_BIT_WARN, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOGF_W(FORMAT, ...)         if (IFLOG_W()) { LOG_PRINTF_W(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define LOGF_WP(FORMAT, ...)        if (IFLOG_W()) { LOG_PRINTF_WP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_E()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_ERROR))
-#define DOLOG_E(FORMAT, ...)    DOLOG(LOGTYPE_BIT_ERROR, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define DOLOG_EP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_ERROR, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define LOG_E(FORMAT, ...)      if (IFLOG_E()) { DOLOG_E(FORMAT, ##__VA_ARGS__); } ((void)(0))
-#define LOG_EP(FORMAT, ...)     if (IFLOG_E()) { DOLOG_EP(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define IFLOG_E()                   (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_ERROR))
+#define LOG_PRINTF_E(FORMAT, ...)   LOG_PRINTF(LOGTYPE_BIT_ERROR, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOG_PRINTF_EP(FORMAT, ...)  LOG_PRINTFP(LOGTYPE_BIT_ERROR, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOGF_E(FORMAT, ...)         if (IFLOG_E()) { LOG_PRINTF_E(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define LOGF_EP(FORMAT, ...)        if (IFLOG_E()) { LOG_PRINTF_EP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_D()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_DEBUG))
-#define DOLOG_D(FORMAT, ...)    DOLOG(LOGTYPE_BIT_DEBUG, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define DOLOG_DP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_DEBUG, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define LOG_D(FORMAT, ...)      if (IFLOG_D()) { DOLOG_D(FORMAT, ##__VA_ARGS__); } ((void)(0))
-#define LOG_DP(FORMAT, ...)     if (IFLOG_D()) { DOLOG_DP(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define IFLOG_D()                   (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_DEBUG))
+#define LOG_PRINTF_D(FORMAT, ...)   LOG_PRINTF(LOGTYPE_BIT_DEBUG, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOG_PRINTF_DP(FORMAT, ...)  LOG_PRINTFP(LOGTYPE_BIT_DEBUG, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOGF_D(FORMAT, ...)         if (IFLOG_D()) { LOG_PRINTF_D(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define LOGF_DP(FORMAT, ...)        if (IFLOG_D()) { LOG_PRINTF_DP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
-#define IFLOG_V()               (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_VERBOSE))
-#define DOLOG_V(FORMAT, ...)    DOLOG(LOGTYPE_BIT_VERBOSE, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define DOLOG_VP(FORMAT, ...)   DOLOGP(LOGTYPE_BIT_VERBOSE, LOGMODULE, FORMAT, ##__VA_ARGS__)
-#define LOG_V(FORMAT, ...)      if (IFLOG_V()) { DOLOG_V(FORMAT, ##__VA_ARGS__); } ((void)(0))
-#define LOG_VP(FORMAT, ...)     if (IFLOG_V()) { DOLOG_VP(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define IFLOG_V()                   (Log._logLevelBits[LOGMODULE] & (LOGTYPE_BIT_VERBOSE))
+#define LOG_PRINTF_V(FORMAT, ...)   LOG_PRINTF(LOGTYPE_BIT_VERBOSE, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOG_PRINTF_VP(FORMAT, ...)  LOG_PRINTFP(LOGTYPE_BIT_VERBOSE, LOGMODULE, FORMAT, ##__VA_ARGS__)
+#define LOGF_V(FORMAT, ...)         if (IFLOG_V()) { LOG_PRINTF_V(FORMAT, ##__VA_ARGS__); } ((void)(0))
+#define LOGF_VP(FORMAT, ...)        if (IFLOG_V()) { LOG_PRINTF_VP(FORMAT, ##__VA_ARGS__); } ((void)(0))
 
 
-#define DOLOG(TYPE, MODULE, FORMAT, ...)      Log.log(TYPE, MODULE, false, FORMAT, ##__VA_ARGS__)
-#define DOLOGP(TYPE, MODULE, FORMAT, ...)     Log.log(TYPE, MODULE, true, PSTR(FORMAT), ##__VA_ARGS__)
-
+#define LOG_PRINTF(TYPE, MODULE, FORMAT, ...)   Log.printf(TYPE, MODULE, false, FORMAT, ##__VA_ARGS__)
+#define LOG_PRINTFP(TYPE, MODULE, FORMAT, ...)  Log.printf(TYPE, MODULE, true, PSTR(FORMAT), ##__VA_ARGS__)
 
 
 #define LOG_ENABLE_UNNEEDED_FUNCTIONS   0
@@ -65,7 +64,7 @@ public:
     uint32_t noOfPages(uint32_t entriesPerPage=DEFAULT_ENTRIES_PER_PAGE);
     bool websocketRequestPage(AsyncWebSocket *webSocket, uint32_t clientId, uint32_t pageNo);
 
-    void log(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...) __attribute__ ((format (printf, 5, 6)));
+    void printf(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...) __attribute__ ((format (printf, 5, 6)));
 
     void remove(bool allPrevious=false);
 

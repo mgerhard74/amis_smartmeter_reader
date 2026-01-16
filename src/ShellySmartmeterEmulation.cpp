@@ -18,7 +18,7 @@ ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
 bool ShellySmartmeterEmulationClass::init(unsigned selectedDeviceIndex, String customDeviceIDAppendix, int offset)
 {
     if (selectedDeviceIndex >= std::size(DEVICES)) {
-        LOG_EP("selectedDeviceIndex out of range (%u)", selectedDeviceIndex);
+        LOGF_EP("selectedDeviceIndex out of range (%u)", selectedDeviceIndex);
         return false;
     }
 
@@ -125,7 +125,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     } else if (method == "EM1.GetStatus") {
         responseJson["result"]["act_power"] = RawJson(saldo);
     } else {
-        LOG_WP("Unknown method: %s", method.c_str());
+        LOGF_WP("Unknown method: %s", method.c_str());
         return;
     }
 
@@ -136,7 +136,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
 
 bool ShellySmartmeterEmulationClass::listen() {
     if (_udp.listen(_device.port)) {
-        LOG_IP("Shelly Smartmeter Emulator listening on port %d", _device.port);
+        LOGF_IP("Shelly Smartmeter Emulator listening on port %d", _device.port);
 
         _udp.onPacket(std::bind(&ShellySmartmeterEmulationClass::handleRequest, this, std::placeholders::_1));
 
@@ -149,9 +149,9 @@ bool ShellySmartmeterEmulationClass::listen() {
 bool ShellySmartmeterEmulationClass::enable(void)
 {
     if (!_enabled) {
-       LOG_IP("Shelly Smartmeter Emulation enabled with id %s", _device.id.c_str());
+       LOGF_IP("Shelly Smartmeter Emulation enabled with id %s", _device.id.c_str());
        if (_offset != 0) {
-            LOG_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
+            LOGF_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
        }
        _enabled = listen();
     }

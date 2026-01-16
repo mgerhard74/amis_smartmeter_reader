@@ -108,16 +108,16 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
     }
     if (response.answer) {
         if (_counterFailed > 0) {
-            LOG_IP("Ping %u/%u to " PRsIP " successful, RTT=%u", _counterFailed+1, restartAfterFailed, PRIPVal(_targetIP), response.total_time);
+            LOGF_IP("Ping %u/%u to " PRsIP " successful, RTT=%u", _counterFailed+1, restartAfterFailed, PRIPVal(_targetIP), response.total_time);
         } else {
-            LOG_DP("Ping %u/%u to " PRsIP " successful, RTT=%u", _counterFailed+1, restartAfterFailed, PRIPVal(_targetIP), response.total_time);
+            LOGF_DP("Ping %u/%u to " PRsIP " successful, RTT=%u", _counterFailed+1, restartAfterFailed, PRIPVal(_targetIP), response.total_time);
         }
         _counterFailed = 0;
     } else {
         ++_counterFailed;
-        LOG_WP("Ping %u/%u to " PRsIP " failed!", _counterFailed, restartAfterFailed, PRIPVal(_targetIP));
+        LOGF_WP("Ping %u/%u to " PRsIP " failed!", _counterFailed, restartAfterFailed, PRIPVal(_targetIP));
         if (_counterFailed >= restartAfterFailed) {
-            LOG_EP("Max ping failures reached, initiating reboot.");
+            LOGF_EP("Max ping failures reached, initiating reboot.");
             Reboot.startReboot();
         }
     }
@@ -133,7 +133,7 @@ void WatchdogPingClass::startSinglePing()
     // bool begin(const IPAddress &addr, u8_t count = 3, u32_t timeout = 1000);
     // bool begin(const char *host, u8_t count = 3, u32_t timeout = 1000);
     _lastPingStartedMs = millis();
-    LOG_DP("Starting ping to " PRsIP " ...", PRIPVal(_targetIP));
+    LOGF_DP("Starting ping to " PRsIP " ...", PRIPVal(_targetIP));
     _ping.begin(_targetIP, 1, 1500); // single ping with timeout of 1500ms
     _isWaitingForPingResult = true;
 }
