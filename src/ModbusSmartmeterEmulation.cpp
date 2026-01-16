@@ -391,7 +391,7 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
 
     // Logging des headers
     const uint8_t * header = (const uint8_t*) data;
-    LOGF_DP("MBAP Header(%d):"      // 14B + %d
+    LOGF_VP("MBAP Header(%d):"      // 14B + %d
             " %02x %02x %02x %02x"  // 4*3B
             " %02x %02x %02x %02x"  // 4*3B
             " %02x %02x %02x %02x", // 4*3B + 1B

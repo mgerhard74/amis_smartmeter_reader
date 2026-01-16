@@ -58,12 +58,12 @@ void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
 
     if (!_mqttClient.connected()) {
-        LOGF_WP("publishTickerCb() but not connected!");
+        LOG_WP("publishTickerCb() but not connected!");
         return; // _actionTicker will be armed in onConnect()
     }
 
     if (valid == 5 && first_frame == 1) {
-        LOGF_DP("Publishing reader data");
+        LOG_DP("Publishing reader data");
         _mqttReaderData.publish();
         _actionTicker.once_scheduled(_config.mqtt_keep, std::bind(&MqttBaseClass::publishTickerCb, this));
     } else {
@@ -235,7 +235,7 @@ void MqttBaseClass::reloadConfig() {
         // disconnection finished --> reload configuration
         loadConfigMqtt(_config);
         _reloadConfigState = 3;
-        LOGF_IP("Config reloaded.");
+        LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
         // finished ... try reconnecting if enabled
         _actionTicker.detach();

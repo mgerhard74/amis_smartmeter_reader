@@ -407,7 +407,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
-            LOGF_EP("LittleFS.format() failed!");
+            LOG_EP("LittleFS.format() failed!");
         }
         EEPROMClear();
         Reboot.startReboot();
