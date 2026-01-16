@@ -34,7 +34,7 @@ public:
     bool inAPMode(void);
     bool isConnected(void);
     const NetworkConfigWifi_t &getConfigWifi();
-    void startMDNSIfNeeded();
+    void restartMDNSIfNeeded();
 
 private:
     WiFiEventHandler _onStationModeGotIP;

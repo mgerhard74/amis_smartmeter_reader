@@ -93,7 +93,6 @@ void ConfigClass::loadConfigGeneralMinimal()
 }
 
 
-
 void ConfigClass::init()
 {
     amis_key[0] = 0;
@@ -198,8 +197,8 @@ void ConfigClass::applySettingsConfigGeneral()
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
 
-    MDNS.end(); // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten
-    Network.startMDNSIfNeeded();
+    // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten!
+    Network.restartMDNSIfNeeded();
 
     // TODO(anyone): Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
