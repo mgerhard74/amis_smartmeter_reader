@@ -60,7 +60,7 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     LOG_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
     LOG_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
 
-    startMDNSIfNeeded();
+    restartMDNSIfNeeded();
 
 #if DEBUGHW==1
     dbg_server.begin();
@@ -75,7 +75,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     LOG_DP("WiFi onStationModeDisconnected() start");
     _isConnected = false;
     Mqtt.networkOnStationModeDisconnected(event);
-    MDNS.end();
+        restartMDNSIfNeeded(); // MDNS.end();
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
@@ -329,44 +329,48 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
 }
 
 
-void NetworkClass::startMDNSIfNeeded()
+void NetworkClass::restartMDNSIfNeeded()
 {
     if (Network.inAPMode()) {
         return;
     }
 
-    // Return if no state change
-    if (MDNS.isRunning() == _configWifi.mdns) {
-        return;
+    // Totally strange:
+    //   MDNS.isRunning() returns true even if we called MSND.end() previously ... check this
+    // So stop ... and if needed start
+    bool isRunning = MDNS.isRunning();
+    bool doRestart = false;
+    if (isRunning && _configWifi.mdns && _isConnected) {
+        doRestart = true;
+    } else {
+        doRestart = false;
     }
+    LOG_VP("MDNS: isRunning=%d doRestart=%d _isConnected=%d _configWifi.mdns=%d",
+            isRunning, doRestart, _isConnected, _configWifi.mdns);
 
     MDNS.end();
 
-    if (!_configWifi.mdns) {
-        LOG_IP("MDNS is disabled");
-        return;
+    if (_configWifi.mdns && _isConnected) {
+        LOG_IP("(Re)starting MDNS responder.");
+
+        if (!MDNS.begin(Config.DeviceName)) {
+            LOG_EP("Error setting up MDNS responder!");
+            return;
+        }
+
+        MDNS.addService("http", "tcp", 80);
+        MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
+        MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
+        /*
+        There is no 'modbus' service available
+        see: https://www.dns-sd.org/servicetypes.html abd RFC2782
+
+        if (Config.smart_mtr) {
+            MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
+        }*/
+
+        LOG_DP("MDNS (re)started");
     }
-
-    LOG_IP("Starting MDNS responder...");
-
-
-    if (!MDNS.begin(Config.DeviceName)) {
-        LOG_EP("Error setting up MDNS responder!");
-        return;
-    }
-
-    MDNS.addService("http", "tcp", 80);
-    MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
-    MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
-    /*
-    There is no 'modbus' service available
-    see: https://www.dns-sd.org/servicetypes.html abd RFC2782
-
-    if (Config.smart_mtr) {
-        MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
-    }*/
-
-    LOG_IP("MDNS started");
 }
 
 
