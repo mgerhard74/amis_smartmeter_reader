@@ -219,7 +219,7 @@ void Exception_DumpLastCrashToFile()
     // Now write dump
     f = LittleFS.open(fname.c_str(), "w");
     if (!f) {
-        DOLOG_EP("Could not create %s", fname.c_str());
+        LOGF_EP("Could not create %s", fname.c_str());
         return;
     }
 
@@ -296,7 +296,7 @@ void Exception_DumpLastCrashToFile()
     f.close();
     Utils::littleFSsetTimeStamp(previousFSTime);
 
-    DOLOG_IP("Crashinfo %s written", fname.c_str());
+    LOGF_IP("Crashinfo %s written", fname.c_str());
 }
 
 
@@ -313,53 +313,53 @@ void Exception_Raise(unsigned int no) {
     //Serial.begin(115200, SERIAL_8N1);
 
     if (no == 1) {
-        LOG_EP("Divide by 0");
+        LOGF_EP("Divide by 0");
         _nullValue[1] = 1 / _nullValue[0];
-        LOG_EP("Divide by 0 done");
+        LOGF_EP("Divide by 0 done");
     } else if (no == 2) {
-        LOG_EP("Read nullptr");
+        LOGF_EP("Read nullptr");
         _nullValue[0] = *(uint32_t*)(_nullValue[0]);
-        LOG_EP("Read nullptr done");
+        LOGF_EP("Read nullptr done");
     } else if (no == 3) {
-        LOG_EP("Write nullptr");
+        LOGF_EP("Write nullptr");
         *(char *)_nullValue[0] = 0;
-        LOG_EP("Write nullptr done");
+        LOGF_EP("Write nullptr done");
     } else if (no == 4) {
         // TODO(StefanOberhumer): Exception gets not raised ... check why
-        LOG_EP("Unaligned read access uint32_t");
+        LOGF_EP("Unaligned read access uint32_t");
         uintptr_t pu32 = (uintptr_t)&_nullValue[0];
         uint32_t u32 = *(uint32_t*)(pu32+1);
         Serial.printf("pu32=%08x\r\n", pu32+1);
         _nullValue[1] = u32;
         Serial.printf("u32=%08x\r\n", u32);
-        LOG_EP("Unaligned read access uint32_t done");
+        LOGF_EP("Unaligned read access uint32_t done");
 
-        LOG_EP("Unaligned read access float");
+        LOGF_EP("Unaligned read access float");
         uintptr_t pf = (uintptr_t)&_nullValue[0];
         float f = *(uint32_t*)(pf+1);
         Serial.printf("pf=%08x\r\n", pf+1);
         _nullValue[1] = (uint32_t) f;
         Serial.printf("f=%f\r\n", f);
-        LOG_EP("Unaligned read access float done");
+        LOGF_EP("Unaligned read access float done");
 
     } else if (no == 5) {
         // TODO(StefanOberhumer): Exception gets not raised ... check why
-        LOG_EP("Unaligned write access uint32_t");
+        LOGF_EP("Unaligned write access uint32_t");
         uintptr_t pu32 = (uintptr_t)&_nullValue[0];
         Serial.printf("pu32=%08x\r\n", pu32+1);
         *(uint32_t*)(pu32+1) = 0xa1b2c3d4;
         Serial.printf("value=%08x\r\n", _nullValue[1]);
-        LOG_EP("Unaligned write access done uint32_t");
+        LOGF_EP("Unaligned write access done uint32_t");
 
-        LOG_EP("Unaligned write access float");
+        LOGF_EP("Unaligned write access float");
         uintptr_t pf = (uintptr_t)&_nullValue[0];
         Serial.printf("p=%08x\r\n", pf+1);
         *(float*)(pf+1) = 0xa1b2c3d4;
         Serial.printf("value=%08x\r\n", _nullValue[1]);
-        LOG_EP("Unaligned write access done float");
+        LOGF_EP("Unaligned write access done float");
 
     } else if (no == 6) {
-        LOG_EP("Hardware WDT ... wait");
+        LOGF_EP("Hardware WDT ... wait");
         ESP.wdtDisable();
         for(;;)
         {
@@ -371,7 +371,7 @@ void Exception_Raise(unsigned int no) {
           // Nothing will be saved in EEPROM for the hardware wdt
         }
     } else if (no == 7) {
-        LOG_EP("Software WDT ... wait");
+        LOGF_EP("Software WDT ... wait");
         for(;;)
         {
           // stay in an infinite loop doing nothing

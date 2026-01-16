@@ -70,7 +70,7 @@ void MqttReaderDataClass::init(MqttBaseClass &mqttBase)
                     (config.mqtt_retain) ?"true" :"false",
                     Utils::escapeJson(mqttBuffer.c_str(), -1, -1).c_str());
     */
-    LOG_VP("publish(%s, %" PRIu8 ", %s, %s)",
+    LOGF_VP("publish(%s, %" PRIu8 ", %s, %s)",
                     config.mqtt_pub.c_str(), config.mqtt_qos,
                     (config.mqtt_retain) ?"true" :"false",
                     Utils::escapeJson(mqttBuffer.c_str(), -1, -1).c_str());

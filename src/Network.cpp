@@ -51,12 +51,12 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
+    LOGF_DP("WiFi NetworkClass::onStationModeGotIP() start");
     _isConnected = true;
     _tickerReconnect.detach();
 
-    LOG_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
-    LOG_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
+    LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
 
     restartMDNSIfNeeded();
 
@@ -67,18 +67,18 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     Mqtt.networkOnStationModeGotIP(event);
 
     LedBlue.turnBlink(4000, 10);
-    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
+    LOGF_DP("WiFi NetworkClass::onStationModeGotIP() end");
     SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
-    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() start");
+    LOGF_DP("WiFi NetworkClass::onStationModeDisconnected() start");
     if (!_isConnected) {
         // seems this gets called even we were not connected ..,. skip it
-        LOG_DP("were not connected");
+        LOGF_DP("were not connected");
     } else {
-        LOG_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
+        LOGF_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
         _isConnected = false;
         Mqtt.networkOnStationModeDisconnected(event);
         restartMDNSIfNeeded(); // MDNS.end();
@@ -92,7 +92,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
 #endif
     LedBlue.turnBlink(150, 150);
-    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
+    LOGF_DP("WiFi NetworkClass::onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
 }
 
@@ -106,7 +106,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     File configFile;
     configFile = LittleFS.open("/config_wifi", "r");
     if (!configFile) {
-        LOG_EP("Could not open %s", "/config_wifi");
+        LOGF_EP("Could not open %s", "/config_wifi");
 #ifndef DEFAULT_CONFIG_WIFI_JSON
         return loadConfigWifiFromEEPROM(config);
 #else
@@ -127,7 +127,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        LOG_EP("Failed parsing %s", "/config_wifi");
+        LOGF_EP("Failed parsing %s", "/config_wifi");
         return false;
     }
 
@@ -196,13 +196,13 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
 void NetworkClass::connect(void)
 {
-    LOG_DP("WiFi connect() start");
+    LOGF_DP("WiFi connect() start");
     _tickerReconnect.detach();
     if (_apMode) {
         WiFi.mode(WIFI_AP);
         //WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
         WiFi.softAP("ESP8266_AMIS");
-        LOG_IP("Stating AccessPoint-Mode: 192.168.4.1");
+        LOGF_IP("Stating AccessPoint-Mode: 192.168.4.1");
         LedBlue.turnBlink(500, 500);
         return;
     }
@@ -210,30 +210,30 @@ void NetworkClass::connect(void)
     WiFi.mode(WIFI_STA);
     if (!_configWifi.allow_sleep_mode) {
         WiFi.setSleepMode(WIFI_NONE_SLEEP);
-        LOG_IP("Wifi sleep mode disabled");
+        LOGF_IP("Wifi sleep mode disabled");
     } else {
         // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
     }
 
-    LOG_DP("Starting Wifi in Station-Mode");
+    LOGF_DP("Starting Wifi in Station-Mode");
     WiFi.setOutputPower(_configWifi.rfpower);  // 0..20.5 dBm
     if (_configWifi.dhcp) {
-        LOG_DP("Using DHCP");
+        LOGF_DP("Using DHCP");
         IPAddress ip_0_0_0_0;
         WiFi.config(ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0); // Enforce DHCP enabled (WiFi._useStaticIp = false)
         WiFi.hostname(getHostname(Config.DeviceName.c_str()));               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
     } else {
-        LOG_DP("Using static IP configuration");
+        LOGF_DP("Using static IP configuration");
         WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver, _configWifi.ip_nameserver);
     }
 
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
-    LOG_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+    LOGF_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
 
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword, _configWifi.channel);
     LedBlue.turnBlink(150, 150);
-    LOG_DP("WiFi connect() end");
+    LOGF_DP("WiFi connect() end");
 }
 
 bool NetworkClass::inAPMode(void)
@@ -351,16 +351,16 @@ void NetworkClass::restartMDNSIfNeeded()
     } else {
         doRestart = false;
     }
-    LOG_VP("MDNS: isRunning=%d doRestart=%d _isConnected=%d _configWifi.mdns=%d",
+    LOGF_VP("MDNS: isRunning=%d doRestart=%d _isConnected=%d _configWifi.mdns=%d",
             isRunning, doRestart, _isConnected, _configWifi.mdns);
 
     MDNS.end();
 
     if (_configWifi.mdns && _isConnected) {
-        LOG_IP("(Re)starting MDNS responder.");
+        LOGF_IP("(Re)starting MDNS responder.");
 
         if (!MDNS.begin(Config.DeviceName)) {
-            LOG_EP("Error setting up MDNS responder!");
+            LOGF_EP("Error setting up MDNS responder!");
             return;
         }
 
@@ -375,7 +375,7 @@ void NetworkClass::restartMDNSIfNeeded()
             MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
         }*/
 
-        LOG_DP("MDNS (re)started");
+        LOGF_DP("MDNS (re)started");
     }
 }
 

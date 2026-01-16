@@ -39,7 +39,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
 
     //Upload handler chunks in data
     if (!index) {  // Start der Übertragung: index==0
-        LOG_IP("Update started: %s", filename.c_str());
+        LOGF_IP("Update started: %s", filename.c_str());
         if (filename.isEmpty()) {
             return;
         }
@@ -77,7 +77,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             _uploadFile = LittleFS.open(_uploadFilename, "w");// Open the file for writing in LittleFS (create if it doesn't exist)
             if (!_uploadFile) {
-                LOG_EP("Error creating file: %s", _uploadFilename.c_str());
+                LOGF_EP("Error creating file: %s", _uploadFilename.c_str());
             }
         }
     }       // !index
@@ -87,14 +87,14 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
     if (_uploadfiletype == firmware || _uploadfiletype == littlefs) { // Update Flash
         if (!Update.hasError()) {
             if (Update.write(data, len) != len) {
-                LOG_EP("Error writing to flash: %s", _uploadFilename.c_str());
+                LOGF_EP("Error writing to flash: %s", _uploadFilename.c_str());
                 Update.printError(Serial);
             }
         }
     } else if (_uploadfiletype == anyOther) { // write "any other file" content
         if (_uploadFile) {
             if (_uploadFile.write(data, len) != len) {
-                LOG_EP("Error writing file: %s", _uploadFilename.c_str());
+                LOGF_EP("Error writing file: %s", _uploadFilename.c_str());
             }
         }
     }
@@ -103,9 +103,9 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         if (_uploadfiletype == firmware || _uploadfiletype == littlefs) {
             // Flash oder LittleFS Update
             if (Update.end(true)) {
-                LOG_IP("Update succes.");
+                LOGF_IP("Update succes.");
             } else {
-                LOG_EP("Update failed");
+                LOGF_EP("Update failed");
                 Update.printError(Serial);
                 //return request->send(400, "text/plain", "Could not end OTA");
             }
@@ -129,7 +129,7 @@ void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)
     // the request handler is triggered after the upload has finished...
     AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
     request->send(response);
-    LOG_DP("WebserverUpdateClass::onRestRequest()");
+    LOGF_DP("WebserverUpdateClass::onRestRequest()");
 }
 
 /* vim:set ts=4 et: */

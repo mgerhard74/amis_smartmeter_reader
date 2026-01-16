@@ -51,7 +51,7 @@ void LogfileClass::clear()
 #else
     _startNewFile();
 #endif
-    LOG_I("Event log cleared!");
+    LOGF_I("Event log cleared!");
 }
 
 
@@ -131,7 +131,7 @@ void LogfileClass::loop()
     root.printTo(buffer);
     jsonBuffer.clear();
     if (!request.webSocket->text(request.clientId, buffer)) {
-        LOG_EP("Could not send logfile via websocket.");
+        LOGF_EP("Could not send logfile via websocket.");
     }
 
     requestedLogPageClients.erase(requestedLogPageClients.begin());
@@ -229,7 +229,8 @@ static const char* _moduleNames[LOGMODULE_LAST+1] = {
     "rebootAtMidnight",
     "websocket",
     "watchdogPing",
-    "remoteOnOff"
+    "remoteOnOff",
+    "shelly"
 };
 const char *LogfileClass::_getModuleName(uint32_t module)
 {
@@ -243,7 +244,7 @@ const char *LogfileClass::_getModuleName(uint32_t module)
 }
 
 extern char timecode[13];
-void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...)
+void LogfileClass::printf(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...)
 {
     va_list args;
     uint32_t entries = noOfEntries();
@@ -427,10 +428,10 @@ bool LogfileClass::websocketRequestPage(AsyncWebSocket *webSocket, uint32_t clie
 {
 #if 1
     if (requestedLogPageClients.size() >= _requestedLogPageClientsMax) {
-        LOG_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
+        LOGF_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
         return false;
     }
-    LOG_DP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
+    LOGF_DP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
     _requestedLogPageClient_t newRequest;
     newRequest.webSocket = webSocket;
     newRequest.clientId = clientId;
@@ -476,7 +477,7 @@ void LogfileClass::setLogLevelBits(uint32_t loglevelbits, uint32_t module)
 {
     size_t i, m;
 
-    LOG_DP("Called setLogLevelBits(0x%02x, 0x%02x[=%s]);", loglevelbits, module, _getModuleName(module));
+    LOGF_DP("Called setLogLevelBits(0x%02x, 0x%02x[=%s]);", loglevelbits, module, _getModuleName(module));
 
     if (module == LOGMODULE_ALL) {
         i = 0;

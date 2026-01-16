@@ -110,7 +110,7 @@ void ConfigClass::loadConfigGeneral()
     File configFile;
     configFile = LittleFS.open("/config_general", "r");
     if (!configFile) {
-        LOG_EP("Could not open %s", "/config_general");
+        LOGF_EP("Could not open %s", "/config_general");
 #ifndef DEFAULT_CONFIG_GENERAL_JSON
         return;
 #endif
@@ -127,7 +127,7 @@ void ConfigClass::loadConfigGeneral()
 #endif
     }
     if (json == nullptr || !json->success()) {
-        LOG_EP("Failed parsing %s", "/config_general");
+        LOGF_EP("Failed parsing %s", "/config_general");
         return;
     }
 

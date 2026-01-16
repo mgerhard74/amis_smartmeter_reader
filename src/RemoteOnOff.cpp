@@ -50,7 +50,7 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     HTTPClient http;
     WiFiClient client;
     const String &url = (newState == on) ?_urlOn :_urlOff;
-    LOG_DP("Sending http get request: %s", url.c_str());
+    LOGF_DP("Sending http get request: %s", url.c_str());
     http.begin(client, url);
     http.setReuse(false);
     // Do not block the ESP too long! ... DefaultTimeout = 5000 (see HTTPClient::_tcpTimeout)
@@ -64,7 +64,7 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
         // Failure
         _lastSentStateMs += 5000u - _switchIntervalMs; // Try again in 5 secs
     }
-    LOG_DP("http result code = %d", httpResultCode);
+    LOGF_DP("http result code = %d", httpResultCode);
 }
 
 bool RemoteOnOffClass::enable()
