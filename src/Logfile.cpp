@@ -51,7 +51,7 @@ void LogfileClass::clear()
 #else
     _startNewFile();
 #endif
-    LOGF_I("Event log cleared!");
+    LOG_I("Event log cleared!");
 }
 
 
@@ -131,7 +131,7 @@ void LogfileClass::loop()
     root.printTo(buffer);
     jsonBuffer.clear();
     if (!request.webSocket->text(request.clientId, buffer)) {
-        LOGF_EP("Could not send logfile via websocket.");
+        LOG_EP("Could not send logfile via websocket.");
     }
 
     requestedLogPageClients.erase(requestedLogPageClients.begin());

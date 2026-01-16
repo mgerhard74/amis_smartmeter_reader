@@ -104,12 +104,12 @@ void setup() {
     Log.setLoglevel(CONFIG_LOG_DEFAULT_LEVEL, LOGMODULE_ALL);
 
     // Log some booting information
-    LOG_PRINTF_IP("System starting...");
-    LOG_PRINTF_IP("  " APP_NAME " Version " APP_VERSION_STR);
+    LOG_PRINT_IP("System starting...");
+    LOG_PRINT_IP("  " APP_NAME " Version " APP_VERSION_STR);
     LOG_PRINTF_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
     LOG_PRINTF_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
     LOG_PRINTF_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
-    LOG_PRINTF_IP("  PIO environment " PIOENV);
+    LOG_PRINT_IP("  PIO environment " PIOENV);
     //DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
     LOG_PRINTF_IP("  Reset info %s", ESP.getResetInfo().c_str());
 
@@ -168,7 +168,7 @@ void setup() {
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
-        LOGF_DP("ModbusSmartmeterEmulation enabled");
+        LOG_DP("ModbusSmartmeterEmulation enabled");
     }
 
     // Shelly Smart Meter Emulator
@@ -184,7 +184,7 @@ void setup() {
     WatchdogPing.config(networkConfigWifi.pingrestart_ip, networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
-        LOGF_DP("WatchdogPing enabled");
+        LOG_DP("WatchdogPing enabled");
     }
 
     // Netzwerksteckdose (On/Off via Netzwerk)
@@ -203,14 +203,14 @@ void setup() {
     RebootAtMidnight.config();
     if (Config.reboot0) {
         RebootAtMidnight.enable();
-        LOGF_DP("RebootAtMidnight enabled");
+        LOG_DP("RebootAtMidnight enabled");
     }
 
     secTicker.attach_scheduled(1, secTick);
 
     SYSTEMMONITOR_STAT();
 
-    LOGF_IP("System setup completed, running");
+    LOG_IP("System setup completed, running");
 }
 
 void loop() {

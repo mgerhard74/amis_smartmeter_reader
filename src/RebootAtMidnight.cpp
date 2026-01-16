@@ -78,7 +78,7 @@ void RebootAtMidnightClass::adjustTicker(void)
 
 void RebootAtMidnightClass::doReboot() {
     // OK wir hatten einen Tageswechsel ... also rebooten
-    LOG_PRINTF_IP("Starting scheduled reboot...");
+    LOG_PRINT_IP("Starting scheduled reboot...");
     Reboot.startReboot();
 }
 

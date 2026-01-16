@@ -103,9 +103,9 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         if (_uploadfiletype == firmware || _uploadfiletype == littlefs) {
             // Flash oder LittleFS Update
             if (Update.end(true)) {
-                LOGF_IP("Update succes.");
+                LOG_IP("Update succes.");
             } else {
-                LOGF_EP("Update failed");
+                LOG_EP("Update failed");
                 Update.printError(Serial);
                 //return request->send(400, "text/plain", "Could not end OTA");
             }
@@ -129,7 +129,7 @@ void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)
     // the request handler is triggered after the upload has finished...
     AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
     request->send(response);
-    LOGF_DP("WebserverUpdateClass::onRestRequest()");
+    LOG_DP("WebserverUpdateClass::onRestRequest()");
 }
 
 /* vim:set ts=4 et: */

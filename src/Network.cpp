@@ -51,7 +51,7 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    LOGF_DP("WiFi NetworkClass::onStationModeGotIP() start");
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
     _isConnected = true;
     _tickerReconnect.detach();
 
@@ -67,16 +67,16 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     Mqtt.networkOnStationModeGotIP(event);
 
     LedBlue.turnBlink(4000, 10);
-    LOGF_DP("WiFi NetworkClass::onStationModeGotIP() end");
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
     SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
-    LOGF_DP("WiFi NetworkClass::onStationModeDisconnected() start");
+    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() start");
     if (!_isConnected) {
         // seems this gets called even we were not connected ..,. skip it
-        LOGF_DP("were not connected");
+        LOG_DP("were not connected");
     } else {
         LOGF_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
         _isConnected = false;
@@ -92,7 +92,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
 #endif
     LedBlue.turnBlink(150, 150);
-    LOGF_DP("WiFi NetworkClass::onStationModeDisconnected() end");
+    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
 }
 
@@ -196,13 +196,13 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
 void NetworkClass::connect(void)
 {
-    LOGF_DP("WiFi connect() start");
+    LOG_DP("WiFi connect() start");
     _tickerReconnect.detach();
     if (_apMode) {
         WiFi.mode(WIFI_AP);
         //WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
         WiFi.softAP("ESP8266_AMIS");
-        LOGF_IP("Stating AccessPoint-Mode: 192.168.4.1");
+        LOG_IP("Stating AccessPoint-Mode: 192.168.4.1");
         LedBlue.turnBlink(500, 500);
         return;
     }
@@ -210,7 +210,7 @@ void NetworkClass::connect(void)
     WiFi.mode(WIFI_STA);
     if (!_configWifi.allow_sleep_mode) {
         WiFi.setSleepMode(WIFI_NONE_SLEEP);
-        LOGF_IP("Wifi sleep mode disabled");
+        LOG_IP("Wifi sleep mode disabled");
     } else {
         // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
     }
@@ -233,7 +233,7 @@ void NetworkClass::connect(void)
 
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword, _configWifi.channel);
     LedBlue.turnBlink(150, 150);
-    LOGF_DP("WiFi connect() end");
+    LOG_DP("WiFi connect() end");
 }
 
 bool NetworkClass::inAPMode(void)
@@ -375,7 +375,7 @@ void NetworkClass::restartMDNSIfNeeded()
             MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
         }*/
 
-        LOGF_DP("MDNS (re)started");
+        LOG_DP("MDNS (re)started");
     }
 }
 

@@ -58,14 +58,14 @@ void WebserverClass::responseBinaryDataWithETagCache(AsyncWebServerRequest* requ
     if (!ApplicationRuntime.webUseFilesFromFirmware() && _staticFilesServer) {
         if (_staticFilesServer->canHandle(request)) {
             if (request->_tempObject) {
-                LOGF_VP("Serving '%s %s' from filesystem", request->methodToString(), (const char*) request->_tempObject);
+                LOGF_DP("Serving '%s %s' from filesystem", request->methodToString(), (const char*) request->_tempObject);
             }
             _staticFilesServer->handleRequest(request);
             return;
         }
     }
 
-    LOGF_VP("Serving '%s %s' directly from firmware", request->methodToString(), request->url().c_str());
+    LOGF_DP("Serving '%s %s' directly from firmware", request->methodToString(), request->url().c_str());
 
     auto md5 = MD5Builder();
     md5.begin();
@@ -194,7 +194,7 @@ bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
 void WebserverClass::onNotFound(AsyncWebServerRequest *request)
 {
     if (request->method() == HTTP_OPTIONS) {
-        LOGF_DP("Method HTTP_OPTIONS called");
+        LOG_DP("Method HTTP_OPTIONS called");
         request->send(200);
     } else {
         request->send(404, F("text/plain"), F("404 not found!"));

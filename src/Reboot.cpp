@@ -110,7 +110,7 @@ void RebootClass::loop()
             ModbusSmartmeterEmulation.disable();
             break;
         case 7:
-            LOG_PRINTF_IP("System is going to reboot");
+            LOG_PRINT_IP("System is going to reboot");
             break;
         case 8:
             delay(150);

@@ -132,14 +132,14 @@ void ThingSpeakClass::sendData()
         return;
     }
 #else
-    LOGF_DP("Connecting to 'api.thingspeak.com'...");
+    LOG_DP("Connecting to 'api.thingspeak.com'...");
     if (!_client.connect("api.thingspeak.com", 80)) {
         //_lastResult = "Connecting http://api.thingspeak.com failed.";
         //_lastResult = "Verbindung zu http://api.thingspeak.com fehlgeschlagen.";
-        LOGF_EP("Connecting 'api.thingspeak.com' failed.");
+        LOG_EP("Connecting 'api.thingspeak.com' failed.");
         return;
     }
-    LOGF_DP("Connected to 'api.thingspeak.com'.");
+    LOG_DP("Connected to 'api.thingspeak.com'.");
 #endif
 
     String data = "api_key=" + _apiKeyWrite;
@@ -156,7 +156,7 @@ void ThingSpeakClass::sendData()
     if (IFLOG_V()) {
         LOG_PRINTF_VP("Sending data: '%s' ...", Utils::escapeJson(data.c_str(), data.length(), 0xffffffff).c_str());
     } else {
-        LOGF_DP("Sending data ...");
+        LOG_DP("Sending data ...");
     }
     _client.print(F("POST /update HTTP/1.1\r\n"
                   "Host: api.thingspeak.com\r\n"
@@ -166,7 +166,7 @@ void ThingSpeakClass::sendData()
                   "\r\n");
     _client.print(data);
 
-    LOGF_DP("Data sent.");
+    LOG_DP("Data sent.");
     _lastResult = _readerValues.timeCode;
     _lastSentMs = millis();
 }
