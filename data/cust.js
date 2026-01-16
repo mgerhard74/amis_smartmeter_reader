@@ -172,6 +172,39 @@ function timeDecoder(tc) {
          zeroPad(hrs,2) + ':' + zeroPad(mins,2) + ':' + zeroPad(secs,2);
 }
 
+function runtimeTimeDecode(v, isMilliSeconds) {
+  var total_sec;
+  var millis;
+  if (isMilliSeconds) {
+    total_sec = (v / 1000) | 0;
+    millis = (v % 1000) | 0;
+  } else {
+    total_sec = v | 0;
+  }
+
+  let seconds = (total_sec % 60) | 0;
+  total_sec = (total_sec / 60) | 0;
+
+  let minutes = (total_sec % 60) | 0;
+  total_sec = (total_sec / 60) | 0;
+
+  let hours = (total_sec % 24) | 0;
+  let days = (total_sec / 24) | 0;
+
+  let r = "";
+  if (days) {
+    r += days + "d ";
+  }
+  if (hours || days) {
+    r += hours + "h ";
+  }
+  r += zeroPad(minutes, 2) + "m " + zeroPad(seconds, 2) + "s";
+  if (isMilliSeconds) {
+    r += "." + zeroPad(millis, 3);
+  }
+  return r;
+}
+
 function setAvgItem(basitemname, totalValue, numberOfSeconds, setcolorNegPos) {
     let fieldname = "#avg_" + basitemname;
 
@@ -315,6 +348,8 @@ function updateElements(obj) {
         let t='- - -';
         if (line.time) {
           t=timeDecoder(line.time);
+        } else if (line.ms) {
+          t = runtimeTimeDecode(line.ms, true);
         }
         let desc = line.desc;
         if (line.data) {
@@ -355,6 +390,7 @@ function updateElements(obj) {
       $("#month_table").html(t);
     }
     else if (key==='uptime') {
+      //value = runtimeTimeDecode(value, false);
       let uptime  = parseInt(value, 10);
       let seconds = uptime % 60;
       uptime = parseInt(uptime / 60, 10);
