@@ -51,11 +51,9 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    DBGOUT("WiFi onStationModeGotIP()\n");
-    DBGPRINTF("%d\n", _tickerReconnect.active());
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
     _isConnected = true;
     _tickerReconnect.detach();
-    LedBlue.turnBlink(4000, 10);
 
     LOG_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
     LOG_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
@@ -67,15 +65,24 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
 #endif
     Mqtt.networkOnStationModeGotIP(event);
+
+    LedBlue.turnBlink(4000, 10);
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
     SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
-    LOG_DP("WiFi onStationModeDisconnected() start");
-    _isConnected = false;
-    Mqtt.networkOnStationModeDisconnected(event);
+    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() start");
+    if (!_isConnected) {
+        // seems this gets called even we were not connected ..,. skip it
+        LOG_DP("were not connected");
+    } else {
+        LOG_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
+        _isConnected = false;
+        Mqtt.networkOnStationModeDisconnected(event);
         restartMDNSIfNeeded(); // MDNS.end();
+    }
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
@@ -85,8 +92,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
 #endif
     LedBlue.turnBlink(150, 150);
-    LOG_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
-    LOG_DP("WiFi onStationModeDisconnected() end");
+    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
 }
 
