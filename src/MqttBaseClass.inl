@@ -215,7 +215,7 @@ void MqttBaseClass::networkOnStationModeDisconnected(const WiFiEventStationModeD
 
     _actionTicker.detach();
     _reconnectTicker.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-    _mqttClient.disconnect();
+    _mqttClient.disconnect(true);
 }
 
 
