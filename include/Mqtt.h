@@ -31,7 +31,7 @@ struct HASensor;
 class MqttHAClass
 {
 public:
-    void init(MqttBaseClass &mqttBase);
+    void init(MqttBaseClass *mqttBase);
     void publishHaDiscovery();
     void publishHaAvailability(bool isOnline);
 private:
@@ -42,7 +42,7 @@ private:
 class MqttReaderDataClass
 {
 public:
-    void init(MqttBaseClass &mqttBase);
+    void init(MqttBaseClass *mqttBase);
     void publish();
 private:
     MqttBaseClass *_mqttBase;
