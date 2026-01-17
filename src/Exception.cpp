@@ -166,6 +166,7 @@ void Exception_DumpLastCrashToFile()
     char tsBuffer[30]; // 24 bytes should be enough
     time_t ts;
     struct tm timeinfo;
+    bool infoIsFrom_getResetInfoPtr;
 
     EEPROM.begin(sizeof(exin));
     EEPROM.get(0, exin.version);
@@ -174,6 +175,7 @@ void Exception_DumpLastCrashToFile()
         EEPROM.end();
         memset(&exin, 0, sizeof(exin));
         memcpy(&rst_info, ESP.getResetInfoPtr(), sizeof(rst_info));
+        infoIsFrom_getResetInfoPtr = true;
     } else {
         EEPROM.get(0, exin);
         memcpy(&rst_info, &exin.rst_info, sizeof(rst_info)); // get aligned values
@@ -182,6 +184,7 @@ void Exception_DumpLastCrashToFile()
         EEPROM.begin(sizeof(exin.version));
         EEPROM.put(0, exin.version); // write exin.version = 0x01 | (not available)
         EEPROM.end();
+        infoIsFrom_getResetInfoPtr = false;
     }
 
     if (rst_info.reason == REASON_SOFT_RESTART || rst_info.reason == REASON_DEFAULT_RST) {
@@ -222,7 +225,12 @@ void Exception_DumpLastCrashToFile()
         LOGF_EP("Could not create %s", fname.c_str());
         return;
     }
-
+    if (infoIsFrom_getResetInfoPtr) {
+        f.printf_P(PSTR("Info from getResetInfoPtr()."));
+    } else {
+        f.printf_P(PSTR("Info from EEProm save."));
+    }
+    f.write('\n');
     f.printf_P(PSTR("ESP.getResetReason() = %s\n"), ESP.getResetReason().c_str());
     f.write('\n');
     f.printf_P(PSTR("rst_info.reason = 0x%08" PRIx32 "\n"), rst_info.reason);
@@ -313,53 +321,56 @@ void Exception_Raise(unsigned int no) {
     //Serial.begin(115200, SERIAL_8N1);
 
     if (no == 1) {
-        LOGF_EP("Divide by 0");
+        // Exception (0)
+        LOG_EP("Divide by 0");
         _nullValue[1] = 1 / _nullValue[0];
-        LOGF_EP("Divide by 0 done");
+        LOG_EP("Divide by 0 done");
     } else if (no == 2) {
-        LOGF_EP("Read nullptr");
+        // Exception (28)
+        LOG_EP("Read nullptr");
         _nullValue[0] = *(uint32_t*)(_nullValue[0]);
-        LOGF_EP("Read nullptr done");
+        LOG_EP("Read nullptr done");
     } else if (no == 3) {
-        LOGF_EP("Write nullptr");
+        // Exception (29)
+        LOG_EP("Write nullptr");
         *(char *)_nullValue[0] = 0;
-        LOGF_EP("Write nullptr done");
+        LOG_EP("Write nullptr done");
     } else if (no == 4) {
         // TODO(StefanOberhumer): Exception gets not raised ... check why
-        LOGF_EP("Unaligned read access uint32_t");
+        LOG_EP("Unaligned read access uint32_t");
         uintptr_t pu32 = (uintptr_t)&_nullValue[0];
         uint32_t u32 = *(uint32_t*)(pu32+1);
         Serial.printf("pu32=%08x\r\n", pu32+1);
         _nullValue[1] = u32;
         Serial.printf("u32=%08x\r\n", u32);
-        LOGF_EP("Unaligned read access uint32_t done");
+        LOG_EP("Unaligned read access uint32_t done");
 
-        LOGF_EP("Unaligned read access float");
+        LOG_EP("Unaligned read access float");
         uintptr_t pf = (uintptr_t)&_nullValue[0];
         float f = *(uint32_t*)(pf+1);
         Serial.printf("pf=%08x\r\n", pf+1);
         _nullValue[1] = (uint32_t) f;
         Serial.printf("f=%f\r\n", f);
-        LOGF_EP("Unaligned read access float done");
+        LOG_EP("Unaligned read access float done");
 
     } else if (no == 5) {
         // TODO(StefanOberhumer): Exception gets not raised ... check why
-        LOGF_EP("Unaligned write access uint32_t");
+        LOG_EP("Unaligned write access uint32_t");
         uintptr_t pu32 = (uintptr_t)&_nullValue[0];
         Serial.printf("pu32=%08x\r\n", pu32+1);
         *(uint32_t*)(pu32+1) = 0xa1b2c3d4;
         Serial.printf("value=%08x\r\n", _nullValue[1]);
-        LOGF_EP("Unaligned write access done uint32_t");
+        LOG_EP("Unaligned write access done uint32_t");
 
-        LOGF_EP("Unaligned write access float");
+        LOG_EP("Unaligned write access float");
         uintptr_t pf = (uintptr_t)&_nullValue[0];
         Serial.printf("p=%08x\r\n", pf+1);
         *(float*)(pf+1) = 0xa1b2c3d4;
         Serial.printf("value=%08x\r\n", _nullValue[1]);
-        LOGF_EP("Unaligned write access done float");
+        LOG_EP("Unaligned write access done float");
 
     } else if (no == 6) {
-        LOGF_EP("Hardware WDT ... wait");
+        LOG_EP("Hardware WDT ... wait");
         ESP.wdtDisable();
         for(;;)
         {
@@ -370,13 +381,15 @@ void Exception_Raise(unsigned int no) {
           // Hardware wdt kicks in if software wdt is unable to perfrom
           // Nothing will be saved in EEPROM for the hardware wdt
         }
+        LOG_EP("Hardware WDT done.");
     } else if (no == 7) {
-        LOGF_EP("Software WDT ... wait");
+        LOG_EP("Software WDT ... wait");
         for(;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed
         }
+        LOG_EP("Software WDT done.");
     }
 }
 
