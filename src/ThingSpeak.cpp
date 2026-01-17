@@ -143,16 +143,9 @@ void ThingSpeakClass::sendData()
 #endif
 
     String data = "api_key=" + _apiKeyWrite;
-#ifdef STROMPREIS
-    for (size_t i=0; i<7; i++) {
-        data += "&field" + String(i+1) + "=" + String(a_result[i]);
-    }
-    data += "&field8=" + strompreis;
-#else
-    for (size_t i=0; i<8; i++) {
+    for (size_t i=0; i<std::size(_readerValues.values); i++) {
         data += "&field" + String(i+1) + "=" + String(_readerValues.values[i]);
     }
-#endif // strompreis
     if (IFLOG_V()) {
         LOG_PRINTF_VP("Sending data: '%s' ...", Utils::escapeJson(data.c_str(), data.length(), 0xffffffff).c_str());
     } else {

@@ -37,11 +37,7 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
         root[F("2.7.0")] = a_result[5];
         root[F("3.7.0")] = a_result[6];
         root[F("4.7.0")] = a_result[7];
-#ifdef STROMPREIS
-        root[F("strompreis")]=strompreis;
-#else
         root[F("1.128.0")] = a_result[8];
-#endif
     } else {
         // Variablennamen mit Unterstrichen ("_")
         root[F("1_8_0")] = a_result[0];

@@ -16,9 +16,6 @@
 //#define DEBUG
 #include "debug.h"
 
-#ifdef STROMPREIS
-extern String strompreis;
-#endif
 
 #include "MqttReaderDataClass.inl"  // Handling "normal" data publishing        (topic = homeassistant/sensor/ .... )
 #include "MqttHAClass.inl"          // Handling HomeAssistant data publishing   (topic = config.mqtt_pub)

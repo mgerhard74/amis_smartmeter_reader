@@ -46,13 +46,6 @@ void MqttBaseClass::onMessage(char* topic, char* payload, AsyncMqttClientMessage
     UNUSED_ARG(total);
 
     LOGF_WP("Unexpected onMessage() call: %s", topic);
-#ifdef STROMPREIS
-    char p[20];
-    memcpy(p,payload,len);
-    p[len]=0;
-    strompreis = String(p);
-    //DBGOUT(strompreis+"\n");
-#endif // STROMPREIS
 }
 
 void MqttBaseClass::publishTickerCb() {

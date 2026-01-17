@@ -21,7 +21,7 @@
 /// DEBUGHW 3             Websock
 #define DEBUGHW 0
 #define DEBUG_OUTPUT 0
-//#define STROMPREIS
+
 extern String dbg_string;
 extern char dbg[128];
 #if DEBUG_OUTPUT==0
