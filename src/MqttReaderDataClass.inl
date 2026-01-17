@@ -11,9 +11,9 @@ extern uint32_t a_result[10];
 extern unsigned int first_frame;
 
 
-void MqttReaderDataClass::init(MqttBaseClass &mqttBase)
+void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
 {
-    _mqttBase = &mqttBase;
+    _mqttBase = mqttBase;
 }
 
 

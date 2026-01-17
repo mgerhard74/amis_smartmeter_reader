@@ -5,11 +5,12 @@
 
 void MqttBaseClass::init()
 {
-    _mqttReaderData.init(*this);
-    _mqttHA.init(*this);
+    _mqttReaderData.init(this);
+    _mqttHA.init(this);
     loadConfigMqtt(_config);
     _reloadConfigState = 0;
 }
+
 
 MqttBaseClass::MqttBaseClass()
 {
@@ -222,8 +223,8 @@ void MqttBaseClass::networkOnStationModeDisconnected(const WiFiEventStationModeD
 void MqttBaseClass::reloadConfig() {
     if (_reloadConfigState == 0) {
         // Start disconnect
-        _mqttClient.disconnect();
         _reloadConfigState = 1;
+        _mqttClient.disconnect(true);
         _actionTicker.attach_ms(500, std::bind(&MqttBaseClass::reloadConfig, this));
     } else if (_reloadConfigState == 1) {
         // Wait till disconnect finisehd
@@ -335,8 +336,11 @@ uint16_t MqttBaseClass::publish(const char* topic, uint8_t qos, bool retain, con
 
 void MqttBaseClass::stop()
 {
-    _mqttClient.disconnect();
-    for (;isConnected();) {} // wait till disconnected
+    LOG_DP("Stopping client.");
+    _mqttClient.disconnect(true);
+    for (;isConnected();) { // wait till disconnected
+        yield();
+    }
     _actionTicker.detach();
     _reconnectTicker.detach();
 }
