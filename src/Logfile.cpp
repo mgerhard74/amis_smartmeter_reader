@@ -12,6 +12,8 @@
 
 #define LOGFILE_LINE_LEN_MAX    768
 
+extern AsyncWebSocket *ws;
+
 static bool fileSkipLines(File &f, uint32_t lines)
 {
     size_t rlen, linelen = 0;
@@ -89,7 +91,7 @@ void LogfileClass::init(const char *filename)
     strlcpy(_filename, filename, std::size(_filename));
     _reset();
 }
-extern AsyncWebSocket *ws;
+
 void LogfileClass::loop()
 {
     // Send requested pages of the log file to a client
@@ -243,7 +245,7 @@ const char *LogfileClass::_getModuleName(uint32_t module)
     return _moduleNames[module];
 }
 
-extern char timecode[13];
+
 void LogfileClass::printf(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...)
 {
     va_list args;
@@ -329,8 +331,8 @@ void LogfileClass::printf(uint32_t type, uint32_t module, bool use_progmem, cons
         va_end(args);
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
-    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","desc":"%s"})" "\n",
-                (unsigned int) millis(), typeStr, _getModuleName(module), timecode, buffer);
+    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","ts":%llu,"desc":"%s"})" "\n",
+                (unsigned int) millis(), typeStr, _getModuleName(module), time(NULL), buffer);
     va_end(args);
 
     if (buffer != temp) {
