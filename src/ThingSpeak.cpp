@@ -83,7 +83,7 @@ void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
     }
 }
 
-void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, const char *timecode)
+void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, time_t ts)
 {
     if (!_enabled) {
         return;
@@ -93,10 +93,10 @@ void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, cons
         return;
     }
 
-    for(size_t i=0; i<8; i++) {
+    for(size_t i=0; i<std::size(_readerValues.values); i++) {
         _readerValues.values[i] = *readerValues++;
     }
-    memcpy(_readerValues.timeCode, timecode, sizeof(_readerValues.timeCode));
+    _readerValues.ts = ts;
 
     /* Wir müssen vom Interval noch eine Sekunde abziehen, da wir jede Sekunde neue Werte bekommen
        und das Versenden ebenfalls etwas Zeit braucht.
@@ -169,7 +169,7 @@ void ThingSpeakClass::sendData()
     _client.print(data);
 
     LOG_DP("Data sent.");
-    _lastResult = _readerValues.timeCode;
+    _lastResult = String(static_cast<uint32_t>(_readerValues.ts), HEX);
     _lastSentMs = millis();
 }
 

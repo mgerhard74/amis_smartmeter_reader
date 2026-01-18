@@ -26,7 +26,7 @@ class ThingSpeakClass {
         void setEnabled(bool enabled) { if (enabled) enable(); else disable(); }
         void setInterval(unsigned int intervalSeconds);
         void setApiKeyWriite(const String &apiKeyWrite);
-        void onNewData(bool isValid, const uint32_t *readerValues=nullptr, const char *timecode=nullptr);
+        void onNewData(bool isValid, const uint32_t *readerValues=nullptr, time_t ts=0);
         const String &getLastResult();
     private:
         void sendData();
@@ -39,9 +39,9 @@ class ThingSpeakClass {
         String _lastResult;
         String _apiKeyWrite;
         struct {
+            time_t ts;
             uint32_t values[8];
             bool isValid;
-            char timeCode[13];
         } _readerValues;
         Ticker _ticker;
 };

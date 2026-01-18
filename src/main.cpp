@@ -7,6 +7,7 @@
 
 #include "AmisReader.h"
 #include "Application.h"
+#include "Databroker.h"
 #include "Exception.h"
 #include "LedSingle.h"
 #include "Log.h"
@@ -326,19 +327,19 @@ static void secTick() {
         }
     }
 
-    if (valid==5) {
+    if (Databroker.valid==5) {
         if (first_frame==3) { // 1. Zählerdatensatz nach reset
             first_frame=2;      // nächste action beim nächsten secTick
             int x=dow-2;        // gestern
             if (x < 0) x=6;
             if (x>6) x=0;
             if (kwh_day_in[x] ==0) {          // gestern noch keine Werte: momentanen Stand wegschreiben
-                kwh_day_in[x]=a_result[0];      // 1.8.0 Bezug
-                writeHistFileIn(x,a_result[0]);
+                kwh_day_in[x] = Databroker.results_u32[0];      // 1.8.0 Bezug
+                writeHistFileIn(x, Databroker.results_u32[0]);
             }
             if (kwh_day_out[x] ==0) {         // gestern noch keine Werte: momentanen Stand wegschreiben
-                kwh_day_out[x]=a_result[1];     // 2.8.0 Lieferung
-                writeHistFileOut(x,a_result[1]);
+                kwh_day_out[x] = Databroker.results_u32[1];     // 2.8.0 Lieferung
+                writeHistFileOut(x, Databroker.results_u32[1]);
             }
             dow_local=dow;
             String s=String(mon);
@@ -347,7 +348,7 @@ static void secTick() {
             }
             s=String(myyear)+s;
             if (s.compareTo(latestYYMMInHistfile)!=0) {
-                latestYYMMInHistfile = appendToMonthFile(myyear,mon, a_result[0], a_result[1]);  // Monat noch nicht im File
+                latestYYMMInHistfile = appendToMonthFile(myyear,mon, Databroker.results_u32[0], Databroker.results_u32[1]);  // Monat noch nicht im File
             }
             mon_local=mon;
         } else if (first_frame==2) {        // Wochentabelle Energie erzeugen
@@ -385,13 +386,13 @@ static void secTick() {
         if (dow_local != dow) {           // Tageswechsel, dow 1..7
             int x=dow-2;                    // gestern, idx ab 0
             if (x < 0) x=6;                 // x zeigt auf gestern
-            kwh_day_in[x]=a_result[0];      // 1.8.0
-            writeHistFileIn(x,a_result[0]);
-            kwh_day_out[x]=a_result[1];     // 2.8.0
-            writeHistFileOut(x,a_result[1]);
+            kwh_day_in[x] = Databroker.results_u32[0];      // 1.8.0
+            writeHistFileIn(x, Databroker.results_u32[0]);
+            kwh_day_out[x] = Databroker.results_u32[1];     // 2.8.0
+            writeHistFileOut(x, Databroker.results_u32[1]);
             dow_local=dow;
             if (mon_local != mon) {         // Monatswechsel
-                latestYYMMInHistfile = appendToMonthFile(myyear, mon, a_result[0], a_result[1]);
+                latestYYMMInHistfile = appendToMonthFile(myyear, mon, Databroker.results_u32[0], Databroker.results_u32[1]);
                 mon_local=mon;
             }
             first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen

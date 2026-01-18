@@ -56,7 +56,7 @@ void MqttBaseClass::publishTickerCb() {
         return; // _actionTicker will be armed in onConnect()
     }
 
-    if (valid == 5 && first_frame == 1) {
+    if (Databroker.valid == 5 && first_frame == 1) {
         LOG_DP("Publishing reader data");
         _mqttReaderData.publish();
         _actionTicker.once_scheduled(_config.mqtt_keep, std::bind(&MqttBaseClass::publishTickerCb, this));
