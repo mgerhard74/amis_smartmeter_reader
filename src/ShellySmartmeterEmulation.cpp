@@ -14,15 +14,10 @@ ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
     _currentValues.dataAreValid = false;
 }
 
-void ShellySmartmeterEmulationClass::init(Device device)
+void ShellySmartmeterEmulationClass::init(Device device, int offset)
 {  
     _device = device;
-    //check if "id" is set - create otherwise
-    if(device.id == "") {
-        device.id = WiFi.macAddress();
-        device.id.replace(":", "");
-        device.id.toLowerCase();
-    }
+    _offset = offset;
 }
 
 void ShellySmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_t v1_7_0, uint32_t v2_7_0, uint32_t v1_8_0, uint32_t v2_8_0)
@@ -38,7 +33,7 @@ void ShellySmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
     _currentValues.v2_7_0 = v2_7_0;
     _currentValues.v1_8_0 = v1_8_0;
     _currentValues.v2_8_0 = v2_8_0;
-    _currentValues.saldo = _currentValues.v1_7_0 - _currentValues.v2_7_0; //directly store saldo (otherwise we need some mutex around)
+    _currentValues.saldo = (int32_t)_currentValues.v1_7_0 - (int32_t)_currentValues.v2_7_0; //directly calculate saldo (otherwise we need some mutex around)
 }
 
 bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
@@ -63,7 +58,9 @@ bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
                 char tempBuffer[len+1];
                 memcpy(tempBuffer, packet.data(), len);
                 tempBuffer[len] = '\0';
-
+                
+                writeEvent("INFO", "emulator", F("got request"), String(tempBuffer));
+                
                 DynamicJsonBuffer jsonBuffer(JSON_BUFFER_SIZE);
                 JsonObject& json = jsonBuffer.parseObject(tempBuffer);
 
@@ -89,20 +86,32 @@ bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
                 int id = json["id"];
                 const char* method = json["method"];
 
+                //first check if deviceID is set (done here, 'cause at init Wifi may not be available already)
+                if(_device.id == "") {
+                    _device.id = WiFi.macAddress();
+                    _device.id.replace(":", "");
+                    _device.id.toLowerCase();
+                    if(_device.id == 0) {
+                        //fallback
+                        _device.id = "aa11bb22cc33";
+                    }
+                }
+
                 jsonBuffer.clear();
                 JsonObject& responseJson = jsonBuffer.createObject();
                 responseJson["id"] = id;
-                responseJson["src"] = _device.name + "_" + _device.id;
+                responseJson["src"] = _device.name + "-" + _device.id;
                 responseJson["dst"] = "unknown";
                 responseJson["result"] =  jsonBuffer.createObject();
-                signed saldo = _currentValues.saldo; //buffer for now (prevents need of mutex)
+                //the B2500 is VEEEERY picky... needs "float" formatted value with a dot
+                String saldo = String(_currentValues.saldo + _offset)+".000"; 
                 if(strcmp(method, "EM.GetStatus") == 0) {
-                    responseJson["result"]["a_act_power"] = saldo;
-                    responseJson["result"]["b_act_power"] = 0;
-                    responseJson["result"]["c_act_power"] = 0;
-                    responseJson["result"]["total_act_power"] = saldo;
+                    responseJson["result"]["a_act_power"] = RawJson(saldo);
+                    responseJson["result"]["b_act_power"] = RawJson("0.000");
+                    responseJson["result"]["c_act_power"] = RawJson("0.000");
+                    responseJson["result"]["total_act_power"] = RawJson(saldo);
                 } else if(strcmp(method, "EM1.GetStatus") == 0) {
-                    responseJson["result"]["act_power"] = saldo;
+                    responseJson["result"]["act_power"] = RawJson(saldo);
                 } else {
                     DBGOUT("[ DEBUG ] unknown method\n");
                     return;
@@ -111,6 +120,11 @@ bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
                 AsyncUDPMessage message;
                 responseJson.printTo(message);
                 udp.sendTo(message, packet.remoteIP(), packet.remotePort()); //respond directly via "packet" doesn't work
+
+                String resp;
+                responseJson.printTo(resp);
+                writeEvent("INFO", "emulator", F("sent response"), String(resp));
+
             }
         });
     
@@ -123,7 +137,8 @@ bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
 bool ShellySmartmeterEmulationClass::enable(void)
 {
     if(!_enabled) {
-       writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation eabled"), _device.prettyName);
+       writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation enabled"), _device.prettyName);
+       if(_offset != 0) writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation using offset"), String(_offset));
        _enabled = listenAndHandleUDP();
     }
     

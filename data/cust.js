@@ -35,6 +35,10 @@ var config_general = {
     "rest_ofs": 0,
     "rest_neg": false,
     "smart_mtr":false,
+    "shelly_smart_mtr_udp": false,
+    "shelly_smart_mtr_udp_device": "shellypro3em",
+    "shelly_smart_mtr_udp_offset": 0,
+    "shelly_smart_mtr_udp_hardwareID": "",
     "developerModeEnabled": false,
     "webserverTryGzipFirst": true, // diese Einstellung wird vom AmisLeser beim Lesen der Konfig nicht beachtet
     "switch_on": 0,
@@ -606,6 +610,13 @@ function doUpdateGeneral() {                 // button save config
   websock.send(JSON.stringify(config_general));
   //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
+//TODO eigenes configfile - derzeit in general gespeichert (hier wegen progressAnimate extra funktion)
+function doUpdateEmulation() {                  // button save config
+  progressAnimate('prgbar_emulation',300);
+  doUpdateGeneral();
+}
+
+
 function doUpdateWiFi() {
   progressAnimate('prgbar_wifi',300);
   $(".wifi").each(function () {
@@ -903,6 +914,7 @@ $(function() {            // main
   $("#menuLink").on("click", toggleMenu);
   $(".pure-menu-link").on("click", showPanel);
   $(".button-update-general").on("click", doUpdateGeneral);  // save config
+  $(".button-update-emulation").on("click", doUpdateEmulation);  // save config
   $(".button-update-wifi").on("click", doUpdateWiFi);  // save config
   $(".button-update-mqtt").on("click", doUpdateMQTT);  // save config
   //$(".button-update-ntp").on("click", doUpdateNTP);  // save config

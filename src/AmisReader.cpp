@@ -2,6 +2,7 @@
 
 #include "aes.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "ShellySmartmeterEmulation.h"
 #include "RemoteOnOff.h"
 #include "SystemMonitor.h"
 #include "ThingSpeak.h"
@@ -721,6 +722,9 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                                                    l_result.results[4], l_result.results[5],
                                                    l_result.results[0], l_result.results[1]);
 
+        ShellySmartmeterEmulation.setCurrentValues((bool)(valid == 5),
+                                                   l_result.results[4], l_result.results[5],
+                                                   l_result.results[0], l_result.results[1]);
         ThingSpeak.onNewData((bool)(valid == 5), &l_result.results[0], l_result.timecode);
         SYSTEMMONITOR_STAT();
      }

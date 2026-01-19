@@ -10,6 +10,7 @@
 #include "FileBlob.h"
 #include "LedSingle.h"
 #include "ModbusSmartmeterEmulation.h"
+#include "ShellySmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
@@ -73,7 +74,7 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-
+   
     #if DEBUGHW==2
         #if DEBUG_OUTPUT==0
             Serial.begin(115200);
@@ -148,11 +149,26 @@ void setup() {
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst); // webserverTryGzipFirst sollte hier true sein (lesen wir nicht aus der config)
 
-    // Smart Meter Simulator
+    // Modbus Smart Meter Emulator
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
     }
+
+    // Shelly Smart Meter Emulator
+    if (Config.shelly_smart_mtr_udp) {
+        if(ShellySmartmeterEmulationClass::DEVICES.count(Config.shelly_smart_mtr_udp_device) == 1) {
+            ShellySmartmeterEmulationClass::Device device = ShellySmartmeterEmulationClass::DEVICES.at(Config.shelly_smart_mtr_udp_device);
+            if(Config.shelly_smart_mtr_udp_hardwareID != "") {
+                device.id = Config.shelly_smart_mtr_udp_hardwareID;
+            }
+            ShellySmartmeterEmulation.init(device, Config.shelly_smart_mtr_udp_offset);
+            ShellySmartmeterEmulation.enable();
+        } else {
+            writeEvent("ERROR", "main", "Shelly configuration device-key mismatch. Key not found.", Config.shelly_smart_mtr_udp_device);
+        }
+    }
+
 
     // initiate ping watchdog
     WatchdogPing.init();
