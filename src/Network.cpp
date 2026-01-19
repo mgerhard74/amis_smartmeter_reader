@@ -209,7 +209,8 @@ void NetworkClass::connect(void)
         LOGF_DP("Using DHCP");
         IPAddress ip_0_0_0_0;
         WiFi.config(ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0); // Enforce DHCP enabled (WiFi._useStaticIp = false)
-        WiFi.hostname(getHostname(Config.DeviceName.c_str()));               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
+        String validHostname = getValidHostname(Config.DeviceName);
+        WiFi.hostname(validHostname);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
     } else {
         LOGF_DP("Using static IP configuration");
         WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver, _configWifi.ip_nameserver);
@@ -347,6 +348,7 @@ void NetworkClass::restartMDNSIfNeeded()
     if (_configWifi.mdns && _isConnected) {
         LOGF_IP("(Re)starting MDNS responder.");
 
+        // Hostname kann nur MDNS_DOMAIN_LABEL_MAXLENGTH Zeichen lang werden !
         if (!MDNS.begin(Config.DeviceName)) {
             LOGF_EP("Error setting up MDNS responder!");
             return;
@@ -368,7 +370,7 @@ void NetworkClass::restartMDNSIfNeeded()
 }
 
 
-String NetworkClass::getHostname(const char *hostname)
+String NetworkClass::getValidHostname(const char *hostname)
 {
     // see: LwipIntf::hostname  --> Max 32 chars
     //
@@ -378,10 +380,9 @@ String NetworkClass::getHostname(const char *hostname)
 
     char rHostname[32 + 1];
 
-
     const char *s = hostname;
     char *t = rHostname;
-    char *te = t + sizeof(rHostname);
+    char *te = t + sizeof(rHostname) - 1;
 
     // copy and transform chars from Config.DeviceName into rHostname
     while (*s && t < te) {
@@ -404,7 +405,7 @@ String NetworkClass::getHostname(const char *hostname)
 
     if (!rHostname[0]) {
         // Do now allow an empty hostname
-        snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%" PRIx32), APP_NAME, ESP.getChipId());
+        snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%08" PRIx32), APP_NAME, ESP.getChipId());
     }
     return rHostname;
 }

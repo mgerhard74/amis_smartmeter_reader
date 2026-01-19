@@ -45,7 +45,7 @@ private:
     bool loadConfigWifi(NetworkConfigWifi_t &config);
     bool loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config);
 
-    String getHostname(const char *hostname);
+    String getValidHostname(const char *hostname);
 
     Ticker _tickerReconnect;
 

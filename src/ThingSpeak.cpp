@@ -25,7 +25,7 @@ void ThingSpeakClass::enable()
     _enabled = true;
     _readerValues.isValid = false; // force fresh data
 
-    if (_apiKeyWrite.isEmpty()) {
+    if (_apiKeyWrite[0] == 0) {
         _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
     } else {
         _lastResult = F("Warte auf gültige Daten");
@@ -60,18 +60,18 @@ void ThingSpeakClass::setInterval(unsigned int intervalSeconds)
     _intervalMs = (uint32_t)intervalSeconds * 1000ul;
 }
 
-void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
+void ThingSpeakClass::setApiKeyWrite(const char *apiKeyWrite)
 {
-    if (_apiKeyWrite.compareTo(apiKeyWrite) == 0) {
+    if (!strncmp(_apiKeyWrite, apiKeyWrite, sizeof(_apiKeyWrite))) {
         return;
     }
-    _apiKeyWrite = apiKeyWrite;
+    strlcpy(_apiKeyWrite, apiKeyWrite, sizeof(_apiKeyWrite));
     if (!_enabled) {
         return;
     }
 
     _readerValues.isValid = false; // force fresh data
-    if (_apiKeyWrite.isEmpty()) {
+    if (_apiKeyWrite[0] == 0) {
         _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
     }
 
@@ -119,7 +119,7 @@ void ThingSpeakClass::sendData()
         return;
     }
 
-    if (_apiKeyWrite.isEmpty()) {
+    if (_apiKeyWrite[0] == 0) {
         //_lastResult = "No ThingSpeak Write API Key configured.";
         _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
         _lastSentMs = millis();
@@ -151,7 +151,7 @@ void ThingSpeakClass::sendData()
     LOG_DP("Connected to 'api.thingspeak.com'.");
 #endif
 
-    String data = "api_key=" + _apiKeyWrite;
+    String data = "api_key=" + String(_apiKeyWrite);
     for (size_t i=0; i<std::size(_readerValues.values); i++) {
         data += "&field" + String(i+1) + "=" + String(_readerValues.values[i]);
     }

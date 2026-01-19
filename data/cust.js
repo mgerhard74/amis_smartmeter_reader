@@ -250,6 +250,9 @@ function updateElements(obj) {
           else                                 $(".menu-graf").hide();
           if (config_general.developerModeEnabled) $(".menu-developer").show();
           else                                     $(".menu-developer").hide();
+          if (config_general.devicename) {
+            config_general.devicename = config_general.devicename.trim();
+          }
           break;
         case "/config_wifi":
           config_wifi=obj;
@@ -719,6 +722,10 @@ function doUpdateGeneral() {                 // button save config
     if ($(this).prop('type') == 'checkbox') config_general[this.name] = $(this).prop('checked');
     else config_general[this.name] = this.value;
   });
+  // Trim some strings before saving
+  if (config_general.devicename) {
+    config_general.devicename = config_general.devicename.trim();
+  }
   if (config_general.thingspeak_aktiv) $(".menu-graf").show();
   else $(".menu-graf").hide();
   if (config_general.developerModeEnabled) {

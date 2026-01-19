@@ -72,8 +72,8 @@ void WebserverWsDataClass::reload()
     }
 
     _ws.enable(false);
-    _simpleDigestAuth.setUsername(Config.auth_user.c_str());
-    _simpleDigestAuth.setPassword(Config.auth_passwd.c_str());
+    _simpleDigestAuth.setUsername(Config.auth_user);
+    _simpleDigestAuth.setPassword(Config.auth_passwd);
     _ws.addMiddleware(&_simpleDigestAuth);
     //_ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
     _ws.closeAll();

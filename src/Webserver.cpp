@@ -1,6 +1,7 @@
 #include "Webserver.h"
 
 #include "Application.h"
+#include "config.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSERVER
 #include "Utils.h"
@@ -205,20 +206,20 @@ void WebserverClass::reload()
     _websrvWsData.reload();
 }
 
-void WebserverClass::setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password)
+void WebserverClass::reloadCredentials()
 {
     bool changed = false;
-    if (_auth_enabled != auth_enabled) {
+    if (_auth_enabled != Config.use_auth) {
         changed = true;
-        _auth_enabled = auth_enabled;
+        _auth_enabled = Config.use_auth;
     }
-    if (!_auth_username.equals(auth_username)) {
+    if (!_auth_username.equals(Config.auth_user)) {
         changed = true;
-        _auth_username = auth_username;
+        _auth_username = Config.auth_user;
     }
-    if (!_auth_password.equals(auth_password)) {
+    if (!_auth_password.equals(Config.auth_passwd)) {
         changed = true;
-        _auth_password = auth_password;
+        _auth_password = Config.auth_passwd;
     }
     if (changed) {
         reload();
