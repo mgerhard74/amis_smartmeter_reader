@@ -72,17 +72,16 @@ void LogfileClass::_prevFilename(unsigned int prevNo, char f[LFS_NAME_MAX])
     if (ext == f) {
         ext = &empty;
     } else {
-        ext[-1] = 0;  // ext now points to eg : "txt"
-    }
-
-    // ".prev01." + ext ==> 8 + strlen(ext) + '\0'
-    while(strlen(f) + strlen(ext) + 8 + 1 > LFS_NAME_MAX) {
-        f[strlen(f)-1] = 0;
+        ext[-1] = 0;  // ext now points to eg : "txt" and _f had no extension anymore
     }
 
     char newExtension[LFS_NAME_MAX];
-    snprintf(newExtension, sizeof(newExtension), ".prev%u.%s", prevNo, ext);
-    strcat(f, newExtension); // NOLINT
+    snprintf_P(newExtension, sizeof(newExtension), PSTR(".prev%u.%s"), prevNo, ext);
+
+    // strip f so that the new extension can be appended
+    f[LFS_NAME_MAX - strlen(newExtension) - 1] = 0;
+
+    strlcat(f, newExtension, LFS_NAME_MAX);
 }
 
 
