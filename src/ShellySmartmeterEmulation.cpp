@@ -59,8 +59,6 @@ bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
                 memcpy(tempBuffer, packet.data(), len);
                 tempBuffer[len] = '\0';
                 
-                writeEvent("INFO", "emulator", F("got request"), String(tempBuffer));
-                
                 DynamicJsonBuffer jsonBuffer(JSON_BUFFER_SIZE);
                 JsonObject& json = jsonBuffer.parseObject(tempBuffer);
 
@@ -120,10 +118,6 @@ bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
                 AsyncUDPMessage message;
                 responseJson.printTo(message);
                 udp.sendTo(message, packet.remoteIP(), packet.remotePort()); //respond directly via "packet" doesn't work
-
-                String resp;
-                responseJson.printTo(resp);
-                writeEvent("INFO", "emulator", F("sent response"), String(resp));
 
             }
         });
