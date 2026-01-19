@@ -128,6 +128,15 @@ void ThingSpeakClass::sendData()
 
     _client.stop();
 
+    if (!Network.isConnected()) {
+        // Kein Netzwerk ... brauchen wir auch nichts senden
+        LOG_DP("Skipping - network not connected.");
+        _lastResult = F("Keine WiFi Netzwerkverbindung");
+        _lastSentMs = millis() - _intervalMs + 10000;
+        // Fühestens in 10 Sekunden wieder probieren
+        _ticker.once_ms_scheduled(10000, std::bind(&ThingSpeakClass::sendData, this));
+    }
+
 #if (THINGSPEAK_USE_SSL)
     #warning "Enabling SSL needs a lot of CPU. System may become unresponsible!"
 
