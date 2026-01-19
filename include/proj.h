@@ -20,7 +20,7 @@ struct kwhstruct {
     unsigned kwh_out;
     unsigned dow;
 };
-extern int logPage;
+
 //extern AsyncWebServer server;
 //extern AsyncWebSocket ws;
 extern AsyncWebSocket *ws;
