@@ -25,6 +25,12 @@ void ThingSpeakClass::enable()
     _enabled = true;
     _readerValues.isValid = false; // force fresh data
 
+    if (_apiKeyWrite.isEmpty()) {
+        _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
+    } else {
+        _lastResult = F("Warte auf gültige Daten");
+    }
+
     uint32_t now = millis();
     if (now < 30000) {
         _lastSentMs = 30000 - _intervalMs; // earliest run is after uptime of 30 sec
@@ -65,6 +71,9 @@ void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
     }
 
     _readerValues.isValid = false; // force fresh data
+    if (_apiKeyWrite.isEmpty()) {
+        _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
+    }
 
     uint32_t now = millis();
     if (now < 30000) {
@@ -112,7 +121,7 @@ void ThingSpeakClass::sendData()
 
     if (_apiKeyWrite.isEmpty()) {
         //_lastResult = "No ThingSpeak Write API Key configured.";
-        _lastResult = "Kein ThingSpeak Write API Key angegeben.";
+        _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
         _lastSentMs = millis();
         return;
     }
@@ -134,8 +143,8 @@ void ThingSpeakClass::sendData()
 #else
     LOG_DP("Connecting to 'api.thingspeak.com'...");
     if (!_client.connect("api.thingspeak.com", 80)) {
-        //_lastResult = "Connecting http://api.thingspeak.com failed.";
-        //_lastResult = "Verbindung zu http://api.thingspeak.com fehlgeschlagen.";
+        //_lastResult = F("Connecting http://api.thingspeak.com failed.");
+        _lastResult = F("Verbindung zu http://api.thingspeak.com fehlgeschlagen.");
         LOG_EP("Connecting 'api.thingspeak.com' failed.");
         return;
     }
