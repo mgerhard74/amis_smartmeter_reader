@@ -16,15 +16,15 @@ public:
         String id;
     };
 
-    // Die Map-Initialisierung
+    //TODO: actually memory intensive. refactor as [] - and prettynames are only for log
     static inline const std::map<String, Device> DEVICES = {
-        {"shelly3empro_old", {"shelly3empro", "Shelly 3 EM Pro (old)", 1010, ""}},
-        {"shelly3empro",     {"shelly3empro", "Shelly 3 EM Pro", 2220, ""}},
-        {"shellyemg3",       {"shellyemg3", "Shelly EMG 3", 2222, ""}},
-        {"shellyem50",       {"shellyem50", "Shelly Pro EM 50", 2223, ""}} 
+        {"shellypro3em_old", {"shellypro3em", "Shelly 3 EM Pro (old)", 1010, ""}},
+        {"shellypro3em",     {"shellypro3em", "Shelly 3 EM Pro", 2220, ""}},
+        {"shellyemgen3",     {"shellyemgen3", "Shelly EM Gen3", 2222, ""}},
+        {"shellyproem50",    {"shellyproem50", "Shelly Pro EM-50", 2223, ""}} 
     };
 
-    void init(Device deviceConfig);
+    void init(Device deviceConfig, int offset);
     bool setEnabled(bool enabled);
     bool enable();
     void disable();
@@ -35,14 +35,14 @@ private:
     AsyncUDP udp;
     Device _device;
     String _deviceID;
-    
+    int _offset;    
     
     bool _enabled = false;
 
     struct {
         bool dataAreValid = false;
         uint32_t v1_7_0=0, v2_7_0=0, v1_8_0=0, v2_8_0=0;
-        uint32_t saldo=0;
+        int32_t saldo=0;
     } _currentValues;
 
     bool listenAndHandleUDP();

@@ -20,6 +20,11 @@ public:
     bool log_sys;
 
     bool smart_mtr;
+    
+    bool shelly_smart_mtr_udp;
+    String shelly_smart_mtr_udp_device;
+    int shelly_smart_mtr_udp_offset;
+    String shelly_smart_mtr_udp_hardwareID;
 
     bool use_auth;
     String auth_passwd;
