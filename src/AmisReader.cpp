@@ -342,7 +342,7 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
 
     if(!_serialReadBufferIdx) {
         if (_state == waitForReaderSerial) {
-            strcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n"); // NOLINT
+            strlcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n", sizeof(_serialReadBuffer));
             _serialReadBufferIdx = strlen((const char*)_serialReadBuffer);
             lastSent = now;
         } else if (_state == readReaderCounters) {
