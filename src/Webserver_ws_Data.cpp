@@ -383,27 +383,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         } else {
             ws->text(client->id(), "no file\0");
         }
-    } else if(strcmp(command, "print2") == 0) {
-        //ws.text(client->id(), "prn\0"); // ws.text
-        eprintf("prn\n");
-        uint8_t ibuffer[10];      //12870008
-        File f;
-        unsigned i,j;
-        for (i=0; i<7; i++) {
-            f = LittleFS.open("/hist_in"+String(i), "r");
-            if (f) {
-                ///val=f.parseInt();    !!!!!!!!!! parseInt() ist buggy, enorme Zeit- und Resourcenverschwendung!!!!!!!!!!!!!!!!!
-                j=f.read(ibuffer,8);
-                ibuffer[j]=0;
-                f.close();
-                eprintf("%d %d\n", i, atoi((char*)ibuffer));
-        //       ws.text(client->id(), ibuffer); // ws.text
-            }
-            //else ws.text(client->id(), "no file\0");
-            else {
-                eprintf("no file\n");
-            }
-        }
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
