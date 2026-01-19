@@ -8,7 +8,7 @@ class WebserverUpdateClass
         void init(AsyncWebServer& server);
 
     private:
-        void onRestRequest(AsyncWebServerRequest* request);
+        void onUploadRequest(AsyncWebServerRequest* request);
         void onUpload(AsyncWebServerRequest* request, const String& filename, size_t index, uint8_t* data, size_t len, bool final);
         void onBody(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total);
 

@@ -12,10 +12,10 @@ void WebserverLoginClass::init(AsyncWebServer& server)
 {
     using std::placeholders::_1;
 
-    server.on("/login", HTTP_GET, std::bind(&WebserverLoginClass::onRestRequest, this, _1));
+    server.on("/login", HTTP_GET, std::bind(&WebserverLoginClass::onLoginRequest, this, _1));
 }
 
-void WebserverLoginClass::onRestRequest(AsyncWebServerRequest* request)
+void WebserverLoginClass::onLoginRequest(AsyncWebServerRequest* request)
 {
     LOGF_DP("Login attemp from " PRsIP, PRIPVal(request->client()->remoteIP()));
     if (!Config.use_auth) {

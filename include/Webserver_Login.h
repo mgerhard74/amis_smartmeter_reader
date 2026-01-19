@@ -8,7 +8,7 @@ class WebserverLoginClass
         void init(AsyncWebServer& server);
 
     private:
-        void onRestRequest(AsyncWebServerRequest* request);
+        void onLoginRequest(AsyncWebServerRequest* request);
 };
 
 /* vim:set ts=4 et: */

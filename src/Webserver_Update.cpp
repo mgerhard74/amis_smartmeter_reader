@@ -28,7 +28,7 @@ void WebserverUpdateClass::init(AsyncWebServer& server)
     using std::placeholders::_6;
 
     server.on("/update", HTTP_POST,
-                std::bind(&WebserverUpdateClass::onRestRequest, this, _1),
+                std::bind(&WebserverUpdateClass::onUploadRequest, this, _1),
                 std::bind(&WebserverUpdateClass::onUpload, this, _1, _2, _3, _4, _5, _6));
 }
 
@@ -124,12 +124,12 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
     SYSTEMMONITOR_STAT();
 }
 
-void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)
+void WebserverUpdateClass::onUploadRequest(AsyncWebServerRequest* request)
 {
     // the request handler is triggered after the upload has finished...
     AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
     request->send(response);
-    LOG_DP("WebserverUpdateClass::onRestRequest()");
+    LOG_DP("WebserverUpdateClass::onUploadRequest()");
 }
 
 /* vim:set ts=4 et: */
