@@ -1,0 +1,145 @@
+#include "ShellySmartmeterEmulation.h"
+#include <ArduinoJson.h>
+#include "proj.h"
+
+#define JSON_BUFFER_SIZE JSON_OBJECT_SIZE(10)
+
+/*
+  Shelly Smartmeter Emulator für B2500 Batteriespeicher. 
+  Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen. 
+  Nur notwendige Werte sind gesetzt, der Rest ist Fake, reicht aber für korrekte dyn. Einspeisebegrenzung.
+*/
+ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
+{
+    _currentValues.dataAreValid = false;
+}
+
+void ShellySmartmeterEmulationClass::init(Device device)
+{  
+    _device = device;
+    //check if "id" is set - create otherwise
+    if(device.id == "") {
+        device.id = WiFi.macAddress();
+        device.id.replace(":", "");
+        device.id.toLowerCase();
+    }
+}
+
+void ShellySmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_t v1_7_0, uint32_t v2_7_0, uint32_t v1_8_0, uint32_t v2_8_0)
+{
+    if (!_enabled) {
+        return; // Don't waste time if there is nothing to do
+    }
+    _currentValues.dataAreValid = dataAreValid;
+    if (!dataAreValid) {
+        return; // Don't waste any more time
+    }
+    _currentValues.v1_7_0 = v1_7_0;
+    _currentValues.v2_7_0 = v2_7_0;
+    _currentValues.v1_8_0 = v1_8_0;
+    _currentValues.v2_8_0 = v2_8_0;
+    _currentValues.saldo = _currentValues.v1_7_0 - _currentValues.v2_7_0; //directly store saldo (otherwise we need some mutex around)
+}
+
+bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
+{
+    if (enabled) {
+        enable();
+    } else {
+        disable();
+    }
+    return _enabled;
+}
+
+bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
+    if(udp.listen(_device.port)) {
+        writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulator Listening on Port"), String(_device.port));
+
+        //handle request
+        udp.onPacket([&](AsyncUDPPacket packet) {
+            if(_currentValues.dataAreValid) {
+                // --- JSON parsen ---
+                size_t len = packet.length();
+                char tempBuffer[len+1];
+                memcpy(tempBuffer, packet.data(), len);
+                tempBuffer[len] = '\0';
+
+                DynamicJsonBuffer jsonBuffer(JSON_BUFFER_SIZE);
+                JsonObject& json = jsonBuffer.parseObject(tempBuffer);
+
+                if (!json.success()) {
+                    DBGOUT("[ DEBUG ] Failed to parse json\n");
+                    return;
+                }
+
+                //check for objects
+                if( !json.containsKey("id") || !json["id"].is<int>() || 
+                    !json.containsKey("method") || !json["method"].is<char*>() ||
+                    !json.containsKey("params")) 
+                {
+                    DBGOUT("[ DEBUG ] Invalid json\n");
+                    return;
+                }
+                JsonObject& params = json["params"];
+                if (!params.containsKey("id") || !params["id"].is<int>()) {
+                    DBGOUT("[ DEBUG ] Invalid json\n");
+                    return;
+                }
+                
+                int id = json["id"];
+                const char* method = json["method"];
+
+                jsonBuffer.clear();
+                JsonObject& responseJson = jsonBuffer.createObject();
+                responseJson["id"] = id;
+                responseJson["src"] = _device.name + "_" + _device.id;
+                responseJson["dst"] = "unknown";
+                responseJson["result"] =  jsonBuffer.createObject();
+                signed saldo = _currentValues.saldo; //buffer for now (prevents need of mutex)
+                if(strcmp(method, "EM.GetStatus") == 0) {
+                    responseJson["result"]["a_act_power"] = saldo;
+                    responseJson["result"]["b_act_power"] = 0;
+                    responseJson["result"]["c_act_power"] = 0;
+                    responseJson["result"]["total_act_power"] = saldo;
+                } else if(strcmp(method, "EM1.GetStatus") == 0) {
+                    responseJson["result"]["act_power"] = saldo;
+                } else {
+                    DBGOUT("[ DEBUG ] unknown method\n");
+                    return;
+                }
+
+                AsyncUDPMessage message;
+                responseJson.printTo(message);
+                udp.sendTo(message, packet.remoteIP(), packet.remotePort()); //respond directly via "packet" doesn't work
+            }
+        });
+    
+        return true;
+    }
+
+    return false;
+}
+
+bool ShellySmartmeterEmulationClass::enable(void)
+{
+    if(!_enabled) {
+       writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation eabled"), _device.prettyName);
+       _enabled = listenAndHandleUDP();
+    }
+    
+    return _enabled;
+}
+
+void ShellySmartmeterEmulationClass::disable(void)
+{
+    if(_enabled) {
+        writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulator disabled"), "");
+        udp.close();
+    }
+    _enabled = false;
+}
+
+
+ShellySmartmeterEmulationClass ShellySmartmeterEmulation;
+
+/* vim:set ts=4 et: */
