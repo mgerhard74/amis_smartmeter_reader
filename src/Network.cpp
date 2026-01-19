@@ -13,16 +13,6 @@
 #include "Mqtt.h"
 #include "SystemMonitor.h"
 
-//#define DEBUG
-#include "debug.h"
-
-#if 0
-#undef DBGOUT
-#define DBGOUT(X)  Serial.print(X)
-#define DBGPRINTF(fmt, args...)  Serial.printf(fmt, ##args)
-#else
-#define DBGPRINTF(fmt, args...) (void)(0)
-#endif
 
 #include <ArduinoJson.h>
 #include <EEPROM.h>
@@ -60,10 +50,6 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 
     restartMDNSIfNeeded();
 
-#if DEBUGHW==1
-    dbg_server.begin();
-    //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
-#endif
     Mqtt.networkOnStationModeGotIP(event);
 
     LedBlue.turnBlink(4000, 10);

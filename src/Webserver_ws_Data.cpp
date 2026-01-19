@@ -259,10 +259,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
         if(f) {
-            //size_t len = root.measurePrettyLength();
             root.prettyPrintTo(f);
             f.close();
-            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, len);
+            LOGF_DP("%s saved on LittleFS.", command);
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();

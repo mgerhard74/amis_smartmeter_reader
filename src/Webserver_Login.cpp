@@ -18,7 +18,6 @@ void WebserverLoginClass::init(AsyncWebServer& server)
 void WebserverLoginClass::onRestRequest(AsyncWebServerRequest* request)
 {
     LOGF_DP("Login attemp from " PRsIP, PRIPVal(request->client()->remoteIP()));
-    DBGOUT("login "+remoteIP+"\n");
     if (!Config.use_auth) {
         request->send(200, F("text/plain"), F("Success"));
         return;
