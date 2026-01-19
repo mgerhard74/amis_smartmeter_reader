@@ -16,16 +16,16 @@
 //      see: .platformio/platforms/espressif8266/monitor/filter_exception_decoder.py
 
 #include "Exception.h"
-
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
-
 #include "Utils.h"
+#include "__compiled_constants.h"
 
 #include <EEPROM.h>
 #include <LittleFS.h>
 #include <time.h>
 #include <user_interface.h>
+
 
 extern "C" {
     extern uint32_t _iram_start;
@@ -35,10 +35,6 @@ extern "C" {
 }
 
 #define EXCEPTIONS_MAX_SAVED_ON_DISC    10  //    "/crashes/0.dump" ... "/crashes/9.dump"
-
-extern const char *__COMPILED_DATE_TIME_UTC_STR__;
-extern const char *__COMPILED_GIT_HASH__;
-extern const time_t __COMPILED_DATE_TIME_UTC_TIME_T__;
 
 
 static uint32_t _interrestingAdressesStart = (uint32_t)&_irom0_text_start;
