@@ -69,14 +69,28 @@ static inline void fetchinterrestingStackValues(uint32_t start, uint32_t end, st
     s = (uint32_t*) start;
     e = (uint32_t*) end;
 
-    exin->interrestingStackValueCnt = 0;
+    size_t foundCnt = 0;
 
-    for (uint32_t *curr = s; curr < e && exin->interrestingStackValueCnt < std::size(exin->interrestingStackValues); curr++) {
+
+    for (uint32_t *curr = s; curr < e && foundCnt < std::size(exin->interrestingStackValues); curr++) {
         stackValue = *curr;
         if(stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd) {
-            exin->interrestingStackValues[exin->interrestingStackValueCnt++] = stackValue;
+
+            // Check if we have "stackValue" already in our list
+            bool found = false;
+            for (size_t i=0; i < foundCnt; i++) {
+                if (exin->interrestingStackValues[i] == stackValue) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) { // not in list -> add it
+                exin->interrestingStackValues[foundCnt++] = stackValue;
+            }
         }
     }
+
+    exin->interrestingStackValueCnt = foundCnt;
 }
 
 
