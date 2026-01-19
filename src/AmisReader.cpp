@@ -5,8 +5,9 @@
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_AMISREADER
 #include "ModbusSmartmeterEmulation.h"
-#include "ShellySmartmeterEmulation.h"
+#include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
+#include "ShellySmartmeterEmulation.h"
 #include "SystemMonitor.h"
 #include "ThingSpeak.h"
 #include "UA.h"
@@ -113,6 +114,7 @@ static void setTime(time_t ts_now) {
     settimeofday(&ti, NULL);
 
     LOGF_IP("Time synchronized. (ts-old=%llu, ts-now=%llu, millis=%u)", tv_sec_old, ts_now, millis());
+    RebootAtMidnight.adjustTicker();
 }
 
 int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)

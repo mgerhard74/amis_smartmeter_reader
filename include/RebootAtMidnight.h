@@ -8,9 +8,10 @@ public:
     void config(void);
     void enable(void);
     void disable(void);
+    void adjustTicker(void);
+
 private:
     void doReboot(void);
-    void adjustTicker(void);
     bool _enabled;
     Ticker _ticker;
 };
