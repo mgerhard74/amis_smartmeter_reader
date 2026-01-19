@@ -64,7 +64,11 @@ void ConfigClass::loadConfigGeneral()
 
     log_sys = (*json)[F("log_sys")].as<bool>();
 
-    smart_mtr = (*json)[F("smart_mtr")].as<bool>();
+    smart_mtr = (*json)[F("smart_mtr")].as<bool>(); 
+    shelly_smart_mtr_udp = (*json)[F("shelly_smart_mtr_udp")].as<bool>();
+    shelly_smart_mtr_udp_device = (*json)[F("shelly_smart_mtr_udp_device")].as<String>();
+    shelly_smart_mtr_udp_offset = (*json)[F("shelly_smart_mtr_udp_offset")].as<int>();
+    shelly_smart_mtr_udp_hardwareID = (*json)[F("shelly_smart_mtr_udp_hardwareID")].as<String>();
 
     amis_key = (*json)[F("amis_key")].as<String>();
     amis_key.trim();
