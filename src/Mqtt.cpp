@@ -14,9 +14,6 @@
 #include <AsyncJson.h>
 #include <LittleFS.h>
 
-//#define DEBUG
-#include "debug.h"
-
 
 extern unsigned int first_frame;
 

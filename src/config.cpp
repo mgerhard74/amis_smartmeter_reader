@@ -1,8 +1,5 @@
-
-//#define DEBUG
-#include "debug.h"
-
 #include "config.h"
+
 #include "AmisReader.h"
 #include "Application.h"
 #include "DefaultConfigurations.h"
@@ -18,8 +15,6 @@
 #include <ArduinoJson.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
-
-
 
 
 #define CONFIG_AMIS_KEY_JSON_NAME "\"amis_key\""

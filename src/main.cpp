@@ -1,9 +1,6 @@
 #include "ProjectConfiguration.h"
 
 #include "proj.h"
-//#define DEBUG
-#include "debug.h"
-
 
 #include "AmisReader.h"
 #include "Application.h"
@@ -30,12 +27,6 @@ extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 extern const char *__COMPILED_GIT_HASH__;
 extern const char *__COMPILED_GIT_BRANCH__;
 
-#if DEBUGHW==1
-    WiFiServer dbg_server(10000);
-    WiFiClient dbg_client;
-#endif
-
-
 extern void historyInit();
 
 static void secTick();
@@ -51,10 +42,6 @@ unsigned last_mon_in;
 unsigned last_mon_out;
 uint8_t updates;
 String latestYYMMInHistfile;
-#if DEBUGHW>0
-  char dbg[128];
-  String dbg_string;
-#endif // DEBUGHW
 kwhstruct kwh_hist[7];
 bool doSerialHwTest=false;
 
@@ -72,14 +59,6 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-
-    #if DEBUGHW==2
-        #if DEBUG_OUTPUT==0
-            Serial.begin(115200);
-        #elif DEBUG_OUTPUT==1
-            Serial1.begin(115200);
-        #endif
-    #endif // DEBUGHW
 
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
@@ -212,27 +191,6 @@ void setup() {
 }
 
 void loop() {
-#if DEBUGHW==1
-    if (dbg_string.length()) {          // Debug-Ausgaben TCP
-        dbg_string+="\n";
-        if (!dbg_client.connected()) dbg_client.stop();
-        if (!dbg_client) dbg_client = dbg_server.available();
-        if (dbg_client)  dbg_client.print(dbg_string);
-        dbg_string="";
-    }
-#elif DEBUGHW==2
-    if (dbg_string.length()) {          // Debug-Ausgaben Serial
-        S.print(dbg_string);
-        dbg_string="";
-    }
-#elif DEBUGHW==3
-    if (dbg_string.length()) {          // Debug-Ausgaben Websock
-        ws.text(clientId,dbg_string);
-        //Serial1.println(dbg_string);
-        dbg_string="";
-    }
-#endif
-
     Reboot.loop();
 
     if (ws->count()) {      // ws-connections
@@ -266,7 +224,7 @@ void loop() {
 
 
 static void writeHistFileIn(int x, uint32_t val) {
-    DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
+    LOGF_VP("writeHistFileIn(): /hist_in%d = %" PRIu32, x, val);
     File f = LittleFS.open("/hist_in"+String(x), "w");
     if (f) {
         f.print(val);
@@ -275,7 +233,7 @@ static void writeHistFileIn(int x, uint32_t val) {
 }
 
 static void writeHistFileOut(int x, uint32_t val) {
-    DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
+    LOGF_VP("writeHistFileOut(): /hist_out%d = %" PRIu32, x, val);
     File f = LittleFS.open("/hist_out"+String(x), "w");
     if (f) {
         f.print(val);
