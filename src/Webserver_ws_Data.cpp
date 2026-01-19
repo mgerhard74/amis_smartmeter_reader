@@ -17,6 +17,7 @@
 #include "SystemMonitor.h"
 #include "Webserver.h"
 #include "Utils.h"
+#include "__compiled_constants.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -30,7 +31,6 @@ static void clearHist();
 static bool EEPROMClear();
 
 extern bool doSerialHwTest;
-
 
 
 AsyncWebSocket *ws;
@@ -158,9 +158,6 @@ extern kwhstruct kwh_hist[7];
 extern void historyInit(void);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
-extern const char *__COMPILED_DATE_TIME_UTC_STR__;
-extern const char *__COMPILED_GIT_HASH__;
-extern const char *__COMPILED_GIT_BRANCH__;
 
 static void clearHist() {
     String s="";

@@ -4,11 +4,9 @@
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSERVER
 #include "Utils.h"
+#include "__compiled_constants.h"
 
 #include <LittleFS.h>
-
-
-extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 
 #include "__embed_data_amis_css.h"
 #include "__embed_data_chart_js.h"
