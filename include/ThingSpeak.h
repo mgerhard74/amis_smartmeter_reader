@@ -4,6 +4,9 @@
 #define THINGSPEAK_USE_SSL 0
 #endif
 
+// 16 Zeichen lt. https://de.mathworks.com/help/thingspeak/channel-control.html
+#define THINGSPEAK_KEY_MAXLEN   16
+
 #if (THINGSPEAK_USE_SSL)
 // This stalls our application as SSL is very memory and CPU intensive
 // Also: needs ~100000 bytes more flash and ~370 bytes mor RAM
@@ -25,7 +28,7 @@ class ThingSpeakClass {
         void disable();
         void setEnabled(bool enabled) { if (enabled) enable(); else disable(); }
         void setInterval(unsigned int intervalSeconds);
-        void setApiKeyWriite(const String &apiKeyWrite);
+        void setApiKeyWrite(const char *apiKeyWrite);
         void onNewData(bool isValid, const uint32_t *readerValues=nullptr, time_t ts=0);
         const String &getLastResult();
     private:
@@ -37,7 +40,7 @@ class ThingSpeakClass {
         uint32_t _lastSentMs;
         uint32_t _intervalMs;
         String _lastResult;
-        String _apiKeyWrite;
+        char _apiKeyWrite[THINGSPEAK_KEY_MAXLEN + 1];
         struct {
             time_t ts;
             uint32_t values[8];

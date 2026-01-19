@@ -13,7 +13,7 @@ class WebserverClass
     public:
         WebserverClass();
         void init();
-        void setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password);
+        void reloadCredentials();
         bool checkCredentials(AsyncWebServerRequest* request);
 
     private:

@@ -275,11 +275,11 @@
         <div class="auth_details">
           <div class="pure-g">
             <label class="pure-u-1-3">Benutzer:</label>
-            <input class="pure-u-2-3 general" name="auth_user" value="Admin"/>
+            <input class="pure-u-2-3 general" name="auth_user" maxlength="32" value="Admin"/>
           </div>
           <div class="pure-g">
             <label class="pure-u-1-3">Passwort:</label>
-            <input class="pure-u-2-3 general" name="auth_passwd" type="password" spellcheck="false" />
+            <input class="pure-u-2-3 general" name="auth_passwd" maxlength="32" type="password" spellcheck="false" />
             <span class="no-select password-reveal"></span>
           </div>
         </div>
@@ -305,11 +305,11 @@
               </div>
               <div class="pure-g">
                   <label class="pure-u-1-3">Write API Key:</label>
-                  <input class="pure-u-2-3 general" type="text" name="write_api_key"/>
+                  <input class="pure-u-2-3 general" type="text" maxlength="16" name="write_api_key"/>
               </div>
               <div class="pure-g">
                   <label class="pure-u-1-3">Read API Key:</label>
-                  <input class="pure-u-2-3 general" type="text" name="read_api_key"/>
+                  <input class="pure-u-2-3 general" type="text" maxlength="16" name="read_api_key"/>
               </div>
               <div class="pure-g">
                   <label class="pure-u-1-3">Intervall (sec):</label>
@@ -325,7 +325,7 @@
               </div>
               <div class="pure-g">
                   <label class="pure-u-1-3">Read API Key:</label>
-                  <input class="pure-u-2-3 general" type="text" name="read_api_key2"/>
+                  <input class="pure-u-2-3 general" type="text" maxlength="16" name="read_api_key2"/>
               </div>
             </div>
         </div>

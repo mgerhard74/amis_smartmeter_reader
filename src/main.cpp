@@ -136,7 +136,7 @@ void setup() {
 
     // Webserver ... damit wir auch was machen können
     Webserver.init();    // Unter "/"" wird die "/index.html" ausgeliefert, "/update" ist eine statische fixe Seite
-    Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
+    Webserver.reloadCredentials();
 
     // Modbus Smart Meter Emulator
     ModbusSmartmeterEmulation.init();
@@ -169,7 +169,7 @@ void setup() {
     // ThingSpeak Datenupload
     ThingSpeak.init();
     ThingSpeak.setInterval(Config.thingspeak_iv);
-    ThingSpeak.setApiKeyWriite(Config.write_api_key);
+    ThingSpeak.setApiKeyWrite(Config.write_api_key);
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
 
     // Reboot um Mitternacht?

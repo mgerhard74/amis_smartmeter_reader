@@ -16,6 +16,9 @@
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
+#if (THINGSPEAK_KEY_MAXLEN != CONFIG_THINGSPEAK_KEY_MAXLEN)
+#error "THINGSPEAK_KEY_MAXLEN und CONFIG_THINGSPEAK_KEY_MAXLEN müssen gleich lang sein"
+#endif
 
 #define CONFIG_AMIS_KEY_JSON_NAME "\"amis_key\""
 #define CONFIG_AMIS_KEY_JSON_NAME_LEN (sizeof(CONFIG_AMIS_KEY_JSON_NAME)-1)
@@ -90,6 +93,14 @@ void ConfigClass::loadConfigGeneralMinimal()
 
 void ConfigClass::init()
 {
+    strcpy(DeviceName, "Amis-1");  // NOLINT
+
+    use_auth = false;
+    auth_passwd[0] = 0;
+    auth_user[0] = 0;
+
+    write_api_key[0] = 0;
+
     amis_key[0] = 0;
 }
 
@@ -126,12 +137,11 @@ void ConfigClass::loadConfigGeneral()
         return;
     }
 
-    DeviceName = (*json)[F("devicename")].as<String>();
-    DeviceName.trim();
+    strlcpy(DeviceName, (*json)[F("devicename")] | "", sizeof(DeviceName));
 
     use_auth = (*json)[F("use_auth")].as<bool>();
-    auth_passwd = (*json)[F("auth_passwd")].as<String>();
-    auth_user = (*json)[F("auth_user")].as<String>();
+    strlcpy(auth_passwd, (*json)[F("auth_passwd")] | "", sizeof(auth_passwd));
+    strlcpy(auth_user, (*json)[F("auth_user")] | "", sizeof(auth_user));
 
     log_sys = (*json)[F("log_sys")].as<bool>();
 
@@ -141,21 +151,23 @@ void ConfigClass::loadConfigGeneral()
     shelly_smart_mtr_udp_offset = (*json)[F("shelly_smart_mtr_udp_offset")].as<int>();
     shelly_smart_mtr_udp_hardware_id_appendix = (*json)[F("shelly_smart_mtr_udp_hardware_id_appendix")].as<String>();
 
-    strlcpy(amis_key, (*json)["amis_key"] | "", sizeof(amis_key));
+    strlcpy(amis_key, (*json)[F("amis_key")] | "", sizeof(amis_key));
 
     thingspeak_aktiv = (*json)[F("thingspeak_aktiv")].as<bool>();
     channel_id = (*json)[F("channel_id")].as<unsigned int>();
-    write_api_key = (*json)[F("write_api_key")].as<String>();
-    write_api_key.trim();
-    read_api_key = (*json)[F("read_api_key")].as<String>();
-    read_api_key.trim();
+    strlcpy(write_api_key, (*json)[F("write_api_key")] | "", sizeof(write_api_key));
     thingspeak_iv = (*json)[F("thingspeak_iv")].as<unsigned int>();
     if (thingspeak_iv < 30)  {
         thingspeak_iv = 30;
     }
+
+    /*
+    // read_api_key, channel_id2 und read_api_key2 only needed by web client. No need to read them here !
+
+    strlcpy(read_api_key, (*json)[F("read_api_key")] | "", sizeof(read_api_key));
     channel_id2 = (*json)[F("channel_id2")].as<unsigned int>();
-    read_api_key2 = (*json)[F("read_api_key2")].as<String>();
-    read_api_key2.trim();
+    strlcpy(read_api_key2, (*json)[F("read_api_key2")] | "", sizeof(read_api_key2));
+    */
 
     rest_var = (*json)[F("rest_var")].as<unsigned int>();
     rest_ofs = (*json)[F("rest_ofs")].as<int>();
@@ -187,10 +199,10 @@ void ConfigClass::applySettingsConfigGeneral()
     RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
 
     ThingSpeak.setInterval(Config.thingspeak_iv);
-    ThingSpeak.setApiKeyWriite(Config.write_api_key);
+    ThingSpeak.setApiKeyWrite(Config.write_api_key);
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
 
-    Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
+    Webserver.reloadCredentials();
 
     // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten!
     Network.restartMDNSIfNeeded();

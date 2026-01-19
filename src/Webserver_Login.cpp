@@ -22,9 +22,9 @@ void WebserverLoginClass::onRestRequest(AsyncWebServerRequest* request)
         request->send(200, F("text/plain"), F("Success"));
         return;
     }
-    if (!request->authenticate(Config.auth_user.c_str(), Config.auth_passwd.c_str())) {
+    if (!request->authenticate(Config.auth_user, Config.auth_passwd)) {
         LOGF_EP("Invalid login attemp from " PRsIP, PRIPVal(request->client()->remoteIP()));
-        return request->requestAuthentication(Config.DeviceName.c_str());
+        return request->requestAuthentication(Config.DeviceName);
     }
     request->send(200, F("text/plain"), F("Success"));
     LOGF_IP("Login from " PRsIP, PRIPVal(request->client()->remoteIP()));
