@@ -771,7 +771,9 @@ void AmisReaderClass::loop()
     processStateCounters(msNow);
 
     if ( msNow - _stateLastSetMs >= _stateTimoutMs ) {
-        // Timeout: seems something gone wrong and needed too long
+        // Timeout: seems something gone at the actual state wrong and needed too long
+        LOGF_DP("State timeout occured! current state=%d", (int)_state);
+
         _stateLastSetMs = msNow;
         _stateErrorCnt++;
 
@@ -779,7 +781,12 @@ void AmisReaderClass::loop()
         _serialReadBufferIdx = 0;
         clearSerialRx();
         _bytesInBufferExpectd = 0;
+
+        if (_state == waitForReaderSerial) {
+            _state = requestReaderSerial;
+        }
     }
+
     if (_stateErrorCnt >= _stateErrorMax) {
         LOGF_DP("Timeout occured! state=%d", (int)_state);
 
