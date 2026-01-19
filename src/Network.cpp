@@ -209,10 +209,12 @@ void NetworkClass::connect(void)
 
     WiFi.mode(WIFI_STA);
     if (!_configWifi.allow_sleep_mode) {
-        WiFi.setSleepMode(WIFI_NONE_SLEEP);
-        LOG_IP("Wifi sleep mode disabled");
+        WiFi.setSleepMode(WIFI_NONE_SLEEP); // listenInterval=0
+        LOG_DP("Wifi sleep mode disabled");
     } else {
         // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
+        // WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2
+        // WiFi.getSleepMode()
     }
 
     LOGF_DP("Starting Wifi in Station-Mode");
