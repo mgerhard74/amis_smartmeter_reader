@@ -1,0 +1,31 @@
+diff --git a/$$$framework_dir$$$/cores/esp8266/core_esp8266_postmortem.cpp b/$$$framework_dir$$$/cores/esp8266/core_esp8266_postmortem.cpp
+index c367dee..f5c227c 100644
+--- a/$$$framework_dir$$$/cores/esp8266/core_esp8266_postmortem.cpp
++++ b/$$$framework_dir$$$/cores/esp8266/core_esp8266_postmortem.cpp
+@@ -280,7 +280,25 @@ static void postmortem_report(uint32_t sp_dump) {
+ }
+ 
+ 
++#ifdef ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP
++#if (ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP)
++extern "C" uint32_t esp8266_core_postmortem_max_stack_dump;
++// Configurable number of stack addresses dumped via the serial interface.
++// Limits the dump to prevent triggering a HWDT at low baud rates.
++// Printed in sets of 4; values are rounded up to the nearest multiple of 4.
++// Added by AMIS-Smart-Meter project ( https://github.com/mgerhard74/amis_smartmeter_reader )
++uint32_t esp8266_core_postmortem_max_stack_dump = 0xffffffff;
++#endif
++#endif
++
+ static void print_stack(uint32_t start, uint32_t end) {
++#ifdef ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP
++#if (ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP)
++    if ((end - start) / 4 > esp8266_core_postmortem_max_stack_dump) {
++        end = start + ( esp8266_core_postmortem_max_stack_dump * 4 );
++    }
++#endif
++#endif
+     for (uint32_t pos = start; pos < end; pos += 0x10) {
+         uint32_t* values = (uint32_t*)(pos);
+ 
+#
