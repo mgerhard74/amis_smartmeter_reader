@@ -320,6 +320,24 @@ void Exception_DumpLastCrashToFile()
     f.write('\n');
     f.printf_P(PSTR("\n<<<stack<<<\n"));
     cut_here(f);
+
+    f.printf_P(PSTR("\nUse:\n${HOME}/.platformio/packages/toolchain-xtensa@1.40802.0/bin/xtensa-lx106-elf-addr2line -fipC -e firmware.elf)"));
+    const char *PSTR_0x08x = PSTR(" 0x%08x");
+    if (rst_info.epc1) {
+        f.printf_P(PSTR_0x08x, rst_info.epc1);
+    }
+    if (rst_info.epc2) {
+        f.printf_P(PSTR_0x08x, rst_info.epc2);
+    }
+    if (rst_info.epc3) {
+        f.printf_P(PSTR_0x08x, rst_info.epc3);
+    }
+    for (size_t i=0; i < exin.interrestingStackValueCnt; i++) {
+        if (exin.interrestingStackValues[i]) {
+            f.printf_P(PSTR_0x08x, exin.interrestingStackValues[i]);
+        }
+    }
+    f.printf_P(PSTR("\nto get more information\n"));
     f.close();
     Utils::littleFSsetTimeStamp(previousFSTime);
 
