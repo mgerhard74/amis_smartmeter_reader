@@ -470,8 +470,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // TODO(StefanOberhumer): Figure out why  dev-tools-button1 works and dev-tools-button2 crashes
         // Works
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
-        String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-        ws->text(client->id(), x);
+        String info = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
+        ws->text(client->id(), info);
 
     } else if (!strcmp(command, "dev-tools-button2")) {
         // Crashes
