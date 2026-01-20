@@ -7,7 +7,7 @@ Browser übertragen - sind aber grundsätzlich im Image enthalten und könnten a
 
 Zuerst dies Datei unter src/local/DefaultConfigurations.cpp abspeichern und anpassen.
 
-Wird dann das Projekt mit -D AMIS_DEVELOPER_MODE=1 compiliert, werden die unten angegebenen
+Wird dann das Projekt mit -D AMIS_BUILTIN_CONFIGURATION=1 compiliert, werden die unten angegebenen
 Einstellungen verwendet.
 Verwendung findet nur statt,  wenn *keine* Konfiguration im Filesystem des ESP8266 gefunden wird!
 
@@ -20,7 +20,7 @@ NEVER COMMIT THIS FILE CONTAINING ANY PRIVATE OR SECURITY INFORMATION!
 
 */
 
-#if (AMIS_DEVELOPER_MODE)
+#if (AMIS_BUILTIN_CONFIGURATION)
 
 
 #include "DefaultConfigurations.h"
@@ -107,7 +107,7 @@ const char *defaultConfigMqttJson = R"(
 #endif
 
 
-#endif // (AMIS_DEVELOPER_MODE)
+#endif // (AMIS_BUILTIN_CONFIGURATION)
 
 
 /* vim:set ts=4 et: */

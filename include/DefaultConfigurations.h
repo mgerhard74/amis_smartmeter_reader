@@ -1,6 +1,6 @@
 #pragma once
 
-#if (AMIS_DEVELOPER_MODE) && __has_include("local/DefaultConfigurations.cpp")
+#if (AMIS_BUILTIN_CONFIGURATION) && __has_include("local/DefaultConfigurations.cpp")
 
 #define DEFAULT_CONFIG_GENERAL_JSON   defaultConfigGerneralJson
 #define DEFAULT_CONFIG_WIFI_JSON      defaultConfigWifiJson

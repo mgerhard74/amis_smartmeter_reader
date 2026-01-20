@@ -44,7 +44,7 @@
 ;build_type = release
 ;build_flags = ${env.build_flags}
 ;            -Wl,-Map,output.map
-;            -DAMIS_DEVELOPER_MODE=1
+;            -DAMIS_BUILTIN_CONFIGURATION=1
 ;monitor_port = /dev/ttyUSB1
 ;monitor_speed = 115200  ; set to the baud rate you pass to Serial.begin(…)
 ;monitor_filters = esp8266_exception_decoder
