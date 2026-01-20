@@ -130,7 +130,7 @@ extern "C" void custom_crash_callback(struct rst_info *rst_info, uint32_t stack,
     EEPROM.put(0, exin);
     EEPROM.commit();
     EEPROM.end();
-    _inCallback = false;
+    // _inCallback = false; // never set it to false
 }
 
 
