@@ -71,7 +71,6 @@ static inline void fetchinterrestingStackValues(uint32_t start, uint32_t end, st
 
     size_t foundCnt = 0;
 
-
     for (uint32_t *curr = s; curr < e && foundCnt < std::size(exin->interrestingStackValues); curr++) {
         stackValue = *curr;
         if(stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd) {
@@ -104,6 +103,9 @@ extern "C" void custom_crash_callback(struct rst_info *rst_info, uint32_t stack,
     _inCallback = true;
 
     struct exceptionInformationV1_s exin;
+
+    memset(&exin, 0 , sizeof(exin));
+
     exin.version = 0x81;
     exin.rst_info = *rst_info;
     exin.stack = stack;
@@ -305,8 +307,15 @@ void Exception_DumpLastCrashToFile()
     /* fake the stacke trace but include our 'interrestingStackValues' we captured */
     // das stimmt zwar so nicht - bessere Info haben wir aber nicht
     f.printf_P(PSTR("sp: %08x end: %08x offset: %04x\n"), exin.stack, exin.stack_end, 0);
-    for (size_t i=0; i < exin.interrestingStackValueCnt; i++) {
-        f.printf_P(PSTR("%08x:  %08x %08x %08x %08x\n"), exin.stack + (0x10 * i), exin.interrestingStackValues[i], 0, 0, 0);
+
+    // Elements in interrestingStackValues must be multiple of 4
+    static_assert(((sizeof(exin.interrestingStackValues)/sizeof(exin.interrestingStackValues[0])) & 3) == 0);
+
+    for (size_t i=0; i < exin.interrestingStackValueCnt; i+=4) {
+        f.printf_P(PSTR("%08x:  %08x %08x %08x %08x\n"),
+                exin.stack + (0x10 * i),
+                exin.interrestingStackValues[i], exin.interrestingStackValues[i+1],
+                exin.interrestingStackValues[i+2], exin.interrestingStackValues[i+3]);
     }
     f.write('\n');
     f.printf_P(PSTR("\n<<<stack<<<\n"));
