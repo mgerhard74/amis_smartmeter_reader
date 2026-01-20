@@ -56,7 +56,7 @@ struct __attribute__((__packed__)) exceptionInformationV1_s {
     time_t tsCompiled;      // __COMPILED_DATE_TIME_UTC_TIME_T__
 
     uint8_t interrestingStackValueCnt;
-    uint32_t interrestingStackValues[15];
+    uint32_t interrestingStackValues[32];
 };
 
 
