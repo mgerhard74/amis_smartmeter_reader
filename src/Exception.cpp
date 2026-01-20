@@ -404,4 +404,17 @@ void Exception_Raise(unsigned int no) {
 }
 
 
+/*
+https://www.esp8266.com/viewtopic.php?f=13&t=20206
+
+void hw_wdt_disable(){
+  *((volatile uint32_t*) 0x60000900) &= ~(1); // Hardware WDT OFF
+}
+
+void hw_wdt_enable(){
+  *((volatile uint32_t*) 0x60000900) |= 1; // Hardware WDT ON
+}
+
+*/
+
 /* vim:set ts=4 et: */
