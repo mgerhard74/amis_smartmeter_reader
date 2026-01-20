@@ -2,11 +2,17 @@
 #
 # Copyright (C) 2023 Thomas Basler and others
 #
-import os
+import os, sys
 import subprocess
 import re
 
 Import("env")
+
+
+class globs:
+    honorErrors = True
+    errCnt = 0
+
 
 def getPatchPath(env):
     patchList = []
@@ -41,17 +47,21 @@ def replaceInFile(in_file, out_file, text, subs, flags=0):
 def main():
     if (env.GetProjectOption('custom_patches', '') == ''):
         print('No custom_patches specified')
-        return
+        return 0
 
     if (not is_tool('git')):
         print('Git not found. Will not apply custom patches!')
-        return
+        if (globs.honorErrors):
+            sys.exit(10)
+        return 0
 
     directories = getPatchPath(env)
     for directory in directories:
         if (not os.path.isdir(directory)):
             print('Patch directory not found: ' + directory)
-            return
+            if (globs.honorErrors):
+                sys.exit(11)
+            return 0
 
         for file in os.listdir(directory):
             if (not file.endswith('.patch')):
@@ -79,10 +89,12 @@ def main():
                 print('applied')
             else:
                 print('failed')
-                os.remove(preparePath)
-                env.Exit(1)
+                globs.errCnt += 1
 
             os.remove(preparePath)
 
+    if (globs.honorErrors and globs.errCnt):
+        sys.exit(12)
+    return 0
 
 main()
