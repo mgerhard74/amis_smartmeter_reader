@@ -32,6 +32,11 @@ extern "C" {
     extern uint32_t _iram_end;
     extern uint32_t _irom0_text_start;
     extern uint32_t _irom0_text_end;
+#ifdef ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP
+#if (ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP)
+    extern uint32_t esp8266_core_postmortem_max_stack_dump;
+#endif
+#endif
 }
 
 #define EXCEPTIONS_MAX_SAVED_ON_DISC    10  //    "/crashes/0.dump" ... "/crashes/9.dump"
@@ -177,6 +182,12 @@ void Exception_DumpLastCrashToFile()
     time_t ts;
     struct tm timeinfo;
     bool infoIsFrom_getResetInfoPtr;
+
+#ifdef ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP
+#if (ESP8266_CORE_POSTMORTEM_MAX_STACK_DUMP)
+    esp8266_core_postmortem_max_stack_dump = 12;
+#endif
+#endif
 
     EEPROM.begin(sizeof(exin));
     EEPROM.get(0, exin.version);
