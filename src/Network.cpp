@@ -382,7 +382,7 @@ String NetworkClass::getValidHostname(const char *hostname)
 
     const char *s = hostname;
     char *t = rHostname;
-    char *te = t + sizeof(rHostname) - 1;
+    char * const te = t + sizeof(rHostname) - 1;
 
     // copy and transform chars from Config.DeviceName into rHostname
     while (*s && t < te) {
