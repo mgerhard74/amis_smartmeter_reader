@@ -402,7 +402,7 @@ uint32_t LogfileClass::noOfEntries()
     for(;;) {
         rlen = f.readBytes(buffer, std::size(buffer));
         if (rlen == 0) {
-            return false;
+            break;
         }
         for (size_t i=0; i<rlen; ) {
             if (buffer[i++] == '\n') {
