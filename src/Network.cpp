@@ -384,12 +384,9 @@ String NetworkClass::getHostname(const char *hostname)
         } else if (*s == ' ' || *s == '_' || *s == '-' || *s == '+' || *s == '!' || *s == '?' || *s == '*') {
             *t++ = '-';
             s++;
+        } else {
+            s++; // skip that character
         }
-        /*
-        else {
-            skip that character
-        }
-        */
     }
     *t = 0;
 
