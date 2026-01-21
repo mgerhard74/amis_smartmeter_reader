@@ -388,10 +388,10 @@ uint32_t LogfileClass::noOfEntries()
         return _noOfEntriesInFile;
     }
 
-    // Set the size
+    // Get the size
     _size = f.size();
 
-    // Do not count if we're already to big!
+    // Do not count entries if we're already to big!
     if (_maxSize && _size >= _maxSize) {
         f.close();
         _startNewFile();
