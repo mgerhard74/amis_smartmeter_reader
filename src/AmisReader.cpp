@@ -319,6 +319,7 @@ size_t AmisReaderClass::serialWrite(uint8_t byte)
     size_t r;
     if (_serial) {
         r = _serial->write(byte);
+        _serial->flush();
     } else {
         r = sizeof(byte);
     }
