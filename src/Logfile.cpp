@@ -102,7 +102,9 @@ void LogfileClass::loop()
 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
+    root["entries"] = noOfEntries();
     root["pages"] = noOfPages();
+    root["size"] = _size;
     _requestedLogPageClient_t request = requestedLogPageClients.front();
     // Adapt pagno to be in valid range
     if (request.pageNo == 0) {
