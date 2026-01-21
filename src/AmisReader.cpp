@@ -561,12 +561,24 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
             const char *serialNr = (const char *)_serialReadBuffer+5;
             strlcpy(_serialNumber, serialNr, sizeof(_serialNumber));
 
+            // Der Zähler bleibt nun anscheinend 10 Sekunden in dem IEC 62056-21 Modus
+            // siehe https://wiki.volkszaehler.org/_media/hardware/channels/meters/power/siemens/amis_td-351x_bhbk.pdf 5.2.13.1
             _state = initReadCounters;
             _stateLastSetMs = msNow;
             _stateErrorCnt = 0;
             LOGF_IP("Serialnumber %s found", _serialNumber);
 
-            //serialWrite("\x06" "060\r\n");
+            // Senden wir noch gleich ein "Break" (siehe 5.2.8.12. Break B0) - das sollte das aktuelle Protokoll beenden
+            // SOH B0 ETX BCC
+            //
+            // SOH=0x01 (Start of Header)  (STX wäre 0x02)
+            // ETX=0x03
+            // BCC=BlockPrüfzeichen lt ISO 1155 (=XOR aller Bytes)
+            constexpr uint8_t bcc = 0x01 ^ 'B' ^ '0' ^ 0x03;
+            serialWrite("\x01BO\x03");
+            serialWrite(bcc);
+            delay(15); // Wait a bit till it's really sent as we change to 9600 in next step
+
         } else {
             // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
             _state = requestReaderSerial;
