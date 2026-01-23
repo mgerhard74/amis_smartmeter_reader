@@ -1128,6 +1128,21 @@ $(function() {            // main
   $(".button-dev-cmd-raise-exception7").on("click", function () {
     websock.send('{"command":"dev-raise-exception","value":7}');
   });
+  $(".button-dev-cmd-raise-exception8").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":8}');
+  });
+  $(".button-dev-cmd-raise-exception9").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":9}');
+  });
+  $(".button-dev-cmd-raise-exception10").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":10}');
+  });
+  $(".button-dev-cmd-raise-exception11").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":11}');
+  });
+  $(".button-dev-cmd-raise-exception12").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":12}');
+  });
   $(".button-dev-remove-exceptiondumpsall").on("click", function () {
     if (window.confirm("Dump-Dateien löschen. Sicher?")) {
       websock.send('{"command":"dev-remove-exceptiondumpsall"}');

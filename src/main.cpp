@@ -46,7 +46,6 @@ bool doSerialHwTest=false;
 // ansonsten liefert ESP.getVcc() später keine gültigen Werte
 ADC_MODE(ADC_VCC);
 
-
 void setup() {
     /*
     // Reclaim 4KB for system use (required for WPS/Enterprise)
@@ -56,6 +55,8 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
+
+    Exception_InstallPostmortem(1);
 
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
@@ -87,8 +88,10 @@ void setup() {
     //DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
     LOG_PRINTF_IP("  Reset info %s", ESP.getResetInfo().c_str());
 
-    // Sichern des letzten Crashes
-    Exception_DumpLastCrashToFile();
+    if (!Application.inAPMode()) {
+        // Sichern des letzten Crashes ... auch das machen wir nur im "Normalbetrieb"
+        Exception_DumpLastCrashToFile();
+    }
 
     // Set timezone to CET/CEST
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
