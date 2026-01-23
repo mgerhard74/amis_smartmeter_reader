@@ -34,6 +34,8 @@
 #include "StackThunk.h"
 #include "coredecls.h"
 
+#include "../../../../include/framework/replacement/core_esp8266_postmortem.h"
+
 extern "C" {
 
 // These will be pointers to PROGMEM const strings
@@ -57,11 +59,12 @@ static void uart1_write_char_d(char c);
 static void print_stack(uint32_t start, uint32_t end);
 
 // using numbers different from "REASON_" in user_interface.h (=0..6)
+/* moved into core_es8266_postmortem.h
 enum rst_reason_sw
 {
     REASON_USER_STACK_SMASH = 253,
     REASON_USER_SWEXCEPTION_RST = 254
-};
+};*/
 static int s_user_reset_reason = REASON_DEFAULT_RST;
 
 // From UMM, the last caller of a malloc/realloc/calloc which failed:
@@ -83,10 +86,14 @@ extern void __custom_crash_callback( struct rst_info * rst_info, uint32_t stack,
 extern void custom_crash_callback( struct rst_info * rst_info, uint32_t stack, uint32_t stack_end ) __attribute__ ((weak, alias("__custom_crash_callback")));
 
 
+static bool doSerialReport = true;
+
 // Prints need to use our library function to allow for file and function
 // to be safely accessed from flash. This function encapsulates snprintf()
 // [which by definition will 0-terminate] and dumping to the UART
 static void ets_printf_P(const char *str, ...) {
+    if(!doSerialReport) { return; }
+
     char destStr[160];
     char *c = destStr;
     va_list argPtr;
@@ -99,6 +106,8 @@ static void ets_printf_P(const char *str, ...) {
 }
 
 static void cut_here() {
+    if(!doSerialReport) { return; }
+
     ets_putc('\n');
     for (auto i = 0; i < 15; i++ ) {
         ets_putc('-');
@@ -129,63 +138,93 @@ asm(
     ".size __wrap_system_restart_local, .-__wrap_system_restart_local\n\t"
 );
 
+static postmortem_rst_info_t postmortem_rst_info={};
+postmortem_report_t postmortem_report_early_callback = nullptr;
+
 static void postmortem_report(uint32_t sp_dump) {
-    struct rst_info rst_info;
-    memset(&rst_info, 0, sizeof(rst_info));
+    postmortem_rst_info = {}; // memset((void *) &postmortem_rst_info, 0, sizeof(postmortem_rst_info));
+    struct rst_info *rst_info = &postmortem_rst_info.rst_info;
+
+    postmortem_rst_info.sp_dump = sp_dump;
+
     if (s_user_reset_reason == REASON_DEFAULT_RST)
     {
-        system_rtc_mem_read(0, &rst_info, sizeof(rst_info));
-        if (rst_info.reason != REASON_SOFT_WDT_RST &&
-            rst_info.reason != REASON_EXCEPTION_RST &&
-            rst_info.reason != REASON_WDT_RST)
+        system_rtc_mem_read(0, rst_info, sizeof(*rst_info));
+        if (rst_info->reason != REASON_SOFT_WDT_RST &&
+            rst_info->reason != REASON_EXCEPTION_RST &&
+            rst_info->reason != REASON_WDT_RST)
         {
-            rst_info.reason = REASON_DEFAULT_RST;
+            rst_info->reason = REASON_DEFAULT_RST;
         }
     }
     else
-        rst_info.reason = s_user_reset_reason;
+        rst_info->reason = s_user_reset_reason;
 
-    ets_install_putc1(&uart_write_char_d);
+    doSerialReport = true;
+    if (postmortem_report_early_callback) {
+        // Here wen can do some early things - eg: setting serial to 115200
+        postmortem_report_early_callback(&postmortem_rst_info, &doSerialReport);
+    }
+
+    if (doSerialReport) {
+        ets_install_putc1(&uart_write_char_d);
+        ets_printf_P(PSTR("\n### AMIS postmortem_report: reason=%d excause=%d epc1=0x%08x ###\n"),
+                    rst_info->reason, rst_info->exccause, rst_info->epc1);
+    }
 
     cut_here();
 
-    if (s_panic_line) {
-        ets_printf_P(PSTR("\nPanic %S:%d %S"), s_panic_file, s_panic_line, s_panic_func);
-        if (s_panic_what) {
-            ets_printf_P(PSTR(": Assertion '%S' failed."), s_panic_what);
-        }
-        ets_putc('\n');
+    if (s_panic_what) {
+        postmortem_rst_info.exception_extra_info_type = exception_type_assert;
+        postmortem_rst_info.u_exception_extra_info.panic.line = s_panic_line;
+        postmortem_rst_info.u_exception_extra_info.panic.file = s_panic_file;
+        postmortem_rst_info.u_exception_extra_info.panic.func = s_panic_func;
+        postmortem_rst_info.u_exception_extra_info.panic.what = s_panic_what;
+        ets_printf_P(PSTR("\nAssertion %S:%d"), s_panic_file, s_panic_line);
+        ets_printf_P(PSTR(" %S"), s_panic_func);
+        ets_printf_P(PSTR(": '%S' failed.\n"), s_panic_what);
     }
     else if (s_panic_file) {
-        ets_printf_P(PSTR("\nPanic %S\n"), s_panic_file);
+        postmortem_rst_info.exception_extra_info_type = exception_type_panic;
+        postmortem_rst_info.u_exception_extra_info.panic.line = s_panic_line;
+        ets_printf_P(PSTR("\nPanic %S:%d"), s_panic_file, s_panic_line);
+        ets_printf_P(PSTR(" %S\n"), s_panic_func);
     }
     else if (s_unhandled_exception) {
+        postmortem_rst_info.exception_extra_info_type = exception_type_unhandled_exception;
+        postmortem_rst_info.u_exception_extra_info.unhandled_exception.unhandled_exception = s_unhandled_exception;
         ets_printf_P(PSTR("\nUnhandled C++ exception: %S\n"), s_unhandled_exception);
     }
     else if (s_abort_called) {
+        postmortem_rst_info.exception_extra_info_type = exception_type_abort;
         ets_printf_P(PSTR("\nAbort called\n"));
     }
-    else if (rst_info.reason == REASON_EXCEPTION_RST) {
+    else if (rst_info->reason == REASON_EXCEPTION_RST) {
         // The GCC divide routine in ROM jumps to the address below and executes ILL (00 00 00) on div-by-zero
         // In that case, print the exception as (6) which is IntegerDivZero
-        uint32_t epc1 = rst_info.epc1;
-        uint32_t exccause = rst_info.exccause;
-        bool div_zero = (exccause == 0) && (epc1 == 0x4000dce5u);
+        uint32_t epc1 = rst_info->epc1;
+        uint32_t exccause = rst_info->exccause;
+        //constexpr uint32_t divZero_epc1 = 0x4000dce5u;
+        constexpr uint32_t divZero_epc1 = 0x4000e25du;
+        bool div_zero = (exccause == 0) && (epc1 == divZero_epc1);
         if (div_zero) {
             exccause = 6;
             // In place of the detached 'ILL' instruction., redirect attention
             // back to the code that called the ROM divide function.
             __asm__ __volatile__("rsr.excsave1 %0\n\t" : "=r"(epc1) :: "memory");
+            rst_info->exccause = 6;
+            postmortem_rst_info.excsave1 = epc1;
         }
         ets_printf_P(PSTR("\nException (%d):\nepc1=0x%08x epc2=0x%08x epc3=0x%08x excvaddr=0x%08x depc=0x%08x\n"),
-            exccause, epc1, rst_info.epc2, rst_info.epc3, rst_info.excvaddr, rst_info.depc);
+            exccause, epc1, rst_info->epc2, rst_info->epc3, rst_info->excvaddr, rst_info->depc);
     }
-    else if (rst_info.reason == REASON_SOFT_WDT_RST) {
+    else if (rst_info->reason == REASON_SOFT_WDT_RST) {
         ets_printf_P(PSTR("\nSoft WDT reset\n"));
         ets_printf_P(PSTR("\nException (%d):\nepc1=0x%08x epc2=0x%08x epc3=0x%08x excvaddr=0x%08x depc=0x%08x\n"),
-            rst_info.exccause, /* Address executing at time of Soft WDT level-1 interrupt */ rst_info.epc1, 0, 0, 0, 0);
+            rst_info->exccause, /* Address executing at time of Soft WDT level-1 interrupt */ rst_info->epc1, 0, 0, 0, 0);
     }
-    else if (rst_info.reason == REASON_USER_STACK_SMASH) {
+    else if (rst_info->reason == REASON_USER_STACK_SMASH) {
+        postmortem_rst_info.u_exception_extra_info.stacksmash.addr = s_stacksmash_addr;
         ets_printf_P(PSTR("\nStack smashing detected.\n"));
         ets_printf_P(PSTR("\nException (%d):\nepc1=0x%08x epc2=0x%08x epc3=0x%08x excvaddr=0x%08x depc=0x%08x\n"),
             5 /* Alloca exception, closest thing to stack fault*/, s_stacksmash_addr, 0, 0, 0, 0);
@@ -194,15 +233,29 @@ static void postmortem_report(uint32_t sp_dump) {
         ets_printf_P(PSTR("\nGeneric Reset\n"));
     }
 
-    uint32_t cont_stack_start = (uint32_t) &(g_pcont->stack);
-    uint32_t cont_stack_end = (uint32_t) g_pcont->stack_end;
+    const uint32_t cont_stack_start = (uint32_t) &(g_pcont->stack);
+    const uint32_t cont_stack_end = (uint32_t) g_pcont->stack_end;
     uint32_t stack_end;
+
+    if (sp_dump > stack_thunk_get_stack_bot() && sp_dump <= stack_thunk_get_stack_top()) {
+        postmortem_rst_info.exception_context = exception_context_bearssl;
+    } else if (sp_dump > cont_stack_start && sp_dump < cont_stack_end) {
+        postmortem_rst_info.exception_context = exception_context_cont;
+    } else {
+        postmortem_rst_info.exception_context = exception_context_sys;
+    }
+
+    if (postmortem_report_early_callback) {
+        postmortem_report_early_callback(&postmortem_rst_info, nullptr);
+    }
+
+
 
     // amount of stack taken by interrupt or exception handler
     // and everything up to __wrap_system_restart_local
     // ~(determined empirically, might break)~
     uint32_t offset = 0;
-    if (rst_info.reason == REASON_SOFT_WDT_RST) {
+    if (rst_info->reason == REASON_SOFT_WDT_RST) {
         // Stack Tally
         // 256 User Exception vector handler reserves stack space
         //     directed to _xtos_l1int_handler function in Boot ROM
@@ -212,7 +265,7 @@ static void postmortem_report(uint32_t sp_dump) {
         //  32 pp_soft_wdt_feed_local - gather the specifics and call __wrap_system_restart_local
         offset =  32 + 16 + 48 + 256;
     }
-    else if (rst_info.reason == REASON_EXCEPTION_RST) {
+    else if (rst_info->reason == REASON_EXCEPTION_RST) {
         // Stack Tally
         // 256 Exception vector reserves stack space
         //     filled in by "C" wrapper handler
@@ -220,10 +273,10 @@ static void postmortem_report(uint32_t sp_dump) {
         //  64 Handler level 2 - exception report
         offset = 64 + 16 + 256;
     }
-    else if (rst_info.reason == REASON_WDT_RST) {
+    else if (rst_info->reason == REASON_WDT_RST) {
         offset = 16;
     }
-    else if (rst_info.reason == REASON_USER_SWEXCEPTION_RST) {
+    else if (rst_info->reason == REASON_USER_SWEXCEPTION_RST) {
         offset = 16;
     }
 
@@ -273,7 +326,7 @@ static void postmortem_report(uint32_t sp_dump) {
         ets_printf_P(PSTR("\nlast failed alloc caller: 0x%08x\n"), (uint32_t)umm_last_fail_alloc_addr);
     }
 
-    custom_crash_callback( &rst_info, sp_dump + offset, stack_end );
+    custom_crash_callback( rst_info, sp_dump + offset, stack_end );
 
     ets_delay_us(10000);
     __real_system_restart_local();
