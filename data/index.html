@@ -534,11 +534,11 @@
         </div>
         <div class="pure-g">
           <label class="pure-u-1-2 ">Shelly Version</label>
-              <select class="pure-u-1-2 general" name="shelly_smart_mtr_udp_device" id="shelly_smart_mtr_udp_device">
-                  <option value="shellypro3em">Shelly Pro 3EM (Port 2220)</option>
-                  <option value="shellyemg3">Shelly EM Gen3 (Port 2222)</option>
-                  <option value="shellyproem50">Shelly Pro EM-50 (Port 2223)</option>
-                  <option value="shellypro3em_old">Shelly Pro 3EM (Port 1010, Firmware Version <=224)</option>
+              <select class="pure-u-1-2 general" name="shelly_smart_mtr_udp_device_index" id="shelly_smart_mtr_udp_device_index">
+                  <option value="0">Shelly Pro EM-50 (Port 2223)</option>
+                  <option value="1">Shelly EM Gen3 (Port 2222)</option>
+                  <option value="2">Shelly Pro 3EM (Port 2220)</option>
+                  <option value="3">Shelly Pro 3EM (Port 1010, Firmware Version <=224)</option>
               </select>
           <div class="pure-u-1 hint">
             Es gibt mehrere Shelly's die ähnlich arbeiten und emuliert werden können. Bei Verwendung von Shelly Pro 3EM: Ist die Firmware der Batterie <= 224, den entsprechenden Eintrag wählen.
@@ -556,7 +556,7 @@
         </div>
         <div class="pure-g">
             <label class="pure-u-1-2">Shelly Hardware ID (optional)</label>
-            <input class="pure-u-1-2 general" name="shelly_smart_mtr_udp_hardwareID" type="text" id="shelly_smart_mtr_udp_hardwareID"/>
+            <input class="pure-u-1-2 general" name="shelly_smart_mtr_udp_hardware_id_appendix" type="text" id="shelly_smart_mtr_udp_hardware_id_appendix"/>
             <div class="pure-u-1 pure-u-sm-2-5 hint">
                 Wenn nicht definiert, wird automatisch eine ID auf Basis der Wifi-MAC generiert.
             </div>

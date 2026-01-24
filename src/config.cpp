@@ -62,9 +62,9 @@ void ConfigClass::loadConfigGeneral()
 
     smart_mtr = (*json)[F("smart_mtr")].as<bool>(); 
     shelly_smart_mtr_udp = (*json)[F("shelly_smart_mtr_udp")].as<bool>();
-    shelly_smart_mtr_udp_device = (*json)[F("shelly_smart_mtr_udp_device")].as<String>();
+    shelly_smart_mtr_udp_device_index = (*json)[F("shelly_smart_mtr_udp_device_index")].as<int>();
     shelly_smart_mtr_udp_offset = (*json)[F("shelly_smart_mtr_udp_offset")].as<int>();
-    shelly_smart_mtr_udp_hardwareID = (*json)[F("shelly_smart_mtr_udp_hardwareID")].as<String>();
+    shelly_smart_mtr_udp_hardware_id_appendix = (*json)[F("shelly_smart_mtr_udp_hardware_id_appendix")].as<String>();
 
     amis_key = (*json)[F("amis_key")].as<String>();
     amis_key.trim();
