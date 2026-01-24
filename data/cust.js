@@ -36,9 +36,9 @@ var config_general = {
     "rest_neg": false,
     "smart_mtr":false,
     "shelly_smart_mtr_udp": false,
-    "shelly_smart_mtr_udp_device": "shellypro3em",
+    "shelly_smart_mtr_udp_device_index": 0,
     "shelly_smart_mtr_udp_offset": 0,
-    "shelly_smart_mtr_udp_hardwareID": "",
+    "shelly_smart_mtr_udp_hardware_id_appendix": "",
     "developerModeEnabled": false,
     "webserverTryGzipFirst": true, // diese Einstellung wird vom AmisLeser beim Lesen der Konfig nicht beachtet
     "switch_on": 0,
