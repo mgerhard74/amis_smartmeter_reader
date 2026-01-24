@@ -2,7 +2,7 @@
 #include <ArduinoJson.h>
 #include "proj.h"
 #include "unused.h"
-
+#include <functional>
 /*
   Shelly Smartmeter Emulator für B2500 Batteriespeicher. 
   Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen. 
@@ -65,78 +65,80 @@ bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
 
 /*
     request looks like: {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
-    response looks like: {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"act_power":100.0}}
+    response looks like:    
+        {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"act_power":100.0}}
+        {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
 */
-bool ShellySmartmeterEmulationClass::listenAndHandleUDP() {
+void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
+    if(!_currentValues.dataAreValid) {
+        return;
+    }
+
+    // --- JSON parsen ---
+    size_t len = udpPacket.length();
+    char tempBuffer[len+1];
+    memcpy(tempBuffer, udpPacket.data(), len);
+    tempBuffer[len] = '\0';
+    //not precise at all, but it's a hint that something may not work
+    if(len>=128) {
+        writeEvent("WARN", "Emulator", "JsonBuffer may be too small", String(tempBuffer));
+    }
+
+    DynamicJsonBuffer jsonBufferRequest(256);
+    JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
+    if (!requestJson.success()) {
+        DBGOUT("[ DEBUG ] Failed to parse json\n");
+        return;
+    }
+
+    //check for objects
+    if( !requestJson.containsKey("id") || !requestJson["id"].is<int>() || 
+        !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
+        !requestJson.containsKey("params")) 
+    {
+        DBGOUT("[ DEBUG ] Invalid json\n");
+        return;
+    }
+    JsonObject& params = requestJson["params"];
+    if (!params.containsKey("id") || !params["id"].is<int>()) {
+        DBGOUT("[ DEBUG ] Invalid json\n");
+        return;
+    }
+    
+    int id = requestJson["id"];
+    String method(requestJson["method"]);
+
+    DynamicJsonBuffer jsonBufferResponse(365);
+    JsonObject& responseJson = jsonBufferResponse.createObject();
+    responseJson["id"] = id;
+    responseJson["src"] = _device.id;
+    responseJson["dst"] = "unknown";
+    responseJson["result"] =  jsonBufferResponse.createObject();
+    //the B2500 is VEEEERY picky... needs "float" formatted value with a dot
+    String saldo = String(_currentValues.saldo + _offset)+".0"; 
+    if(method =="EM.GetStatus") {
+        responseJson["result"]["a_act_power"] = RawJson(saldo);
+        responseJson["result"]["b_act_power"] = RawJson("0.0");
+        responseJson["result"]["c_act_power"] = RawJson("0.0");
+        responseJson["result"]["total_act_power"] = RawJson(saldo);
+    } else if(method == "EM1.GetStatus") {
+        responseJson["result"]["act_power"] = RawJson(saldo);
+    } else {
+        DBGOUT("[ DEBUG ] unknown method\n");
+        return;
+    }
+
+    AsyncUDPMessage message;
+    responseJson.printTo(message);
+    _udp.sendTo(message, udpPacket.remoteIP(), udpPacket.remotePort()); //respond directly via "udpPacket" doesn't work
+}
+
+bool ShellySmartmeterEmulationClass::listen() {
     if(_udp.listen(_device.port)) {
         writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulator Listening on Port"), String(_device.port));
 
-        //handle request
-        _udp.onPacket([&](AsyncUDPPacket udpPacket) {
-            
-            if(!_currentValues.dataAreValid) {
-                return;
-            }
+        _udp.onPacket(std::bind(&ShellySmartmeterEmulationClass::handleRequest, this, std::placeholders::_1));
 
-            // --- JSON parsen ---
-            size_t len = udpPacket.length();
-            char tempBuffer[len+1];
-            memcpy(tempBuffer, udpPacket.data(), len);
-            tempBuffer[len] = '\0';
-            //not precise at all, but it's a hint that something may not work
-            if(len>=128) {
-                writeEvent("WARN", "Emulator", "JsonBuffer may be too small", String(tempBuffer));
-            }
-
-            DynamicJsonBuffer jsonBufferRequest(128);
-            JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
-            if (!requestJson.success()) {
-                DBGOUT("[ DEBUG ] Failed to parse json\n");
-                return;
-            }
-
-            //check for objects
-            if( !requestJson.containsKey("id") || !requestJson["id"].is<int>() || 
-                !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
-                !requestJson.containsKey("params")) 
-            {
-                DBGOUT("[ DEBUG ] Invalid json\n");
-                return;
-            }
-            JsonObject& params = requestJson["params"];
-            if (!params.containsKey("id") || !params["id"].is<int>()) {
-                DBGOUT("[ DEBUG ] Invalid json\n");
-                return;
-            }
-            
-            int id = requestJson["id"];
-            String method(requestJson["method"]);
-
-            DynamicJsonBuffer jsonBufferResponse(256);
-            JsonObject& responseJson = jsonBufferResponse.createObject();
-            responseJson["id"] = id;
-            responseJson["src"] = _device.id;
-            responseJson["dst"] = "unknown";
-            responseJson["result"] =  jsonBufferResponse.createObject();
-            //the B2500 is VEEEERY picky... needs "float" formatted value with a dot
-            String saldo = String(_currentValues.saldo + _offset)+".0"; 
-            if(method =="EM.GetStatus") {
-                responseJson["result"]["a_act_power"] = RawJson(saldo);
-                responseJson["result"]["b_act_power"] = RawJson("0.0");
-                responseJson["result"]["c_act_power"] = RawJson("0.0");
-                responseJson["result"]["total_act_power"] = RawJson(saldo);
-            } else if(method == "EM1.GetStatus") {
-                responseJson["result"]["act_power"] = RawJson(saldo);
-            } else {
-                DBGOUT("[ DEBUG ] unknown method\n");
-                return;
-            }
-
-            AsyncUDPMessage message;
-            responseJson.printTo(message);
-            _udp.sendTo(message, udpPacket.remoteIP(), udpPacket.remotePort()); //respond directly via "udpPacket" doesn't work
-        });
-    
         return true;
     }
 
@@ -148,7 +150,7 @@ bool ShellySmartmeterEmulationClass::enable(void)
     if(!_enabled) {
        writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation enabled"), _device.id);
        if(_offset != 0) writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation using offset"), String(_offset));
-       _enabled = listenAndHandleUDP();
+       _enabled = listen();
     }
     
     return _enabled;
