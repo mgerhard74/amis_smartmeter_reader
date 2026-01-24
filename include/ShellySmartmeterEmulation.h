@@ -10,21 +10,19 @@ public:
     ShellySmartmeterEmulationClass();
 
     struct Device {
-        String name;
-        String prettyName;
         uint16_t port;
         String id;
     };
 
-    //TODO: actually memory intensive. refactor as [] - and prettynames are only for log
-    static inline const std::map<String, Device> DEVICES = {
-        {"shellypro3em_old", {"shellypro3em", "Shelly 3 EM Pro (old)", 1010, ""}},
-        {"shellypro3em",     {"shellypro3em", "Shelly 3 EM Pro", 2220, ""}},
-        {"shellyemg3",       {"shellyemg3", "Shelly EM Gen3", 2222, ""}},
-        {"shellyproem50",    {"shellyproem50", "Shelly Pro EM-50", 2223, ""}} 
+    //NOTE: be careful, index of array must match the selected dropbox value of index.html
+    static inline const Device DEVICES[4] = {
+        {2223, "shellyproem50"},    //Shelly Pro EM-50
+        {2222, "shellyemg3"},       //Shelly EM Gen3
+        {2220, "shellypro3em"},     //Shelly Pro 3EM (Firmware >=224)
+        {1010, "shellypro3em"}      //Shelly Pro 3EM (Firmware <224)
     };
 
-    void init(Device deviceConfig, int offset);
+    bool init(int selectedDeviceIndex, String customDeviceIDAppendix, int saldoOffset);
     bool setEnabled(bool enabled);
     bool enable();
     void disable();

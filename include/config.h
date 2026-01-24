@@ -22,9 +22,9 @@ public:
     bool smart_mtr;
     
     bool shelly_smart_mtr_udp;
-    String shelly_smart_mtr_udp_device;
+    unsigned shelly_smart_mtr_udp_device_index;
     int shelly_smart_mtr_udp_offset;
-    String shelly_smart_mtr_udp_hardwareID;
+    String shelly_smart_mtr_udp_hardware_id_appendix;
 
     bool use_auth;
     String auth_passwd;

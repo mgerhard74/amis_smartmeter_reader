@@ -171,17 +171,10 @@ void setup() {
     }
 
     // Shelly Smart Meter Emulator
-    if (Config.shelly_smart_mtr_udp) {
-        if(ShellySmartmeterEmulationClass::DEVICES.count(Config.shelly_smart_mtr_udp_device) == 1) {
-            ShellySmartmeterEmulationClass::Device device = ShellySmartmeterEmulationClass::DEVICES.at(Config.shelly_smart_mtr_udp_device);
-            if(Config.shelly_smart_mtr_udp_hardwareID != "") {
-                device.id = Config.shelly_smart_mtr_udp_hardwareID;
-            }
-            ShellySmartmeterEmulation.init(device, Config.shelly_smart_mtr_udp_offset);
-            ShellySmartmeterEmulation.enable();
-        } else {
-            writeEvent("ERROR", "main", "Shelly configuration device-key mismatch. Key not found.", Config.shelly_smart_mtr_udp_device);
-        }
+    if (Config.shelly_smart_mtr_udp &&
+        ShellySmartmeterEmulation.init(Config.shelly_smart_mtr_udp_device_index, Config.shelly_smart_mtr_udp_hardware_id_appendix, Config.shelly_smart_mtr_udp_offset))
+    {
+        ShellySmartmeterEmulation.enable();
     }
 
 
