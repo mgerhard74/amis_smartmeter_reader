@@ -79,12 +79,8 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     char tempBuffer[len+1];
     memcpy(tempBuffer, udpPacket.data(), len);
     tempBuffer[len] = '\0';
-    //not precise at all, but it's a hint that something may not work
-    if(len>=128) {
-        writeEvent("WARN", "Emulator", "JsonBuffer may be too small", String(tempBuffer));
-    }
 
-    DynamicJsonBuffer jsonBufferRequest(256);
+    DynamicJsonBuffer jsonBufferRequest;
     JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
     if (!requestJson.success()) {
         DBGOUT("[ DEBUG ] Failed to parse json\n");
@@ -108,7 +104,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     int id = requestJson["id"];
     String method(requestJson["method"]);
 
-    DynamicJsonBuffer jsonBufferResponse(365);
+    DynamicJsonBuffer jsonBufferResponse;
     JsonObject& responseJson = jsonBufferResponse.createObject();
     responseJson["id"] = id;
     responseJson["src"] = _device.id;
