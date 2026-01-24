@@ -1129,7 +1129,7 @@ $(function() {            // main
     websock.send('{"command":"dev-raise-exception","value":7}');
   });
   $(".button-dev-remove-exceptiondumpsall").on("click", function () {
-    if (window.confirm("Log-Datei löschen. Sicher?")) {
+    if (window.confirm("Dump-Dateien löschen. Sicher?")) {
       websock.send('{"command":"dev-remove-exceptiondumpsall"}');
     }
   });
