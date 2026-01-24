@@ -29,11 +29,9 @@ public:
     //NOTE: kept signature of function to match ModbusSmartmeterEmulation (actually 1.8.0 & 2.8.0 not needed)
     void setCurrentValues(bool dataAreValid, uint32_t v1_7_0=0, uint32_t v2_7_0=0, uint32_t v1_8_0=0, uint32_t v2_8_0=0);
 
-
 private:
     AsyncUDP _udp;
     Device _device;
-    String _deviceID;
     int _offset;    
     
     bool _enabled = false;
@@ -43,7 +41,8 @@ private:
         int32_t saldo=0;
     } _currentValues;
 
-    bool listenAndHandleUDP();
+    bool listen();
+    void handleRequest(AsyncUDPPacket udpPacket);
 
 };
 
