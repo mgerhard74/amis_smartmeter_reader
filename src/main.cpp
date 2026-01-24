@@ -13,6 +13,7 @@
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
+#include "ShellySmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
@@ -74,7 +75,7 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-
+   
     #if DEBUGHW==2
         #if DEBUG_OUTPUT==0
             Serial.begin(115200);
@@ -162,12 +163,20 @@ void setup() {
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst); // webserverTryGzipFirst sollte hier true sein (lesen wir nicht aus der config)
 
-    // Smart Meter Simulator
+    // Modbus Smart Meter Emulator
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
         LOG_VP("ModbusSmartmeterEmulation enabled");
     }
+
+    // Shelly Smart Meter Emulator
+    if (Config.shelly_smart_mtr_udp &&
+        ShellySmartmeterEmulation.init(Config.shelly_smart_mtr_udp_device_index, Config.shelly_smart_mtr_udp_hardware_id_appendix, Config.shelly_smart_mtr_udp_offset))
+    {
+        ShellySmartmeterEmulation.enable();
+    }
+
 
     // initiate ping watchdog
     WatchdogPing.init();
