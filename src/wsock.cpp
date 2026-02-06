@@ -3,7 +3,7 @@
 #include "ThingSpeak.h"
 
 //#define DEBUG
-#include "debug.h"
+#include "amis_debug.h"
 
 void sendEventLog(uint32_t clientId, int page) {
     const int lines_per_page = 20;

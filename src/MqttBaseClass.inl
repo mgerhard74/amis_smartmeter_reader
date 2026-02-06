@@ -2,6 +2,8 @@
 // Details done in
 //    *  MqttHAClass            handling
 //    *  MqttReaderDataClass
+#include "Mqtt.h"
+#include "amis_debug.h"
 
 void MqttBaseClass::init()
 {
@@ -29,7 +31,7 @@ MqttBaseClass::MqttBaseClass()
 
 void MqttBaseClass::onPublish(uint16_t packetId) {
     // seems that callback is not not working!!!
-    DBGOUT ("onMqttPublish\n");
+    DBG("onMqttPublish\n");
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "MQTT publish acknowledged", String(packetId));
     }
@@ -63,7 +65,7 @@ void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
 
     if (!_mqttClient.connected()) {
-        DBGOUT("MQTT publish: not connected\n");
+        DBG("MQTT publish: not connected\n");
         return; // _actionTicker will be armed in onConnect()
     }
 
@@ -88,7 +90,7 @@ void MqttBaseClass::onConnect(bool sessionPresent)
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
-    eprintf("MQTT onConnect %u\n", sessionPresent);
+    DBG("MQTT onConnect %u\n", sessionPresent);
     if (Config.log_sys) {
         writeEvent("INFO", "mqtt", "Connected to MQTT Server", "sessionPresent=" + String(sessionPresent));
     }
@@ -110,26 +112,26 @@ void MqttBaseClass::doConnect()
     IPAddress ipAddr;
     String mqttServer;
     if (ipAddr.fromString(_config.mqtt_broker) && ipAddr.isSet()) {
-        eprintf("MQTT init: %s %d\n", ipAddr.toString().c_str(), Config.mqtt_port);
+        DBG("MQTT init: %s %d\n", ipAddr.toString().c_str(), _config.mqtt_port);
         _mqttClient.setServer(ipAddr, _config.mqtt_port);
         mqttServer = ipAddr.toString();
     } else {
-        eprintf("MQTT init: %s %d\n", Config.mqtt_broker.c_str(), Config.mqtt_port);
+        DBG("MQTT init: %s %d\n", _config.mqtt_broker.c_str(), _config.mqtt_port);
         _mqttClient.setServer(_config.mqtt_broker.c_str(), _config.mqtt_port);
         mqttServer = _config.mqtt_broker;
     }
 
     if (!_config.mqtt_will.isEmpty()) {
         _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
-        eprintf("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        DBG("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
     }
     if (!_config.mqtt_user.isEmpty()) {
         _mqttClient.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
-        eprintf("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        DBG("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
     if (!_config.mqtt_client_id.isEmpty()) {
         _mqttClient.setClientId(_config.mqtt_client_id.c_str());
-        eprintf("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
+        DBG("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
     }
 
     if (Config.log_sys) {
@@ -188,7 +190,7 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     if (Config.log_sys) {
         writeEvent("WARN", "mqtt", "Disconnected from MQTT server", reasonstr);
     }
-    eprintf("Disconnected from MQTT server: %s\n", reasonstr.c_str());
+    DBG("Disconnected from MQTT server: %s\n", reasonstr.c_str());
 }
 
 
@@ -249,7 +251,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 {
     File configFile = LittleFS.open("/config_mqtt", "r");
     if (!configFile) {
-        DBGOUT(F("[ WARN ] Failed to open config_mqtt\n"));
+        DBG(F("[ WARN ] Failed to open config_mqtt\n"));
 #ifndef DEFAULT_CONFIG_MQTT_JSON
         return false;
 #endif
@@ -266,7 +268,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBGOUT(F("[ WARN ] Failed to parse config_mqtt\n"));
+        DBG(F("[ WARN ] Failed to parse config_mqtt\n"));
         return false;
     }
     ///json.prettyPrintTo(Serial);

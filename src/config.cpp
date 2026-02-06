@@ -1,6 +1,6 @@
 
 //#define DEBUG
-#include "debug.h"
+#include "amis_debug.h"
 
 #include "config.h"
 #include "AmisReader.h"
@@ -27,7 +27,7 @@ void ConfigClass::loadConfigGeneral()
     configFile = LittleFS.open("/config_general", "r");
 
     if (!configFile) {
-        DBGOUT("[ WARN ] Failed to open config_general\n");
+        DBG("[ WARN ] Failed to open config_general\n");
         writeEvent("ERROR", "Allgemein", "Could not open /config_general", "");
 #ifndef DEFAULT_CONFIG_GENERAL_JSON
         return;
@@ -45,7 +45,7 @@ void ConfigClass::loadConfigGeneral()
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBGOUT("[ WARN ] Failed to parse config_general\n");
+        DBG("[ WARN ] Failed to parse config_general\n");
         writeEvent("ERROR", "Allgemein", "Error parsing /config_general", "");
         return;
     }

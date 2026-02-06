@@ -14,6 +14,7 @@
 #include "Webserver.h"
 #include "unused.h"
 #include "Utils.h"
+#include "amis_debug.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -97,7 +98,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
     UNUSED_ARG(server);
 
     if(type == WS_EVT_ERROR) {
-        eprintf("Error: WebSocket[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
+        DBG("Error: WebSocket[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
 
@@ -184,7 +185,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {
-        DBGOUT(F("[ WARN ] Couldn't parse WebSocket message"));
+        DBG(F("[ WARN ] Couldn't parse WebSocket message"));
         return;
     }
     // Web Browser sends some commands, check which command is given
@@ -199,7 +200,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     clientId = client->id();
 
     // Check whatever the command is and act accordingly
-    eprintf("[ INFO ] command: %s\n",command);
+    DBG("[ INFO ] command: %s\n", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
@@ -247,10 +248,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
         if(f) {
-            //size_t len = root.measurePrettyLength();
             root.prettyPrintTo(f);
             f.close();
-            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, len);
+            DBG("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, root.measurePrettyLength());
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
@@ -360,7 +360,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
     } else if(strcmp(command, "print2") == 0) {
         //ws.text(clientId,"prn\0"); // ws.text
-        eprintf("prn\n");
+        DBG("prn\n");
         uint8_t ibuffer[10];      //12870008
         File f;
         unsigned i,j;
@@ -371,12 +371,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 j=f.read(ibuffer,8);
                 ibuffer[j]=0;
                 f.close();
-                eprintf("%d %d\n", i, atoi((char*)ibuffer));
+                DBG("%d %d\n", i, atoi((char*)ibuffer));
         //       ws.text(clientId,ibuffer); // ws.text
             }
             //else ws.text(clientId,"no file\0");
             else {
-                eprintf("no file\n");
+                DBG("no file\n");
             }
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {
@@ -579,7 +579,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     struct ip_info info;
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
-        DBGOUT(F("[ WARN ] Error getting info on LittleFS"));
+        DBG(F("[ WARN ] Error getting info on LittleFS"));
     }
 
     DynamicJsonBuffer jsonBuffer;
@@ -664,13 +664,13 @@ static void sendStatus(AsyncWebSocketClient *client)
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
-    DBGOUT("send file: " + String(filename)+'\n');
+    DBG("send file: " + String(filename)+'\n');
     File f = LittleFS.open(filename, "r");
     if (f) {
         client->text(f.readString());
         f.close();
     } else {
-        eprintf("File %s not found\n",filename);
+        DBG("File %s not found\n", filename);
     }
 }
 

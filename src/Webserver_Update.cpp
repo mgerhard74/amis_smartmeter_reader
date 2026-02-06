@@ -11,6 +11,7 @@
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"
+#include "amis_debug.h"
 
 #include <LittleFS.h>
 
@@ -42,7 +43,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         if (Config.log_sys) {
             writeEvent("INFO", "updt", "Update started", filename);
         }
-        eprintf("Update Start: %s\n", filename.c_str());
+        DBG("Update Start: %s\n", filename.c_str());
         if (filename.isEmpty()) {
             return;
         }
@@ -80,7 +81,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             _uploadFile = LittleFS.open(_uploadFilename, "w");// Open the file for writing in LittleFS (create if it doesn't exist)
             if (!_uploadFile) {
-                DBGOUT(F("Err filecreate\n"));
+                DBG(F("Err filecreate\n"));
             }
         }
     }       // !index
@@ -95,7 +96,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
                 }
             Update.printError(Serial);
             } else {
-                DBGOUT(".");  // eprintf("Progress: %d%%\n", (Update.progress()*100)/Update.size());
+                DBG(".");  // eprintf("Progress: %d%%\n", (Update.progress()*100)/Update.size());
             }
         }
     } else if (_uploadfiletype == anyOther) { // write "any other file" content
@@ -110,7 +111,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         if (_uploadfiletype == firmware || _uploadfiletype == littlefs) {
             // Flash oder LittleFS Update
             if (Update.end(true)) {
-                eprintf("Update Success: %uB\n", index+len);
+                DBG("Update Success: %uB\n", index+len);
                 if (Config.log_sys) {
                     writeEvent("INFO", "updt", "Firmware update has finished", "");
                 }
@@ -129,7 +130,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         } else {                          // File write
             if (_uploadFile) {
                 _uploadFile.close();
-                DBGOUT(F("File end\n"));
+                DBG(F("File end\n"));
             }
         }
         _uploadfiletype = none;
@@ -142,7 +143,7 @@ void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)
     // the request handler is triggered after the upload has finished...
     AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
     request->send(response);
-    DBGOUT(F("on_update\n"));
+    DBG(F("on_update\n"));
 }
 
 /* vim:set ts=4 et: */

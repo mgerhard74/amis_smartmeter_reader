@@ -3,6 +3,7 @@
 */
 #include "Reboot.h"
 
+#include "amis_debug.h"
 #include "AmisReader.h"
 #include "config.h"
 #include "ModbusSmartmeterEmulation.h"
@@ -108,7 +109,7 @@ void RebootClass::loop()
             if (Config.log_sys) {
                 writeEvent("INFO", "sys", "System is going to reboot", "");
             }
-            DBGOUT("Rebooting...");
+            DBG("Rebooting...");
             break;
         case 8:
             delay(150);

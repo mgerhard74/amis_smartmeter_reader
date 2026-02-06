@@ -13,7 +13,7 @@
 
 
 // TODO(anyone) - reuse refactored classes for logging and debugging
-#include "debug.h"
+#include "amis_debug.h"
 #include "config.h"
 extern void writeEvent(String type, String src, String desc, String data);
 
@@ -102,7 +102,7 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
         // seems already canceled
         return false;
     }
-    DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
+    DBG("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
     if (response.answer) {
         if (_counterFailed > 0 && Config.log_sys) {
             writeEvent("INFO", "wifi", "Ping " + String(_counterFailed+1) + "/" + String(restartAfterFailed) + " to " + _host + " successful, RTT = " + String(response.total_time), "");
