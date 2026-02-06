@@ -2,6 +2,8 @@
 // Details done in
 //    *  MqttHAClass            handling
 //    *  MqttReaderDataClass
+#include "Mqtt.h"
+#include "amis_debug.h"
 
 void MqttBaseClass::init()
 {

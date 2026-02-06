@@ -3,6 +3,7 @@
 #include "proj.h"
 #include "unused.h"
 #include <functional>
+#include "amis_debug.h"
 /*
   Shelly Smartmeter Emulator für B2500 Batteriespeicher. 
   Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen. 
@@ -31,7 +32,7 @@ bool ShellySmartmeterEmulationClass::init(int selectedDeviceIndex, String custom
         _device.id += "-" + customDeviceIDAppendix;
     }
 
-    _device.id.remove(26);  //known as safe lenght for the B2500
+    _device.id.remove(26);  //known as safe length for the B2500
     _device.id.toLowerCase();
 
     return true;
@@ -64,12 +65,15 @@ bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
 }
 
 /*
-    request looks like: {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
+    request looks like: 
+        {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
     response looks like:    
         {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"act_power":100.0}}
-        {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
+        {"id":1,"src":"shellypro3em-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
 */
 void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
+    DBG("got packet");
+
     if(!_currentValues.dataAreValid) {
         return;
     }
@@ -79,11 +83,12 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     char tempBuffer[len+1];
     memcpy(tempBuffer, udpPacket.data(), len);
     tempBuffer[len] = '\0';
+    DBG("received data: %s\n", tempBuffer);
 
     DynamicJsonBuffer jsonBufferRequest;
     JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
     if (!requestJson.success()) {
-        DBGOUT("[ DEBUG ] Failed to parse json\n");
+        DBG("[ DEBUG ] Failed to parse json\n");
         return;
     }
 
@@ -92,12 +97,12 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
         !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
         !requestJson.containsKey("params")) 
     {
-        DBGOUT("[ DEBUG ] Invalid json\n");
+        DBG("[ DEBUG ] Invalid json\n");
         return;
     }
     JsonObject& params = requestJson["params"];
     if (!params.containsKey("id") || !params["id"].is<int>()) {
-        DBGOUT("[ DEBUG ] Invalid json\n");
+        DBG("[ DEBUG ] Invalid json\n");
         return;
     }
     
@@ -120,13 +125,14 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     } else if(method == "EM1.GetStatus") {
         responseJson["result"]["act_power"] = RawJson(saldo);
     } else {
-        DBGOUT("[ DEBUG ] unknown method\n");
+        DBG("[ DEBUG ] unknown method\n");
         return;
     }
 
     AsyncUDPMessage message;
     responseJson.printTo(message);
     _udp.sendTo(message, udpPacket.remoteIP(), udpPacket.remotePort()); //respond directly via "udpPacket" doesn't work
+    DBG("sent response: %s",message.data());
 }
 
 bool ShellySmartmeterEmulationClass::listen() {

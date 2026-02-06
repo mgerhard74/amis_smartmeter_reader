@@ -14,15 +14,7 @@
 #include "SystemMonitor.h"
 
 //#define DEBUG
-#include "debug.h"
-
-#if 0
-#undef DBGOUT
-#define DBGOUT(X)  Serial.print(X)
-#define DBGPRINTF(fmt, args...)  Serial.printf(fmt, ##args)
-#else
-#define DBGPRINTF(fmt, args...) (void)(0)
-#endif
+#include "amis_debug.h"
 
 #include <ArduinoJson.h>
 #include <EEPROM.h>
@@ -51,8 +43,8 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    DBGOUT("WiFi onStationModeGotIP()\n");
-    DBGPRINTF("%d\n", _tickerReconnect.active());
+    DBG("WiFi onStationModeGotIP()\n");
+    DBG("%d\n", _tickerReconnect.active());
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);

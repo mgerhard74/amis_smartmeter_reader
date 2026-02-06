@@ -12,8 +12,7 @@
 #include <AsyncJson.h>
 #include <LittleFS.h>
 
-//#define DEBUG
-#include "debug.h"
+#include "amis_debug.h"
 
 #ifdef STROMPREIS
 extern String strompreis;

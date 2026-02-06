@@ -2,7 +2,8 @@ diff --git a/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp b/.pio
 index 44a4601..06991ba 100644
 --- a/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp
 +++ b/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/WebHandlers.cpp
-@@ -224,6 +224,10 @@ void AsyncStaticWebHandler::handleRequest(AsyncWebServerRequest* request) {
+@@ -221,6 +221,10 @@ void AsyncStaticWebHandler::handleRequest(AsyncWebServerRequest* request) {
+ #endif
      } else {
        etag = request->_tempFile.size();
      }
@@ -10,7 +11,6 @@ index 44a4601..06991ba 100644
 +    // and MDN docs ( https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag#directives )
 +    // the value of the ETag in the http header response has to be between quotes.
 +    etag = "\"" + etag + "\"";
-
+ 
      bool not_modified = false;
-
-#
+ 

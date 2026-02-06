@@ -2,7 +2,7 @@
 
 #include <LittleFS.h>
 
-#include "debug.h"
+#include "amis_debug.h"
 
 WebserverClass::WebserverClass()
     : _server(WEBSERVER_HTTP_PORT)
@@ -70,7 +70,7 @@ bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
 void WebserverClass::onNotFound(AsyncWebServerRequest *request)
 {
     if (request->method() == HTTP_OPTIONS) {
-        DBGOUT(F("HTTP-Options\n"));
+        DBG(F("HTTP-Options\n"));
         request->send(200);
     } else {
         request->send(404, F("text/plain"), F("404 not found!"));

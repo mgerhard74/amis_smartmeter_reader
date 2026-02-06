@@ -3,7 +3,7 @@
 #include "ThingSpeak.h"
 
 //#define DEBUG
-#include "debug.h"
+#include "amis_debug.h"
 
 void sendZDataWait() {
     // Zählerdaen ausgeben (jedoch noch keine Werte verfügbar)

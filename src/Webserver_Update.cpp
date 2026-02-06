@@ -13,6 +13,7 @@
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"
+#include "amis_debug.h"
 
 #include <LittleFS.h>
 

@@ -18,6 +18,7 @@
 #include "Webserver.h"
 #include "unused.h"
 #include "Utils.h"
+#include "amis_debug.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -186,7 +187,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {
-        DBGOUT(F("[ WARN ] Couldn't parse WebSocket message"));
+        DBG(F("[ WARN ] Couldn't parse WebSocket message"));
         return;
     }
     // Web Browser sends some commands, check which command is given
@@ -247,10 +248,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
         if(f) {
-            //size_t len = root.measurePrettyLength();
             root.prettyPrintTo(f);
             f.close();
-            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, len);
+            DBG("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, root.measurePrettyLength());
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
@@ -390,7 +390,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             }
             //else ws.text(client->id(), "no file\0");
             else {
-                eprintf("no file\n");
+                DBG("no file\n");
             }
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {
