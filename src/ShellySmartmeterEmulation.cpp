@@ -64,10 +64,11 @@ bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
 }
 
 /*
-    request looks like: {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
+    request looks like: 
+        {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
     response looks like:    
         {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"act_power":100.0}}
-        {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
+        {"id":1,"src":"shellypro3em-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
 */
 void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     if(!_currentValues.dataAreValid) {
@@ -76,11 +77,16 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
 
     // --- JSON parsen ---
     size_t len = udpPacket.length();
-    char tempBuffer[len+1];
+    const size_t MAX_PACKET_SIZE = 128;  // limit valid packet size, prevents stack overflow receiving malformed packages
+    if(len == 0 || len > MAX_PACKET_SIZE) {
+        DBGOUT("[ DEBUG ] Invalid packet size\n");
+        return;
+    }
+    char tempBuffer[MAX_PACKET_SIZE + 1];
     memcpy(tempBuffer, udpPacket.data(), len);
     tempBuffer[len] = '\0';
 
-    DynamicJsonBuffer jsonBufferRequest;
+    StaticJsonBuffer<MAX_PACKET_SIZE*2> jsonBufferRequest; //need more space for parsing
     JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
     if (!requestJson.success()) {
         DBGOUT("[ DEBUG ] Failed to parse json\n");
@@ -104,7 +110,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     int id = requestJson["id"];
     String method(requestJson["method"]);
 
-    DynamicJsonBuffer jsonBufferResponse;
+    StaticJsonBuffer<256> jsonBufferResponse;
     JsonObject& responseJson = jsonBufferResponse.createObject();
     responseJson["id"] = id;
     responseJson["src"] = _device.id;
