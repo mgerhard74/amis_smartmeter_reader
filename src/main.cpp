@@ -65,11 +65,11 @@ void setup() {
     disable_extra4k_at_link_time();
     */
 
-    bool ap_mode_once = false;
+    bool is_ap_mode = false;
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
     delay(10); // give the pullup time to settle before sampling
-    ap_mode_once = (digitalRead(AP_PIN) == LOW);
+    is_ap_mode = (digitalRead(AP_PIN) == LOW);
 #endif
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert - TODO: notwendig?
     Debug::Init();
@@ -79,11 +79,7 @@ void setup() {
 
     Utils::init();
 
-#ifdef AP_PIN
-    Application.init(digitalRead(AP_PIN) == LOW);
-#else
-    Application.init(false);
-#endif
+    Application.init(is_ap_mode);
 
     // Init logging
     Log.init("eventlog.json");
@@ -135,7 +131,6 @@ void setup() {
     Config.applySettingsConfigGeneral();
 
     // Start Network
-    if (ap_mode_once) writeEvent("INFO", "wifi", F("Starting in AP mode due to AP_PIN state"), "");
     Network.init(ap_mode_once);
     NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
     Network.connect();

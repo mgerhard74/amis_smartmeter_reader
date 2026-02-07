@@ -6,7 +6,7 @@ import json
 # Konfiguration
 TARGET_IP = "192.168.1.255"
 PORT = 2223
-MESSAGE = '{"id":1,"method":"EM1.GetStatus","params":{"id":0}}'
+MESSAGE = '{"id":9,"method":"EM1.GetStatus","params":{"id":0}}'
 INTERVAL = 1.0  # Sekunden
 
 # Counter
