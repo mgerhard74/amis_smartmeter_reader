@@ -1,9 +1,15 @@
+#include "ProjectConfiguration.h"
+
 #include "Network.h"
 
 #include "AmisReader.h"
+#include "Application.h"
 #include "config.h"
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_NETWORK
+#include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "SystemMonitor.h"
 
@@ -15,8 +21,9 @@
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
 
-//#include "proj.h"
-extern void writeEvent(String, String, String, String);
+
+extern const char *__COMPILED_GIT_HASH__;
+
 
 void NetworkClass::init(bool apMode)
 {
@@ -41,40 +48,25 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);
-    String data = WiFi.SSID() + " " + WiFi.localIP().toString();
-    DBG("Connected to %s", data.c_str());
-    if (Config.log_sys) {
-        writeEvent("INFO", "wifi", "WiFi is connected", data);
-    }
-    
-    /*
-    data = "ip:" + event.ip.toString() + "/" + event.mask.toString() + "\ngw:" + event.gw.toString();
-    if (Config.log_sys) {
-        writeEvent("INFO", "wifi", "WiFi details", data);
-    }
-    */
+    LOG_IP("WiFi connected to %s with local IP %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+    LOG_VP("mask=%s, gateway=%s", event.mask.toString().c_str(), event.gw.toString().c_str());
 
-    if (_configWifi.mdns && !MDNS.isRunning()) {
-        if (MDNS.begin(Config.DeviceName)) {              // Start the mDNS responder for esp8266.local
-            DBG("mDNS responder started");
-        } else {
-            DBG("Error setting up MDNS responder!");
-        }
-    }
+    startMDNSIfNeeded();
+
+#if DEBUGHW==1
+    dbg_server.begin();
+    //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
+#endif
     Mqtt.networkOnStationModeGotIP(event);
     SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
-    DBG("WiFi onStationModeDisconnected() start");
-    DBG("%d", _tickerReconnect.active());
+    LOG_DP("WiFi onStationModeDisconnected() start");
     _isConnected = false;
-    LedBlue.turnOff();
     Mqtt.networkOnStationModeDisconnected(event);
-    if (MDNS.isRunning()) {
-        MDNS.end();
-    }
+    MDNS.end();
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
@@ -83,23 +75,23 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
 #else
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
 #endif
-    if (Config.log_sys) {
-        writeEvent("INFO", "wifi", "WiFi !!! DISCONNECT !!!", "Errorcode: " + String(event.reason));
-    }
-    DBG("WiFi onStationModeDisconnected() end");
-    DBG("%d", _tickerReconnect.active());
+    LedBlue.turnBlink(150, 150);
+    LOG_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
+    LOG_DP("WiFi onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
 }
 
 bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 {
-    File configFile;
-    DynamicJsonBuffer jsonBuffer;
+    if (Application.inAPMode()) {
+        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        return false;
+    }
 
+    File configFile;
     configFile = LittleFS.open("/config_wifi", "r");
     if (!configFile) {
-        DBG("[ ERR ] Failed to open config_wifi");
-        writeEvent("ERROR", "wifi", "WiFi config fail", "");
+        LOG_EP("Could not open %s", "/config_wifi");
 #ifndef DEFAULT_CONFIG_WIFI_JSON
         return loadConfigWifiFromEEPROM(config);
 #else
@@ -108,6 +100,8 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
         }
 #endif
     }
+
+    DynamicJsonBuffer jsonBuffer;
     JsonObject *json = nullptr;
     if (configFile) {
         json = &jsonBuffer.parseObject(configFile);
@@ -118,21 +112,24 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBG("[ WARN ] Failed to parse config_wifi");
-        writeEvent("ERROR", "wifi", "WiFi config error", "");
+        LOG_EP("Failed parsing %s", "/config_wifi");
         return false;
     }
 
     config.pingrestart_do = (*json)[F("pingrestart_do")].as<bool>();
-    config.pingrestart_ip = (*json)[F("pingrestart_ip")].as<String>();
-    config.pingrestart_ip.trim();
+    IPAddress pingrestart_ip;
+    pingrestart_ip.fromString((*json)[F("pingrestart_ip")] | "");
+    config.pingrestart_ip[0] = pingrestart_ip[0];
+    config.pingrestart_ip[1] = pingrestart_ip[1];
+    config.pingrestart_ip[2] = pingrestart_ip[2];
+    config.pingrestart_ip[3] = pingrestart_ip[3];
     config.pingrestart_interval = (*json)[F("pingrestart_interval")].as<unsigned int>();
     config.pingrestart_max = (*json)[F("pingrestart_max")].as<unsigned int>();
 
     config.allow_sleep_mode = (*json)[F("allow_sleep_mode")].as<bool>();
 
-    config.ssid = (*json)[F("ssid")].as<String>();
-    config.wifipassword = (*json)[F("wifipassword")].as<String>();
+    strlcpy(config.ssid, (*json)[F("ssid")] | "", sizeof(config.ssid));
+    strlcpy(config.wifipassword, (*json)[F("wifipassword")] | "", sizeof(config.wifipassword));
 
     config.dhcp = (*json)[F("dhcp")].as<bool>();
 
@@ -146,63 +143,75 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
         }
     }
 
-    String v;
-    v = (*json)[F("ip_static")].as<String>();
-    v.trim();
-    config.ip_static.fromString(v);
-    v = (*json)[F("ip_netmask")].as<String>();
-    v.trim();
-    config.ip_netmask.fromString(v);
-    v = (*json)[F("ip_nameserver")].as<String>();
-    v.trim();
-    config.ip_nameserver.fromString(v);
-    v = (*json)[F("ip_gateway")].as<String>();
-    v.trim();
-    config.ip_gateway.fromString(v);
+    IPAddress ip_static;
+    ip_static.fromString((*json)[F("ip_static")] | "");
+    config.ip_static[0] = ip_static[0];
+    config.ip_static[1] = ip_static[1];
+    config.ip_static[2] = ip_static[2];
+    config.ip_static[3] = ip_static[3];
+
+    IPAddress ip_netmask;
+    ip_netmask.fromString((*json)[F("ip_netmask")] | "");
+    config.ip_netmask[0] = ip_netmask[0];
+    config.ip_netmask[1] = ip_netmask[1];
+    config.ip_netmask[2] = ip_netmask[2];
+    config.ip_netmask[3] = ip_netmask[3];
+
+    IPAddress ip_nameserver;
+    ip_nameserver.fromString((*json)[F("ip_nameserver")] | "");
+    config.ip_nameserver[0] = ip_nameserver[0];
+    config.ip_nameserver[1] = ip_nameserver[1];
+    config.ip_nameserver[2] = ip_nameserver[2];
+    config.ip_nameserver[3] = ip_nameserver[3];
+
+    IPAddress ip_gateway;
+    ip_gateway.fromString((*json)[F("ip_gateway")] | "");
+    config.ip_gateway[0] = ip_gateway[0];
+    config.ip_gateway[1] = ip_gateway[1];
+    config.ip_gateway[2] = ip_gateway[2];
+    config.ip_gateway[3] = ip_gateway[3];
 
     return true;
 }
 
 void NetworkClass::connect(void)
 {
-    DBG("WiFi connect() start");
+    LOG_DP("WiFi connect() start");
     _tickerReconnect.detach();
     if (_apMode) {
         WiFi.mode(WIFI_AP);
         //WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
         WiFi.softAP("ESP8266_AMIS");
-        DBG(F("AP-Mode: 192.168.4.1"));
+        LOG_IP("Stating AccessPoint-Mode: 192.168.4.1");
         LedBlue.turnBlink(500, 500);
         return;
     }
 
     WiFi.mode(WIFI_STA);
     if (!_configWifi.allow_sleep_mode) {
-        // disable sleep mode
-        DBG(F("Wifi sleep mode disabled"));
         WiFi.setSleepMode(WIFI_NONE_SLEEP);
-        if (Config.log_sys) {
-            writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
-        }
+        LOG_IP("Wifi sleep mode disabled");
     } else {
         // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
     }
 
-    DBG(F("Start Wifi"));
+    LOG_DP("Starting Wifi in Station-Mode");
     WiFi.setOutputPower(_configWifi.rfpower);  // 0..20.5 dBm
     if (_configWifi.dhcp) {
-        DBG("DHCP");
+        LOG_DP("Using DHCP");
         IPAddress ip_0_0_0_0;
         WiFi.config(ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0); // Enforce DHCP enabled (WiFi._useStaticIp = false)
-        WiFi.hostname(Config.DeviceName);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
+        WiFi.hostname(getHostname(Config.DeviceName.c_str()));               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
     } else {
-        WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver);
+        LOG_DP("Using static IP configuration");
+        WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver, _configWifi.ip_nameserver);
     }
 
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword);
-    DBG(F("WiFi connect() end"));
+    LedBlue.turnBlink(150, 150);
+    LOG_DP("WiFi connect() end");
 }
 
 bool NetworkClass::inAPMode(void)
@@ -220,20 +229,21 @@ const NetworkConfigWifi_t &NetworkClass::getConfigWifi(void)
     return _configWifi;
 }
 
-static String readStringFromEEPROM(int beginaddress)
+static void readStringFromEEPROM(int beginaddress, size_t size, char *buffer, size_t bufferlen)
 {
-    size_t cnt;
-    char buffer[33];
-    for(cnt = 0; cnt < sizeof(buffer)-1; cnt++) {
+    if (size == 0 || bufferlen == 0) {
+        return;
+    }
+
+    for(size_t cnt = 0; cnt < size && cnt < bufferlen-1; cnt++) {
         char ch;
         ch = EEPROM.read(beginaddress + cnt);
-        buffer[cnt] = ch;
+        *buffer++ = ch;
         if (ch == 0) {
-            break;
+            return;
         }
     }
-    buffer[sizeof(buffer) - 1] = 0;
-    return String(buffer);
+    *buffer = 0;
 }
 
 bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
@@ -252,12 +262,10 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
         return false;
     }
 
-    uint8_t ip_addr[4];
-    ip_addr[0] = EEPROM.read(12);
-    ip_addr[1] = EEPROM.read(13);
-    ip_addr[2] = EEPROM.read(14);
-    ip_addr[3] = EEPROM.read(15);
-    config.ip_nameserver = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_nameserver[0] = EEPROM.read(12);
+    config.ip_nameserver[1] = EEPROM.read(13);
+    config.ip_nameserver[2] = EEPROM.read(14);
+    config.ip_nameserver[3] = EEPROM.read(15);
 
     config.dhcp = EEPROM.read(16) ?true :false;
     config.rfpower = EEPROM.read(26);
@@ -265,26 +273,23 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
         config.rfpower = 21;
     }
 
-    ip_addr[0] = EEPROM.read(32);
-    ip_addr[1] = EEPROM.read(33);
-    ip_addr[2] = EEPROM.read(34);
-    ip_addr[3] = EEPROM.read(35);
-    config.ip_static = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_static[0] = EEPROM.read(32);
+    config.ip_static[1] = EEPROM.read(33);
+    config.ip_static[2] = EEPROM.read(34);
+    config.ip_static[3] = EEPROM.read(35);
 
-    ip_addr[0] = EEPROM.read(36);
-    ip_addr[1] = EEPROM.read(37);
-    ip_addr[2] = EEPROM.read(38);
-    ip_addr[3] = EEPROM.read(39);
-    config.ip_netmask = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_netmask[0] = EEPROM.read(36);
+    config.ip_netmask[1] = EEPROM.read(37);
+    config.ip_netmask[2] = EEPROM.read(38);
+    config.ip_netmask[3] = EEPROM.read(39);
 
-    ip_addr[0] = EEPROM.read(40);
-    ip_addr[1] = EEPROM.read(41);
-    ip_addr[2] = EEPROM.read(42);
-    ip_addr[3] = EEPROM.read(43);
-    config.ip_gateway = IPAddress(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    config.ip_gateway[0] = EEPROM.read(40);
+    config.ip_gateway[1] = EEPROM.read(41);
+    config.ip_gateway[2] = EEPROM.read(42);
+    config.ip_gateway[3] = EEPROM.read(43);
 
-    config.ssid = readStringFromEEPROM(62);
-    config.wifipassword = readStringFromEEPROM(94);
+    readStringFromEEPROM(62, 32, config.ssid, sizeof(config.ssid));
+    readStringFromEEPROM(94, 32, config.wifipassword, sizeof(config.wifipassword));
 
     EEPROM.end();
 
@@ -306,6 +311,93 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
     }
     return true;
 }
+
+
+void NetworkClass::startMDNSIfNeeded()
+{
+    if (Network.inAPMode()) {
+        return;
+    }
+
+    // Return if no state change
+    if (MDNS.isRunning() == _configWifi.mdns) {
+        return;
+    }
+
+    MDNS.end();
+
+    if (!_configWifi.mdns) {
+        LOG_IP("MDNS is disabled");
+        return;
+    }
+
+    LOG_IP("Starting MDNS responder...");
+
+
+    if (!MDNS.begin(Config.DeviceName)) {
+        LOG_EP("Error setting up MDNS responder!");
+        return;
+    }
+
+    MDNS.addService("http", "tcp", 80);
+    MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
+    MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
+    /*
+    There is no 'modbus' service available
+    see: https://www.dns-sd.org/servicetypes.html abd RFC2782
+
+    if (Config.smart_mtr) {
+        MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
+    }*/
+
+    LOG_IP("MDNS started");
+}
+
+
+String NetworkClass::getHostname(const char *hostname)
+{
+    // see: LwipIntf::hostname  --> Max 32 chars
+    //
+    // see RFC952: - 24 chars max
+    //             - only a..z A..Z 0..9 '-'
+    //             - no '-' as last char
+
+    char rHostname[32 + 1];
+
+
+    const char *s = hostname;
+    char *t = rHostname;
+    char *te = t + sizeof(rHostname);
+
+    // copy and transform chars from Config.DeviceName into rHostname
+    while (*s && t < te) {
+        if (isalnum(*s)) {
+            *t++ = *s++;
+        } else if (*s == ' ' || *s == '_' || *s == '-' || *s == '+' || *s == '!' || *s == '?' || *s == '*') {
+            *t++ = '-';
+            s++;
+        }
+        /*
+        else {
+            skip that character
+        }
+        */
+    }
+    *t = 0;
+
+    // remove trailing '-'
+    t--;
+    while (t >= &rHostname[0] && *t == '-') {
+        *t-- = 0;
+    }
+
+    if (!rHostname[0]) {
+        // Do now allow an empty hostname
+        snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%" PRIx32), APP_NAME, ESP.getChipId());
+    }
+    return rHostname;
+}
+
 
 NetworkClass Network;
 

@@ -2,6 +2,52 @@
 
 #include <LittleFS.h>
 
+
+extern cont_t* g_pcont;
+
+
+/* Handle LittlSFS creation/modification timestamps */
+static time_t _littleFS_TimeStamp = (time_t) 0;
+
+static time_t _littleFS_GetTimeStampCb()
+{
+    if (_littleFS_TimeStamp != 0) {
+        return _littleFS_TimeStamp;
+    }
+    return time(NULL);  // static time_t _defaultTimeCB(void) { return time(NULL); }
+}
+
+/*
+time_t Utils::littleFSgetTimeStamp()
+{
+    return _littleFS_TimeStamp;
+}
+*/
+
+time_t Utils::littleFSsetTimeStamp(time_t timeStamp)
+{
+    time_t oldTimeStamp = _littleFS_TimeStamp;
+    _littleFS_TimeStamp = timeStamp;
+    return oldTimeStamp;
+}
+
+void Utils::init()
+{
+    LittleFS.setTimeCallback(&_littleFS_GetTimeStampCb);
+}
+
+
+/* getcontext: system or user determined based on stackpointer value */
+int Utils::getContext(void)
+{
+    register uint32_t* sp asm("a1");
+
+    if (sp >= &g_pcont->stack[0] && sp < &g_pcont->stack[std::size(g_pcont->stack)]) {
+        return 1;
+    }
+    return 0;
+}
+
 bool Utils::fileExists(const char *fname)
 {
     bool r = false;

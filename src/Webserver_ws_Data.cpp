@@ -2,11 +2,15 @@
     Handle websocket communication of socket ws://<espiIp>/ws
 */
 
+#include "ProjectConfiguration.h"
+
 #include "Webserver_ws_Data.h"
 
 #include "config.h"
 #include "Exception.h"
 #include "FileBlob.h"
+#include "Log.h"
+#define LOGMODULE LOGMODULE_BIT_WEBSSOCKET
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
@@ -98,7 +102,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
     UNUSED_ARG(server);
 
     if(type == WS_EVT_ERROR) {
-        DBG("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
+        LOG_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
 
@@ -144,8 +148,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
 
 #include "AmisReader.h"
 #include "proj.h"
-extern uint32_t clientId;
-extern int logPage;
+
 extern unsigned first_frame;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
@@ -156,7 +159,6 @@ extern unsigned kwh_day_out[7];
 };*/
 extern kwhstruct kwh_hist[7];
 extern void historyInit(void);
-extern void writeEvent(String, String, String, String);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 extern const char *__COMPILED_DATE_TIME_UTC_STR__;
@@ -197,17 +199,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         return;
     }
 
-    clientId = client->id();
-
     // Check whatever the command is and act accordingly
-    DBG("[ INFO ] command: %s", command);
+    LOG_VP("websocket command: '%s'", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
         if (filename && filename[0]) {
             LittleFS.remove(filename);
         }
-    } if(strcmp(command,"weekfiles")==0) {
+    } else if(strcmp(command,"weekfiles")==0) {
         uint32_t zstand;
         AmisReader.disable();
         clearHist();
@@ -263,15 +263,19 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if(strcmp(command, "restart") == 0) {
         Reboot.startReboot();
     } else if(strcmp(command, "geteventlog") == 0) {
-        logPage = root["page"];
-    //Log in main.loop bearbeiten, Timeout!!!
+        //Logausgabe in main.loop() bzw Log.loop() bearbeiten, Timeout!!!
+        uint32_t page = root["page"].as<uint32_t>();
+        if (Log.websocketRequestPage(ws, client->id(), page)) {
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        } else {
+            ws->text(client->id(), R"({"r":1,"m":"Error: No slot available"})");
+        }
     } else if(strcmp(command, "clearevent") == 0) {
-        LittleFS.remove("/eventlog.json");
-        writeEvent("WARN", "sys", "Event log cleared!", "");
+        Log.clear();
     } else if(strcmp(command, "scan_wifi") == 0) {
         if (_subscribedClientsWifiScanLen < std::size(_subscribedClientsWifiScan)) {
             using std::placeholders::_1;
-            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = clientId;
+            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = client->id();
             if (_subscribedClientsWifiScanLen == 1) {
                 WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
             }
@@ -290,6 +294,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         clearHist();
     } else if(strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
+    } else if (!strcmp(command, "set-amisreader")) {
+        // Im AP Modus wird die Config nicht reloaded.
+        // Danmit aber zumindest der Key auch im AP Modus upgedatet werden kann,
+        // sendet der WebClient einen extra 'set-amisreader'-Request dafür
+        const char *key = root[F("key")].as<const char*>();
+        if (key) {
+            AmisReader.setKey(key);
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        }
     } else if(strcmp(command, "ls") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
@@ -316,13 +329,14 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                     doc[String(i)] = dir.fileName();
                 }
                 i++;
+                ESP.wdtFeed();
             }
         }
-        doc["ls"]=i;
+        doc["ls"] = i;
         String buffer;
         doc.printTo(buffer);
         //DBGOUT(buffer+"\n");
-        ws->text(clientId, buffer);
+        ws->text(client->id(), buffer);
     } else if(strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
@@ -344,7 +358,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         doSerialHwTest = !doSerialHwTest;
     } else if(strcmp(command, "print") == 0) {
         const char *uid = root["file"];
-        ws->text(clientId,uid); // ws.text
+        ws->text(client->id(), uid); // ws.text
         int i;
         uint8_t ibuffer[65];
         File f = LittleFS.open(uid, "r");
@@ -352,15 +366,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             do {
             i=f.read(ibuffer, 64);
             ibuffer[i]=0;
-            ws->text(clientId,(char *)ibuffer); // ws.text
+            ws->text(client->id(), (char *)ibuffer); // ws.text
             } while (i);
             f.close();
         } else {
-            ws->text(clientId, "no file\0");
+            ws->text(client->id(), "no file\0");
         }
     } else if(strcmp(command, "print2") == 0) {
-        //ws.text(clientId,"prn\0"); // ws.text
-        DBG("prn");
+        //ws.text(client->id(), "prn\0"); // ws.text
+        DBG("prn\n");
         uint8_t ibuffer[10];      //12870008
         File f;
         unsigned i,j;
@@ -371,10 +385,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 j=f.read(ibuffer,8);
                 ibuffer[j]=0;
                 f.close();
-                DBG("%d %d", i, atoi((char*)ibuffer));
-        //       ws.text(clientId,ibuffer); // ws.text
+                DBG("%d %d\n", i, atoi((char*)ibuffer));
+        //       ws.text(client->id(), ibuffer); // ws.text
             }
-            //else ws.text(clientId,"no file\0");
+            //else ws.text(client->id(), "no file\0");
             else {
                 DBG("no file");
             }
@@ -382,11 +396,11 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
-            writeEvent("ERROR","littlfs","LittleFS.format() failed!", "");
+            LOG_EP("LittleFS.format() failed!");
         }
         EEPROMClear();
         Reboot.startReboot();
-    } else if (!strcmp(command, "extract-files")) {
+    } else if (!strcmp(command, "dev-extract-webdeveloper-files")) {
         // Delete all files contained in the image from filesystem and
         // start recreation/extraction from image into filesystem
         FileBlobs.remove(true);
@@ -397,12 +411,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
         }
 */
+    } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
+        // Delete all "unzipped" files in filesystem contained in the image
+        FileBlobs.removeNonZipped();
     } else if (!strcmp(command, "set-webserverTryGzipFirst")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
             Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
             Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
-            ws->text(clientId, "{\"r\":0,\"m\":\"OK\"}");
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 #if (AMIS_DEVELOPER_MODE)
@@ -450,34 +467,32 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // Works
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-        ws->text(clientId, x);
+        ws->text(client->id(), x);
 
     } else if (!strcmp(command, "dev-tools-button2")) {
         // Crashes
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
-        //ws->text(clientId, String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
+        //ws->text(client->id(), String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
         String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname;
-        ws->text(clientId, x);
-
+        ws->text(client->id(), x);
     } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         const SystemMonitorClass::statInfo_t freeStack = SystemMonitor.getFreeStack();
         const SystemMonitorClass::statInfo_t maxFreeBlockSize = SystemMonitor.getMaxFreeBlockSize();
         {
             String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-            ws->text(clientId, x);
+            ws->text(client->id(), x);
         }
         {
             String x = String(freeStack.value) + String(freeStack.filename) + String(freeStack.lineno) + String(freeStack.functionname);
-            ws->text(clientId, x);
+            ws->text(client->id(), x);
         }
         {
             String x = String(maxFreeBlockSize.value) + String(maxFreeBlockSize.filename) + String(maxFreeBlockSize.lineno) + String(maxFreeBlockSize.functionname);
-            ws->text(clientId, x);
+            ws->text(client->id(), x);
         }
-
     } else if (!strcmp(command, "dev-set-reader-serial")) {
-        const char *ret_msg = "{\"r\":1,\"m\":\"Error\"}"; // error
+        const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
         const char *v = root[F("value")].as<const char*>();
         if (v) {
             const uint8_t vv = root[F("value")].as<uint8_t>();
@@ -487,16 +502,30 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 // Wenn die erste serielle nicht für den Reader verwendet wird, nehmen wir diese fürs Loggen
                 Serial.begin(115200, SERIAL_8N1);
             }
-            ret_msg = "{\"r\":0,\"m\":\"OK\"}";
+            ret_msg = R"({"r":0,"m":"OK"})";
         }
-        ws->text(clientId, ret_msg);
-
+        ws->text(client->id(), ret_msg);
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();
         Exception_Raise(no);
+    } else if (!strcmp(command, "dev-remove-exceptiondumpsall")) {
+        Exception_RemoveAllDumps();
+    } else if (!strcmp(command, "dev-getHostByName")) {
+        const char* value = root[F("value")].as<const char*>();
+        if (value && value[0]) {
+            IPAddress ipAddr;
+            uint32_t timeout=10000;
+            const char* timeout_c = root[F("timeout")].as<const char*>();
+            if (timeout_c) {
+                timeout=root[F("timeout")].as<uint32_t>();
+            }
+            int r;
+            r = WiFi.hostByName(value, ipAddr, timeout);
+            char ret_msg[128];
+            snprintf(ret_msg, sizeof(ret_msg), R"({"r":%d,"v":"%s"})", r, ipAddr.toString().c_str());
+            ws->text(client->id(), ret_msg);
+        }
     }
-
-
     SYSTEMMONITOR_STAT();
 }
 
@@ -576,10 +605,12 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 
 static void sendStatus(AsyncWebSocketClient *client)
 {
+    // TODO(anyone): This creates a "Reset" if running with debug-build.
     struct ip_info info;
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
-        DBG(F("[ WARN ] Error getting info on LittleFS"));
+        LOG_EP("Error getting info on LittleFS");
+        memset(&fsinfo, 0, sizeof(fsinfo));
     }
 
     DynamicJsonBuffer jsonBuffer;
@@ -590,7 +621,7 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     root[F("core")] = ESP.getCoreVersion();
     root[F("sdk")] = ESP.getSdkVersion();
-    root[F("version")] = VERSION;
+    root[F("version")] = APP_VERSION_STR;
     root[F("app_name")] = APP_NAME;
     root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
     root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
@@ -631,14 +662,24 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     if (Network.inAPMode()) {
         wifi_get_ip_info(SOFTAP_IF, &info);
+
         struct softap_config conf;
+        memset(&conf, 0, sizeof(conf));
         wifi_softap_get_config(&conf);
+
         root[F("mac")] = WiFi.softAPmacAddress();
     } else {
         wifi_get_ip_info(STATION_IF, &info);
+
         struct station_config conf;
+        memset(&conf, 0, sizeof(conf));
         wifi_station_get_config(&conf);
-        root[F("ssid")] = String(reinterpret_cast<char *>(conf.ssid));
+
+        char ssid_str[sizeof(conf.ssid)+1];
+        memcpy(ssid_str, conf.ssid, sizeof(conf.ssid));
+        ssid_str[sizeof(ssid_str) - 1] = 0;
+
+        root[F("ssid")] = ssid_str;
         root[F("dns")] = WiFi.dnsIP().toString();
         root[F("mac")] = WiFi.macAddress();
         root[F("channel")] = WiFi.channel();
@@ -664,13 +705,13 @@ static void sendStatus(AsyncWebSocketClient *client)
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
-    DBG("send file: " + String(filename));
+    LOG_DP("Sending file '%s' to client %u", filename, client->id());
     File f = LittleFS.open(filename, "r");
     if (f) {
         client->text(f.readString());
         f.close();
     } else {
-        DBG("File %s not found", filename);
+        LOG_EP("File '%s' not found", filename);
     }
 }
 

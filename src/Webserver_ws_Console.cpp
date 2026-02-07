@@ -1,6 +1,7 @@
 /*
     Websocket socket ws://<espiIp>/console which
-    should output messages created by writeEvent()
+    Forward all messages to a websocket (like a debugging colsole)
+    Be careful: Do not "overload" the WiFi interface with a lot of messages!
 */
 
 #include "Webserver_ws_Console.h"

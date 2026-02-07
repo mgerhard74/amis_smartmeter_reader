@@ -31,7 +31,6 @@ extern uint8_t dow;
 extern uint8_t mon,myyear;
 extern unsigned kwh_day_in[7];
 extern unsigned kwh_day_out[7];
-extern uint32_t clientId;
 //extern const char PAGE_upgrade[];
 //extern String lastMonth;
 
@@ -39,8 +38,6 @@ extern kwhstruct kwh_hist[7];
 extern Ticker secTicker;
 extern void sendZData();
 extern void sendZDataWait();
-extern void writeEvent(String type, String src, String desc, String data);
-extern void sendEventLog(uint32_t clientId, int page);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 

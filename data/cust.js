@@ -5,7 +5,7 @@ var UpdateUri = "";
 const wday=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 var ws_pingpong;
 var logpage=1;
-var logpagenr;
+var logpages;
 var e180,e280;
 var yestd_in=null;
 var yestd_out;
@@ -292,8 +292,9 @@ function updateElements(obj) {
        else value="";
     }
     else if (key==='page') {             // Logpanel
-      logpagenr=obj["haspages"];
-      value="Seite "+value+" von "+logpagenr;
+      logpage=obj["page"];
+      logpages=obj["pages"];
+      value="Seite "+value+" von "+logpages;
     }
     else if (key==='list') {             // Logpanel
       let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Inhalt</th><th>Daten</th></tr></thead><Tbody>';
@@ -608,6 +609,7 @@ function doUpdateGeneral() {                 // button save config
     $(".menu-developer").hide();
   }
   websock.send(JSON.stringify(config_general));
+  websock.send('{"command":"set-amisreader","key":"' + config_general.amis_key + '"}');
   //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
 }
 //TODO eigenes configfile - derzeit in general gespeichert (hier wegen progressAnimate extra funktion)
@@ -769,22 +771,26 @@ function toggleVisiblePassword() {
 }
 
 function doLogNext() {
-  if (logpage < logpagenr) {
-    logpage++;
-    websock.send('{"command":"geteventlog","page":'+logpage+'}');
+  // refresh current page or goto next
+  if (++logpage > logpages) {
+    logpage = logpages;
   }
+  websock.send('{"command":"geteventlog","page":'+logpage+'}');
 }
 
 function doLogPrev() {
-  if (logpage>1) logpage--;
+  if (--logpage < 1) {
+    logpage = 1;
+  }
   websock.send('{"command":"geteventlog","page":'+logpage+'}');
 }
 
 function doLogClear () {
-  if(window.confirm("Log-Datei löschen. Sicher?"))
-  websock.send('{"command":"clearevent"}');
-  logpage=1;
-  doLogPrev();
+  if(window.confirm("Log-Datei löschen. Sicher?")) {
+    websock.send('{"command":"clearevent"}');
+    logpage=1;
+    doLogPrev();
+  }
 }
 
 function test () {
@@ -971,6 +977,41 @@ $(function() {            // main
   $(".button-dev-cmd-clear").on("click", function () {
     websock.send('{"command":"clear"}');
   });
+  $(".button-dev-extract-webdeveloper-files").on("click", function () {
+    websock.send('{"command":"dev-extract-webdeveloper-files"}');
+  });
+  $(".button-dev-remove-webdeveloper-files").on("click", function () {
+    if (window.confirm("Persönliche Webserverentwicklungsdateien löschen. Sicher?")) {
+      websock.send('{"command":"dev-remove-webdeveloper-files"}');
+    }
+  });
+  $(".button-dev-cmd-raise-exception1").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":1}');
+  });
+  $(".button-dev-cmd-raise-exception2").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":2}');
+  });
+  $(".button-dev-cmd-raise-exception3").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":3}');
+  });
+  $(".button-dev-cmd-raise-exception4").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":4}');
+  });
+  $(".button-dev-cmd-raise-exception5").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":5}');
+  });
+  $(".button-dev-cmd-raise-exception6").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":6}');
+  });
+  $(".button-dev-cmd-raise-exception7").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":7}');
+  });
+  $(".button-dev-remove-exceptiondumpsall").on("click", function () {
+    if (window.confirm("Log-Datei löschen. Sicher?")) {
+      websock.send('{"command":"dev-remove-exceptiondumpsall"}');
+    }
+  });
+
   /* Development - Buttons -  End */
 
   $("input[name='mqtt_enabled']").on("click", mqttDetails);

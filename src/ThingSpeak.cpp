@@ -1,6 +1,10 @@
 
 #include "ThingSpeak.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_THINGSPEAK
+#include "Network.h"
+
 void ThingSpeakClass::init()
 {
     _enabled = false;
@@ -12,6 +16,9 @@ void ThingSpeakClass::init()
 void ThingSpeakClass::enable()
 {
     if (_enabled) {
+        return;
+    }
+    if (Network.inAPMode()) {
         return;
     }
     _enabled = true;
@@ -112,7 +119,7 @@ void ThingSpeakClass::sendData()
     _client.stop();
 
 #if (THINGSPEAK_USE_SSL)
-    #warning "Enabling SSL need a lot of CPU. System may become unresponsible!"
+    #warning "Enabling SSL needs a lot of CPU. System may become unresponsible!"
 
     _client.setInsecure();
     if (!_client.connect("api.thingspeak.com", 443)) {
@@ -127,6 +134,7 @@ void ThingSpeakClass::sendData()
     if (!_client.connect("api.thingspeak.com", 80)) {
         //_lastResult = "Connecting http://api.thingspeak.com failed.";
         //_lastResult = "Verbindung zu http://api.thingspeak.com fehlgeschlagen.";
+        LOG_EP("Connecting 'api.thingspeak.com' failed.");
         return;
     }
 #endif

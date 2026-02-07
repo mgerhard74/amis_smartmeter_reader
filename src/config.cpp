@@ -4,17 +4,20 @@
 
 #include "config.h"
 #include "AmisReader.h"
+#include "Application.h"
 #include "DefaultConfigurations.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
+#include "Network.h"
 #include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
 #include "ThingSpeak.h"
 #include "Webserver.h"
 
 #include <ArduinoJson.h>
+#include <ESP8266mDNS.h>
 #include <LittleFS.h>
-
-extern void writeEvent(String type, String src, String desc, String data);
 
 void ConfigClass::init()
 {
@@ -23,12 +26,15 @@ void ConfigClass::init()
 
 void ConfigClass::loadConfigGeneral()
 {
+    if (Application.inAPMode()) {
+        // even skip loading any json in AP Mode (so we should not be able bricking the device)
+        return;
+    }
+
     File configFile;
     configFile = LittleFS.open("/config_general", "r");
-
     if (!configFile) {
-        DBG("[ WARN ] Failed to open config_general");
-        writeEvent("ERROR", "Allgemein", "Could not open /config_general", "");
+        LOG_EP("Could not open %s", "/config_general");
 #ifndef DEFAULT_CONFIG_GENERAL_JSON
         return;
 #endif
@@ -45,11 +51,9 @@ void ConfigClass::loadConfigGeneral()
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBG("[ WARN ] Failed to parse config_general");
-        writeEvent("ERROR", "Allgemein", "Error parsing /config_general", "");
+        LOG_EP("Failed parsing %s", "/config_general");
         return;
     }
-    //json.prettyPrintTo(Serial);
 
     DeviceName = (*json)[F("devicename")].as<String>();
     DeviceName.trim();
@@ -105,7 +109,14 @@ void ConfigClass::loadConfigGeneral()
 
 void ConfigClass::applySettingsConfigGeneral()
 {
+    if (Config.log_sys) {
+        Log.setLoglevel(LOGLEVEL_INFO);
+    } else {
+        Log.setLoglevel(LOGLEVEL_NONE);
+    }
+
     AmisReader.setKey(Config.amis_key.c_str());
+
     RemoteOnOff.config(Config.switch_url_on, Config.switch_url_off, Config.switch_on, Config.switch_off, Config.switch_intervall);
 
     ThingSpeak.setInterval(Config.thingspeak_iv);
@@ -114,10 +125,13 @@ void ConfigClass::applySettingsConfigGeneral()
 
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
+
+    MDNS.end(); // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten
+    Network.startMDNSIfNeeded();
+
     // TODO(anyone): Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0
 
-    // RemoteOnOffClass
     // WatchdogPingClass
 
     // Smartmeter

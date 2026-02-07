@@ -13,11 +13,12 @@
 
 #include "RemoteOnOff.h"
 
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_REMOTEONOFF
+#include "Network.h"
+
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
-
-// TODO(anyone): Refactor this external function
-extern void writeEvent(String, String, String, String);
 
 
 #define LOOP_INTERVAL_SEC 1
@@ -49,6 +50,7 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     HTTPClient http;
     WiFiClient client;
     String *url = (newState == on) ?&_urlOn :&_urlOff;
+    LOG_DP("Sending http get request: %s", *url->c_str());
     http.begin(client, *url);
     http.setReuse(false);
     //http.setTimeout(4000);
@@ -62,14 +64,16 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
         // Failure
         _lastSentStateMs += 5000u - _switchIntervalMs; // Try again in 5 secs
     }
-   // writeEvent("I", "", *url, String(httpResultCode));
-
+    LOG_DP("http result code = %d", httpResultCode);
 }
 
 bool RemoteOnOffClass::enable()
 {
     if (_enabled) {
         return true;
+    }
+    if (Network.inAPMode()) {
+        return false;
     }
     if (_urlOn.length() == 0 || _urlOff.length() == 0) {
         return false;

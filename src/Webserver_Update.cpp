@@ -8,14 +8,14 @@
 
 #include "AmisReader.h"
 #include "config.h"
+#include "Log.h"
+#define LOGMODULE LOGMODULE_BIT_UPDATE
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"
 #include "amis_debug.h"
 
 #include <LittleFS.h>
-
-extern void writeEvent(String, String, String, String);
 
 void WebserverUpdateClass::init(AsyncWebServer& server)
 {
@@ -40,10 +40,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
 
     //Upload handler chunks in data
     if (!index) {  // Start der Übertragung: index==0
-        if (Config.log_sys) {
-            writeEvent("INFO", "updt", "Update started", filename);
-        }
-        DBG("Update Start: %s", filename.c_str());
+        LOG_IP("Update started: %s", filename.c_str());
         if (filename.isEmpty()) {
             return;
         }
@@ -81,7 +78,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             _uploadFile = LittleFS.open(_uploadFilename, "w");// Open the file for writing in LittleFS (create if it doesn't exist)
             if (!_uploadFile) {
-                DBG(F("Err filecreate"));
+                LOG_EP("Error creating file: %s", _uploadFilename.c_str());
             }
         }
     }       // !index
@@ -91,18 +88,14 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
     if (_uploadfiletype == firmware || _uploadfiletype == littlefs) { // Update Flash
         if (!Update.hasError()) {
             if (Update.write(data, len) != len) {
-                if (Config.log_sys) {
-                    writeEvent("ERRO", "updt", "Writing to flash failed", filename.c_str());
-                }
-            Update.printError(Serial);
-            } else {
-                DBG(".");  // eprintf("Progress: %d%%", (Update.progress()*100)/Update.size());
+                LOG_EP("Error writing to flash: %s", _uploadFilename.c_str());
+                Update.printError(Serial);
             }
         }
     } else if (_uploadfiletype == anyOther) { // write "any other file" content
         if (_uploadFile) {
             if (_uploadFile.write(data, len) != len) {
-                writeEvent("ERRO", "updt", "Writing to file failed", filename.c_str());
+                LOG_EP("Error writing file: %s", _uploadFilename.c_str());
             }
         }
     }
@@ -111,14 +104,9 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         if (_uploadfiletype == firmware || _uploadfiletype == littlefs) {
             // Flash oder LittleFS Update
             if (Update.end(true)) {
-                DBG("Update Success: %uB", index+len);
-                if (Config.log_sys) {
-                    writeEvent("INFO", "updt", "Firmware update has finished", "");
-                }
+                LOG_IP("Update succes.");
             } else {
-                if (Config.log_sys) {
-                    writeEvent("ERRO", "updt", "Update has failed", "");
-                }
+                LOG_EP("Update failed");
                 Update.printError(Serial);
                 //return request->send(400, "text/plain", "Could not end OTA");
             }
@@ -130,7 +118,6 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         } else {                          // File write
             if (_uploadFile) {
                 _uploadFile.close();
-                DBG(F("File end"));
             }
         }
         _uploadfiletype = none;
@@ -143,7 +130,7 @@ void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)
     // the request handler is triggered after the upload has finished...
     AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
     request->send(response);
-    DBG(F("on_update"));
+    LOG_DP("WebserverUpdateClass::onRestRequest()");
 }
 
 /* vim:set ts=4 et: */

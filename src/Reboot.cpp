@@ -6,16 +6,18 @@
 #include "amis_debug.h"
 #include "AmisReader.h"
 #include "config.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "RemoteOnOff.h"
 #include "ThingSpeak.h"
 
+#include <ESP8266mDNS.h>
 #include <LittleFS.h>
 #include <Ticker.h>
 
 extern Ticker secTicker;
-extern void writeEvent(String, String, String, String);
 extern int valid;
 
 void RebootClass::init()
@@ -44,6 +46,7 @@ bool RebootClass::startUpdateFirmware()
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
+    MDNS.end();
     return true;
 }
 void RebootClass::endUpdateFirmware()
@@ -69,6 +72,7 @@ bool RebootClass::startUpdateLittleFS()
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
+    MDNS.end();
     LittleFS.end(); // we can also end the filesystem as it will be overwritten
     return true;
 }
@@ -101,15 +105,14 @@ void RebootClass::loop()
             break;
         case 5:
             Mqtt.stop();
+            MDNS.end();
             break;
         case 6:
             ModbusSmartmeterEmulation.disable();
             break;
         case 7:
-            if (Config.log_sys) {
-                writeEvent("INFO", "sys", "System is going to reboot", "");
-            }
-            DBG("Rebooting...");
+            DOLOG_I("System is going to reboot")
+            DBGOUT("Rebooting...");
             break;
         case 8:
             delay(150);
