@@ -95,6 +95,9 @@ public:
         (void)line;
         (void)func;
     }
+    static void WriteTimingPrefix(bool force_flush) {
+        (void)force_flush;
+    }
     static void Out(const char *msg) {
         (void)msg;
     }
@@ -205,6 +208,7 @@ public:
     static void VPrintf(bool force_flush, const char *fmt, va_list args);
     static void Printf(bool force_flush, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
     static void WritePrefix(bool force_flush, const char *file, int line, const char *func);
+    static void WriteTimingPrefix(bool force_flush);
     static void Out(const char *msg);
     static void Out(const String &msg);
     static void Out(const __FlashStringHelper *msg);
@@ -215,6 +219,7 @@ public:
     }
 
     static void OutLine(const char *msg) {
+        WriteTimingPrefix(false);
         WriteRaw(msg, false);
         WriteRaw("\n", false);
     }
@@ -227,6 +232,7 @@ public:
 
     template <typename... Args>
     static void OutLine(const char *fmt, Args... args) {
+        WriteTimingPrefix(false);
         Printf(false, fmt, args...);
         Printf(false, "\n");
     }
@@ -239,8 +245,10 @@ public:
 
     template <typename... Args>
     static void OutSourceLine(const char *file, int line, const char *func, Args... args) {
+        WriteTimingPrefix(false);
         WritePrefix(false, file, line, func);
-        OutLine(args...);
+        Out(args...);
+        WriteRaw("\n", false);
     }
 
     static void OutFlush(const char *msg);
@@ -253,6 +261,7 @@ public:
     }
 
     static void OutFlushLine(const char *msg) {
+        WriteTimingPrefix(true);
         WriteRaw(msg, true);
         WriteRaw("\n", true);
     }
@@ -265,6 +274,7 @@ public:
 
     template <typename... Args>
     static void OutFlushLine(const char *fmt, Args... args) {
+        WriteTimingPrefix(true);
         Printf(true, fmt, args...);
         Printf(true, "\n");
     }
@@ -277,11 +287,15 @@ public:
 
     template <typename... Args>
     static void OutSourceFlushLine(const char *file, int line, const char *func, Args... args) {
+        WriteTimingPrefix(true);
         WritePrefix(true, file, line, func);
-        OutFlushLine(args...);
+        OutFlush(args...);
+        WriteRaw("\n", true);
     }
 
 private:
+    static uint32_t _last_debug_ms;
+    static bool _has_last_debug_ms;
 #if DEBUG_ENABLE_REMOTEDEBUG
     static void RemoteDebugBegin();
     static void RemoteDebugEnd();
