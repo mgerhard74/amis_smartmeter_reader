@@ -65,11 +65,11 @@ void setup() {
     disable_extra4k_at_link_time();
     */
 
-    bool ap_mode_once = false;
+    bool is_ap_mode = false;
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
     delay(10); // give the pullup time to settle before sampling
-    ap_mode_once = (digitalRead(AP_PIN) == LOW);
+    is_ap_mode = (digitalRead(AP_PIN) == LOW);
 #endif
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert - TODO: notwendig?
     Debug::Init();
@@ -79,7 +79,7 @@ void setup() {
 
     Utils::init();
 
-    Application.init(ap_mode_once);
+    Application.init(is_ap_mode);
 
     // Init logging
     Log.init("eventlog.json");

@@ -111,8 +111,7 @@ void RebootClass::loop()
             ModbusSmartmeterEmulation.disable();
             break;
         case 7:
-            DOLOG_I("System is going to reboot")
-            DBGOUT("Rebooting...");
+            DOLOG_I("System is going to reboot");
             break;
         case 8:
             delay(150);
