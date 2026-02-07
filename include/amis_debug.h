@@ -28,11 +28,11 @@
 #endif
 #ifndef DEBUG_ENABLE_SW_SERIAL
     // Set to a GPIO number to enable SoftwareSerial debug TX on that pin.
-    // Default: GPIO4 (ESP-12F D2), avoids UART0/UART1 pins.
+    // Default: GPIO14 (the SoftAP Pin), avoids UART0/UART1 pins.
     #define DEBUG_ENABLE_SW_SERIAL 0
 #endif
 #ifndef DEBUG_SW_SERIAL_TX_PIN
-    #define DEBUG_SW_SERIAL_TX_PIN 4
+    #define DEBUG_SW_SERIAL_TX_PIN 14 // Default to GPIO14 (the SoftAP Pin)
 #endif
 #ifndef DEBUG_UART0_TX_PIN
     #if defined(ARDUINO_ARCH_ESP8266)
@@ -129,6 +129,54 @@ public:
         (void)msg;
     }
 
+    static void OutLine(const char *msg) {
+        (void)msg;
+    }
+    static void OutLine(const String &msg) {
+        (void)msg;
+    }
+    static void OutLine(const __FlashStringHelper *msg) {
+        (void)msg;
+    }
+
+    template <typename... Args>
+    static void OutLine(const char *fmt, Args... args) {
+        (void)fmt;
+        (void)sizeof...(args);
+    }
+
+    template <typename... Args>
+    static void OutSourceLine(const char *file, int line, const char *func, Args... args) {
+        (void)file;
+        (void)line;
+        (void)func;
+        (void)sizeof...(args);
+    }
+
+    static void OutFlushLine(const char *msg) {
+        (void)msg;
+    }
+    static void OutFlushLine(const String &msg) {
+        (void)msg;
+    }
+    static void OutFlushLine(const __FlashStringHelper *msg) {
+        (void)msg;
+    }
+
+    template <typename... Args>
+    static void OutFlushLine(const char *fmt, Args... args) {
+        (void)fmt;
+        (void)sizeof...(args);
+    }
+
+    template <typename... Args>
+    static void OutSourceFlushLine(const char *file, int line, const char *func, Args... args) {
+        (void)file;
+        (void)line;
+        (void)func;
+        (void)sizeof...(args);
+    }
+
     template <typename... Args>
     static void OutFlush(const char *fmt, Args... args) {
         (void)fmt;
@@ -166,10 +214,33 @@ public:
         Printf(false, fmt, args...);
     }
 
+    static void OutLine(const char *msg) {
+        WriteRaw(msg, false);
+        WriteRaw("\n", false);
+    }
+    static void OutLine(const String &msg) {
+        OutLine(msg.c_str());
+    }
+    static void OutLine(const __FlashStringHelper *msg) {
+        OutLine(String(msg).c_str());
+    }
+
+    template <typename... Args>
+    static void OutLine(const char *fmt, Args... args) {
+        Printf(false, fmt, args...);
+        Printf(false, "\n");
+    }
+
     template <typename... Args>
     static void OutSource(const char *file, int line, const char *func, Args... args) {
         WritePrefix(false, file, line, func);
         Out(args...);
+    }
+
+    template <typename... Args>
+    static void OutSourceLine(const char *file, int line, const char *func, Args... args) {
+        WritePrefix(false, file, line, func);
+        OutLine(args...);
     }
 
     static void OutFlush(const char *msg);
@@ -181,10 +252,33 @@ public:
         Printf(true, fmt, args...);
     }
 
+    static void OutFlushLine(const char *msg) {
+        WriteRaw(msg, true);
+        WriteRaw("\n", true);
+    }
+    static void OutFlushLine(const String &msg) {
+        OutFlushLine(msg.c_str());
+    }
+    static void OutFlushLine(const __FlashStringHelper *msg) {
+        OutFlushLine(String(msg).c_str());
+    }
+
+    template <typename... Args>
+    static void OutFlushLine(const char *fmt, Args... args) {
+        Printf(true, fmt, args...);
+        Printf(true, "\n");
+    }
+
     template <typename... Args>
     static void OutSourceFlush(const char *file, int line, const char *func, Args... args) {
         WritePrefix(true, file, line, func);
         OutFlush(args...);
+    }
+
+    template <typename... Args>
+    static void OutSourceFlushLine(const char *file, int line, const char *func, Args... args) {
+        WritePrefix(true, file, line, func);
+        OutFlushLine(args...);
     }
 
 private:
@@ -201,15 +295,15 @@ class Debug : public DebugNoOp {};
 
 #if DEBUG_ENABLE
     #if DEBUG_ENABLE_WITH_CONTEXT
-        #define DBG(...) Debug::OutSource(__FILE__, __LINE__, __func__, __VA_ARGS__)
-        #define DBG_FLUSH(...) Debug::OutSourceFlush(__FILE__, __LINE__, __func__, __VA_ARGS__)
-        #define DBG_NOCTX(...) Debug::Out(__VA_ARGS__)
-        #define DBG_FLUSH_NOCTX(...) Debug::OutFlush(__VA_ARGS__)
+        #define DBG(...) Debug::OutSourceLine(__FILE__, __LINE__, __func__, __VA_ARGS__)
+        #define DBG_FLUSH(...) Debug::OutSourceFlushLine(__FILE__, __LINE__, __func__, __VA_ARGS__)
+        #define DBG_NOCTX(...) Debug::OutLine(__VA_ARGS__)
+        #define DBG_FLUSH_NOCTX(...) Debug::OutFlushLine(__VA_ARGS__)
     #else
-        #define DBG(...) Debug::Out(__VA_ARGS__)
-        #define DBG_FLUSH(...) Debug::OutFlush(__VA_ARGS__)
-        #define DBG_NOCTX(...) Debug::Out(__VA_ARGS__)
-        #define DBG_FLUSH_NOCTX(...) Debug::OutFlush(__VA_ARGS__)
+        #define DBG(...) Debug::OutLine(__VA_ARGS__)
+        #define DBG_FLUSH(...) Debug::OutFlushLine(__VA_ARGS__)
+        #define DBG_NOCTX(...) Debug::OutLine(__VA_ARGS__)
+        #define DBG_FLUSH_NOCTX(...) Debug::OutFlushLine(__VA_ARGS__)
     #endif
 #else
     #define DBG(...) do { } while (0)

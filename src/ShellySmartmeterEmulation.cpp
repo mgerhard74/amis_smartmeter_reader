@@ -83,12 +83,12 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     char tempBuffer[len+1];
     memcpy(tempBuffer, udpPacket.data(), len);
     tempBuffer[len] = '\0';
-    DBG("received data: %s\n", tempBuffer);
+    DBG("received data: %s", tempBuffer);
 
     DynamicJsonBuffer jsonBufferRequest;
     JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
     if (!requestJson.success()) {
-        DBG("[ DEBUG ] Failed to parse json\n");
+        DBG("[ DEBUG ] Failed to parse json");
         return;
     }
 
@@ -97,12 +97,12 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
         !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
         !requestJson.containsKey("params")) 
     {
-        DBG("[ DEBUG ] Invalid json\n");
+        DBG("[ DEBUG ] Invalid json");
         return;
     }
     JsonObject& params = requestJson["params"];
     if (!params.containsKey("id") || !params["id"].is<int>()) {
-        DBG("[ DEBUG ] Invalid json\n");
+        DBG("[ DEBUG ] Invalid json");
         return;
     }
     
@@ -125,7 +125,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     } else if(method == "EM1.GetStatus") {
         responseJson["result"]["act_power"] = RawJson(saldo);
     } else {
-        DBG("[ DEBUG ] unknown method\n");
+        DBG("[ DEBUG ] unknown method");
         return;
     }
 

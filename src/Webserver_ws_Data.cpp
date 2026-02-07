@@ -250,7 +250,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         if(f) {
             root.prettyPrintTo(f);
             f.close();
-            DBG("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, root.measurePrettyLength());
+            DBG("[ INFO ] %s stored in the LittleFS (%u bytes)", command, root.measurePrettyLength());
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
@@ -390,7 +390,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             }
             //else ws.text(client->id(), "no file\0");
             else {
-                DBG("no file\n");
+                DBG("no file");
             }
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {

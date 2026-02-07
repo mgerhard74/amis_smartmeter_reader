@@ -43,8 +43,8 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    DBG("WiFi onStationModeGotIP()\n");
-    DBG("%d\n", _tickerReconnect.active());
+    DBG("WiFi onStationModeGotIP()");
+    DBG("%d", _tickerReconnect.active());
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);

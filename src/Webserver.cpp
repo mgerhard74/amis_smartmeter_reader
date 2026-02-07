@@ -70,7 +70,7 @@ bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
 void WebserverClass::onNotFound(AsyncWebServerRequest *request)
 {
     if (request->method() == HTTP_OPTIONS) {
-        DBG(F("HTTP-Options\n"));
+        DBG(F("HTTP-Options"));
         request->send(200);
     } else {
         request->send(404, F("text/plain"), F("404 not found!"));
