@@ -36,13 +36,13 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    DBG("WiFi onStationModeGotIP()\n");
-    DBG("%d\n", _tickerReconnect.active());
+    DBG("WiFi onStationModeGotIP()");
+    DBG("%d", _tickerReconnect.active());
     _isConnected = true;
     _tickerReconnect.detach();
     LedBlue.turnBlink(4000, 10);
     String data = WiFi.SSID() + " " + WiFi.localIP().toString();
-    DBG("Connected to %s\n", data.c_str());
+    DBG("Connected to %s", data.c_str());
     if (Config.log_sys) {
         writeEvent("INFO", "wifi", "WiFi is connected", data);
     }
@@ -56,9 +56,9 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 
     if (_configWifi.mdns && !MDNS.isRunning()) {
         if (MDNS.begin(Config.DeviceName)) {              // Start the mDNS responder for esp8266.local
-            DBG("mDNS responder started\n");
+            DBG("mDNS responder started");
         } else {
-            DBG("Error setting up MDNS responder!\n");
+            DBG("Error setting up MDNS responder!");
         }
     }
     Mqtt.networkOnStationModeGotIP(event);
@@ -67,8 +67,8 @@ void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
-    DBG("WiFi onStationModeDisconnected() start\n");
-    DBG("%d\n", _tickerReconnect.active());
+    DBG("WiFi onStationModeDisconnected() start");
+    DBG("%d", _tickerReconnect.active());
     _isConnected = false;
     LedBlue.turnOff();
     Mqtt.networkOnStationModeDisconnected(event);
@@ -86,8 +86,8 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     if (Config.log_sys) {
         writeEvent("INFO", "wifi", "WiFi !!! DISCONNECT !!!", "Errorcode: " + String(event.reason));
     }
-    DBG("WiFi onStationModeDisconnected() end\n");
-    DBG("%d\n", _tickerReconnect.active());
+    DBG("WiFi onStationModeDisconnected() end");
+    DBG("%d", _tickerReconnect.active());
     SYSTEMMONITOR_STAT();
 }
 
@@ -98,7 +98,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
     configFile = LittleFS.open("/config_wifi", "r");
     if (!configFile) {
-        DBG("[ ERR ] Failed to open config_wifi\n");
+        DBG("[ ERR ] Failed to open config_wifi");
         writeEvent("ERROR", "wifi", "WiFi config fail", "");
 #ifndef DEFAULT_CONFIG_WIFI_JSON
         return loadConfigWifiFromEEPROM(config);
@@ -118,7 +118,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        DBG("[ WARN ] Failed to parse config_wifi\n");
+        DBG("[ WARN ] Failed to parse config_wifi");
         writeEvent("ERROR", "wifi", "WiFi config error", "");
         return false;
     }
@@ -165,13 +165,13 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
 void NetworkClass::connect(void)
 {
-    DBG("WiFi connect() start\n");
+    DBG("WiFi connect() start");
     _tickerReconnect.detach();
     if (_apMode) {
         WiFi.mode(WIFI_AP);
         //WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
         WiFi.softAP("ESP8266_AMIS");
-        DBG(F("AP-Mode: 192.168.4.1\n"));
+        DBG(F("AP-Mode: 192.168.4.1"));
         LedBlue.turnBlink(500, 500);
         return;
     }
@@ -179,7 +179,7 @@ void NetworkClass::connect(void)
     WiFi.mode(WIFI_STA);
     if (!_configWifi.allow_sleep_mode) {
         // disable sleep mode
-        DBG(F("Wifi sleep mode disabled\n"));
+        DBG(F("Wifi sleep mode disabled"));
         WiFi.setSleepMode(WIFI_NONE_SLEEP);
         if (Config.log_sys) {
             writeEvent("INFO", "wifi", "Wifi sleep mode disabled", "");
@@ -188,10 +188,10 @@ void NetworkClass::connect(void)
         // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
     }
 
-    DBG(F("Start Wifi\n"));
+    DBG(F("Start Wifi"));
     WiFi.setOutputPower(_configWifi.rfpower);  // 0..20.5 dBm
     if (_configWifi.dhcp) {
-        DBG("DHCP\n");
+        DBG("DHCP");
         IPAddress ip_0_0_0_0;
         WiFi.config(ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0); // Enforce DHCP enabled (WiFi._useStaticIp = false)
         WiFi.hostname(Config.DeviceName);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
@@ -202,7 +202,7 @@ void NetworkClass::connect(void)
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword);
-    DBG(F("WiFi connect() end\n"));
+    DBG(F("WiFi connect() end"));
 }
 
 bool NetworkClass::inAPMode(void)

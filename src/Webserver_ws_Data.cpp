@@ -98,7 +98,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
     UNUSED_ARG(server);
 
     if(type == WS_EVT_ERROR) {
-        DBG("Error: WebSocket[%s][%u] error(%u): %s\n", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
+        DBG("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
 
@@ -200,7 +200,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     clientId = client->id();
 
     // Check whatever the command is and act accordingly
-    DBG("[ INFO ] command: %s\n", command);
+    DBG("[ INFO ] command: %s", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
@@ -250,7 +250,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         if(f) {
             root.prettyPrintTo(f);
             f.close();
-            DBG("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, root.measurePrettyLength());
+            DBG("[ INFO ] %s stored in the LittleFS (%u bytes)", command, root.measurePrettyLength());
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
@@ -360,7 +360,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
     } else if(strcmp(command, "print2") == 0) {
         //ws.text(clientId,"prn\0"); // ws.text
-        DBG("prn\n");
+        DBG("prn");
         uint8_t ibuffer[10];      //12870008
         File f;
         unsigned i,j;
@@ -371,12 +371,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 j=f.read(ibuffer,8);
                 ibuffer[j]=0;
                 f.close();
-                DBG("%d %d\n", i, atoi((char*)ibuffer));
+                DBG("%d %d", i, atoi((char*)ibuffer));
         //       ws.text(clientId,ibuffer); // ws.text
             }
             //else ws.text(clientId,"no file\0");
             else {
-                DBG("no file\n");
+                DBG("no file");
             }
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {
@@ -664,13 +664,13 @@ static void sendStatus(AsyncWebSocketClient *client)
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
-    DBG("send file: " + String(filename)+'\n');
+    DBG("send file: " + String(filename));
     File f = LittleFS.open(filename, "r");
     if (f) {
         client->text(f.readString());
         f.close();
     } else {
-        DBG("File %s not found\n", filename);
+        DBG("File %s not found", filename);
     }
 }
 

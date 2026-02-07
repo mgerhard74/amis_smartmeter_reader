@@ -17,6 +17,7 @@ void Debug::Init() {
             #error "DEBUG_ENABLE_SW_SERIAL pin conflicts with UART0/UART1 pin. Choose a different GPIO."
         #endif
         if (g_sw_serial == nullptr) {
+            pinMode(DEBUG_SW_SERIAL_TX_PIN, OUTPUT);
             static SoftwareSerial sw(-1, DEBUG_SW_SERIAL_TX_PIN);
             g_sw_serial = &sw;
         }
@@ -166,7 +167,7 @@ void Debug::RemoteDebugBegin() {
     _remote_debug.setSerialEnabled(false); // serial outputs handled locally
     _remote_debug.setResetCmdEnabled(true);
     _remote_debug_started = true;
-    Out("RemoteDebug started\n");
+    OutLine("RemoteDebug started");
 }
 
 void Debug::RemoteDebugEnd() {

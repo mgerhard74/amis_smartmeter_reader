@@ -64,12 +64,14 @@ void setup() {
     disable_extra4k_at_link_time();
     */
 
-    Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-    Debug::Init();
+    bool ap_mode_once = false;
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
-    // pinMode(AP_PIN, INPUT); digitalWrite(AP_PIN, HIGH);
+    delay(10); // give the pullup time to settle before sampling
+    ap_mode_once = (digitalRead(AP_PIN) == LOW);
 #endif
+    Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert - TODO: notwendig?
+    Debug::Init();
 
     // Start filesystem early - so we can do some logging
     LittleFS.begin();
@@ -114,12 +116,9 @@ void setup() {
 
     Config.applySettingsConfigGeneral();
 
-  // Start Network
-#ifdef AP_PIN
-    Network.init(digitalRead(AP_PIN) == LOW);
-#else
-    Network.init(false);
-#endif
+    // Start Network
+    if (ap_mode_once) writeEvent("INFO", "wifi", F("Starting in AP mode due to AP_PIN state"), "");
+    Network.init(ap_mode_once);
     NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
     Network.connect();
 
@@ -219,7 +218,7 @@ void loop() {
 
 
 static void writeHistFileIn(int x, uint32_t val) {
-    DBG("hist_in "+String(x)+" "+String(val)+"\n");
+    DBG("hist_in "+String(x)+" "+String(val));
     File f = LittleFS.open("/hist_in"+String(x), "w");
     if (f) {
         f.print(val);
@@ -228,7 +227,7 @@ static void writeHistFileIn(int x, uint32_t val) {
 }
 
 static void writeHistFileOut(int x, uint32_t val) {
-    DBG("hist_out "+String(x)+" "+String(val)+"\n");
+    DBG("hist_out "+String(x)+" "+String(val));
     File f = LittleFS.open("/hist_out"+String(x), "w");
     if (f) {
         f.print(val);
@@ -367,7 +366,7 @@ static void secTick() {
 }
 
 void writeEvent(String type, String src, String desc, String data) {
-    DBG_NOCTX("writeEvent: %s | %s | %s | %s\n", type.c_str(), src.c_str(), desc.c_str(), data.c_str());
+    DBG_NOCTX("writeEvent: %s | %s | %s | %s", type.c_str(), src.c_str(), desc.c_str(), data.c_str());
 
     File eventlog = LittleFS.open("/eventlog.json", "a");
     if (!eventlog) {
