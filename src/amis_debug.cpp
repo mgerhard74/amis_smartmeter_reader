@@ -137,6 +137,14 @@ void Debug::WritePrefix(bool force_flush, const char *file, int line, const char
     Printf(force_flush, "[%s:%d:%s] ", file, line, func);
 }
 
+void Debug::WriteTimingPrefix(bool force_flush) {
+    const uint32_t now_ms = millis();
+    const uint32_t delta_ms = _has_last_debug_ms ? (now_ms - _last_debug_ms) : 0;
+    _last_debug_ms = now_ms;
+    _has_last_debug_ms = true;
+    Printf(force_flush, "[%lums +%lums] ", (unsigned long)now_ms, (unsigned long)delta_ms);
+}
+
 void Debug::Out(const char *msg) {
     WriteRaw(msg, false);
 }
@@ -179,4 +187,6 @@ void Debug::RemoteDebugEnd() {
 RemoteDebug Debug::_remote_debug;
 bool Debug::_remote_debug_started = false;
 #endif
+uint32_t Debug::_last_debug_ms = 0;
+bool Debug::_has_last_debug_ms = false;
 #endif
