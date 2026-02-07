@@ -1,9 +1,10 @@
 #include "ShellySmartmeterEmulation.h"
 #include <ArduinoJson.h>
 #include "proj.h"
+#include "Log.h"
+#define LOGMODULE   LOGMODULE_BIT_SHELLY
 #include "unused.h"
 #include <functional>
-#include "amis_debug.h"
 /*
   Shelly Smartmeter Emulator für B2500 Batteriespeicher. 
   Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen. 
@@ -18,7 +19,7 @@ bool ShellySmartmeterEmulationClass::init(int selectedDeviceIndex, String custom
 
 {  
     if(selectedDeviceIndex < 0 || selectedDeviceIndex > 3) {
-        writeEvent("ERROR", "Emulator", "selectedDeviceIndex out of range", String(selectedDeviceIndex));
+        LOG_EP("selectedDeviceIndex out of range (%d)", selectedDeviceIndex);
         return false;
     }
 
@@ -72,7 +73,8 @@ bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
         {"id":1,"src":"shellypro3em-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
 */
 void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
-    DBG("got packet");
+    LOG_DP("packet from %s:%d", udpPacket.remoteIP().toString().c_str(), udpPacket.remotePort());
+    LOG_DP("received data: %.*s", (int)udpPacket.length(), (const char*)udpPacket.data());
 
     if(!_currentValues.dataAreValid) {
         return;
@@ -82,18 +84,16 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     size_t len = udpPacket.length();
     const size_t MAX_PACKET_SIZE = 128;  // limit valid packet size, prevents stack overflow receiving malformed packages
     if(len == 0 || len > MAX_PACKET_SIZE) {
-        DBGOUT("[ DEBUG ] Invalid packet size\n");
+        LOG_DP("Invalid packet size");
         return;
     }
     char tempBuffer[MAX_PACKET_SIZE + 1];
     memcpy(tempBuffer, udpPacket.data(), len);
     tempBuffer[len] = '\0';
-    DBG("received data: %s", tempBuffer);
-
-    StaticJsonBuffer<MAX_PACKET_SIZE*2> jsonBufferRequest; //need more space for parsing
+    StaticJsonBuffer<MAX_PACKET_SIZE*2> jsonBufferRequest; //need more space for parsing, 2x surely enough for the expected small packet
     JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
     if (!requestJson.success()) {
-        DBG("[ DEBUG ] Failed to parse json");
+        LOG_DP("Failed to parse json");
         return;
     }
 
@@ -102,12 +102,12 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
         !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
         !requestJson.containsKey("params")) 
     {
-        DBG("[ DEBUG ] Invalid json");
+        LOG_DP("Invalid json");
         return;
     }
     JsonObject& params = requestJson["params"];
     if (!params.containsKey("id") || !params["id"].is<int>()) {
-        DBG("[ DEBUG ] Invalid json");
+        LOG_DP("Invalid json");
         return;
     }
     
@@ -130,19 +130,19 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     } else if(method == "EM1.GetStatus") {
         responseJson["result"]["act_power"] = RawJson(saldo);
     } else {
-        DBG("[ DEBUG ] unknown method");
+        LOG_WP("Unknown method: %s", method.c_str());
         return;
     }
 
     AsyncUDPMessage message;
     responseJson.printTo(message);
+    LOG_DP("sent response: %.*s", (int)message.length(), (const char*)message.data());
     _udp.sendTo(message, udpPacket.remoteIP(), udpPacket.remotePort()); //respond directly via "udpPacket" doesn't work
-    DBG("sent response: %s",message.data());
 }
 
 bool ShellySmartmeterEmulationClass::listen() {
     if(_udp.listen(_device.port)) {
-        writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulator Listening on Port"), String(_device.port));
+        LOG_IP("Shelly Smartmeter Emulator listening on port %d", _device.port);
 
         _udp.onPacket(std::bind(&ShellySmartmeterEmulationClass::handleRequest, this, std::placeholders::_1));
 
@@ -155,8 +155,8 @@ bool ShellySmartmeterEmulationClass::listen() {
 bool ShellySmartmeterEmulationClass::enable(void)
 {
     if(!_enabled) {
-       writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation enabled"), _device.id);
-       if(_offset != 0) writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulation using offset"), String(_offset));
+       LOG_IP("Shelly Smartmeter Emulation enabled with id %s", _device.id.c_str());
+       if(_offset != 0) LOG_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
        _enabled = listen();
     }
     
@@ -166,7 +166,7 @@ bool ShellySmartmeterEmulationClass::enable(void)
 void ShellySmartmeterEmulationClass::disable(void)
 {
     if(_enabled) {
-        writeEvent("INFO", "emulator", F("Shelly Smartmeter Emulator disabled"), "");
+        LOG_IP("Shelly Smartmeter Emulator disabled");
         _udp.close();
     }
     _enabled = false;
