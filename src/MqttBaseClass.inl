@@ -96,6 +96,11 @@ void MqttBaseClass::doConnect()
     if (Network.inAPMode()) {
         return;
     }
+    if (!Network.isConnected()) {
+        // Only try connect if we have a WIFI connection
+        _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
+        return;
+    }
 
     if (!_brokerIp.isSet()) {
         // WiFi.hostByName() is a "blocking call" with a default timeout of 10000ms (that raises watchdog!)
