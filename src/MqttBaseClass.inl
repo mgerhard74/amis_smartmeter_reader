@@ -137,9 +137,9 @@ void MqttBaseClass::doConnect()
     }
 
     if (_brokerByIPAddr) {
-        LOGF_DP("Connecting to server %s:%" PRIu16 "...", _config.mqtt_broker.c_str(), _config.mqtt_port);
+        LOGF_IP("Connecting to server %s:%" PRIu16 "...", _config.mqtt_broker.c_str(), _config.mqtt_port);
     } else {
-        LOGF_DP("Connecting to server %s:%" PRIu16 " [" PRsIP ":%d]...",
+        LOGF_IP("Connecting to server %s:%" PRIu16 " [" PRsIP ":%d]...",
                 _config.mqtt_broker.c_str(), _config.mqtt_port,
                 PRIPVal(_brokerIp), _config.mqtt_port);
     }
