@@ -737,10 +737,9 @@ static void wsSendRuntimeConfigAll(AsyncWebSocket *ws)
 static bool EEPROMClear()
 {
     EEPROM.begin(256);
-    for (size_t i=0; i<256; i++) {
-        if (EEPROM.read(i) != 0) { // Don't write EEPROM every time
-            EEPROM.write(i, 0);
-        }
+    const char empty = 0xff;
+    for (int i=0; i<256; i++) {
+        EEPROM.put(i, empty);
     }
     return EEPROM.end();
 }
