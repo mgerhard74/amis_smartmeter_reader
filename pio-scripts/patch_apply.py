@@ -63,18 +63,24 @@ def main():
             print('Working on patch: ' + fullPath + '... ', end='')
 
             # Check if patch was already applied
-            process = subprocess.run(['git', 'apply', '--reverse', '--check', preparePath], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            process = subprocess.run(
+                ['git', 'apply', '--reverse', '--check', '--ignore-space-change', preparePath],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
             if (process.returncode == 0):
                 print('already applied')
                 os.remove(preparePath)
                 continue
 
             # Apply patch
-            process = subprocess.run(['git', 'apply', preparePath])
+            process = subprocess.run(['git', 'apply', '--ignore-space-change', preparePath])
             if (process.returncode == 0):
                 print('applied')
             else:
                 print('failed')
+                os.remove(preparePath)
+                env.Exit(1)
 
             os.remove(preparePath)
 
