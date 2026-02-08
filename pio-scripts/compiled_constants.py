@@ -31,17 +31,14 @@ from datetime import datetime, timezone
 
 Import("env")
 
+
 # Import porcelain from dulwich and if not available: install dulwich
-import pkg_resources
-required_pkgs = {'dulwich'}
-installed_pkgs = {pkg.key for pkg in pkg_resources.working_set}
-missing_pkgs = required_pkgs - installed_pkgs
-if missing_pkgs:
-    env.Execute('"$PYTHONEXE" -m pip install dulwich')
 try:
     from dulwich import porcelain
-except:
-    pass
+except ModuleNotFoundError:
+    env.Execute('"$PYTHONEXE" -m pip install dulwich')
+    from dulwich import porcelain
+
 
 def gitGetBuildVersion():
     try:
