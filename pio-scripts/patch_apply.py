@@ -55,25 +55,6 @@ def strInFile(filename, strToSearch):
     return content.find(strToSearch) != -1
 
 
-def get_framework_dir():
-    platform = env.PioPlatform()
-    framework = env.get("FRAMEWORK", ["arduino"])[0] # "arduino"
-    pioplatform = env.get("PIOPLATFORM") # "espressif8266"
-    #print("Framework=" + framework)
-    #print("Pioplatform=" + pioplatform)
-
-    # probieren wir es direkt über "get_package_dir()"
-    framework_pkg_dir = platform.get_package_dir(f"framework-{framework}{pioplatform}")
-
-    if os.path.isdir(framework_pkg_dir):
-        if globs.verbose >= 1:
-            print(f"Framework package found at '{framework_pkg_dir}'.")
-        return framework_pkg_dir
-
-    print("Warning: Could not locate framework package.")
-    return None
-
-
 def printSubprocessResult(result):
     if (result.stdout):
         print(result.stdout)
@@ -132,14 +113,6 @@ def main():
             sys.exit(10)
         return 0
 
-    if False:
-        # this raises an error under windows eg if we're on drive c: and envdir is on drive d:
-        frameworkDir = os.path.relpath(get_framework_dir())
-    else:
-        frameworkDir = get_framework_dir()
-        if frameworkDir:
-            frameworkDir = os.path.abspath(frameworkDir)
-
     directories = getPatchPath(env)
     for directory in directories:
         if (not os.path.isdir(directory)):
@@ -158,10 +131,6 @@ def main():
             gitExtraOptions = []
             if strInFile(origPatchFilename, "$$$env$$$"):
                 replaceInFile(origPatchFilename, preparedPatchFilename, '$$$env$$$', env['PIOENV'] )
-            elif strInFile(origPatchFilename, "$$$framework_dir$$$"):
-                replaceInFile(origPatchFilename, preparedPatchFilename, '$$$framework_dir$$$', frameworkDir)
-                if (frameworkDir.startswith("..")):
-                    gitExtraOptions += ["--unsafe-paths"]
             else:
                 print("error: Invalid patch format '%s'" % origPatchFilename)
                 globs.errCnt += 1
