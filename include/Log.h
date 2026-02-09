@@ -55,6 +55,7 @@ Current state:
 #define LOGMODULE_BIT_WEBSSOCKET        0x00040000
 #define LOGMODULE_BIT_WATCHDOGPING      0x00080000
 #define LOGMODULE_BIT_REMOTEONOFF       0x00100000
+#define LOGMODULE_BIT_SHELLY            0x00200000
 #define LOGMODULE_BIT_ALL               0xffffff00
 
 // Log-Types (info/warning/error/debug/verbose)
