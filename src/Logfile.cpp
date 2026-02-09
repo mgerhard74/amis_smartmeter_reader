@@ -311,7 +311,7 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
     _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","data":"","desc":"%s"})",
                 (unsigned int) millis(), t, modulName, timecode, buffer);
-    va_end(args);
+
     _size += f.write('\n');
 
     if (buffer != temp) {
