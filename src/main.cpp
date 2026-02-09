@@ -158,7 +158,6 @@ void setup() {
         ShellySmartmeterEmulation.enable();
     }
 
-
     // initiate ping watchdog
     WatchdogPing.init();
     WatchdogPing.config(networkConfigWifi.pingrestart_ip, networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);

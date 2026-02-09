@@ -374,7 +374,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
     } else if(strcmp(command, "print2") == 0) {
         //ws.text(client->id(), "prn\0"); // ws.text
-        eprintf("prn\n");
+        DBG("prn\n");
         uint8_t ibuffer[10];      //12870008
         File f;
         unsigned i,j;
@@ -385,7 +385,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 j=f.read(ibuffer,8);
                 ibuffer[j]=0;
                 f.close();
-                eprintf("%d %d\n", i, atoi((char*)ibuffer));
+                DBG("%d %d\n", i, atoi((char*)ibuffer));
         //       ws.text(client->id(), ibuffer); // ws.text
             }
             //else ws.text(client->id(), "no file\0");
