@@ -16,7 +16,7 @@
 
 
 // TODO(anyone) - reuse refactored classes for logging and debugging
-#include "debug.h"
+#include "amis_debug.h"
 #include "config.h"
 
 #if 0
@@ -109,7 +109,7 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
         // seems already canceled
         return false;
     }
-    DBGOUT("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
+    DBG("Ping done, Result = " + String(response.answer) + ", RTT = " + String(response.total_time));
     if (response.answer) {
         if (_counterFailed > 0) {
             LOG_IP("Ping %u/%u to %s successful, RTT=%u", _counterFailed+1, restartAfterFailed, _targetIP.toString().c_str(), response.total_time);

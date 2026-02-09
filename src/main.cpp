@@ -1,8 +1,7 @@
 #include "ProjectConfiguration.h"
 
 #include "proj.h"
-//#define DEBUG
-#include "debug.h"
+#include "amis_debug.h"
 
 
 #include "AmisReader.h"
@@ -29,10 +28,6 @@ extern const char *__COMPILED_DATE_TIME_UTC_STR__;
 extern const char *__COMPILED_GIT_HASH__;
 extern const char *__COMPILED_GIT_BRANCH__;
 
-#if DEBUGHW==1
-    WiFiServer dbg_server(10000);
-    WiFiClient dbg_client;
-#endif
 #ifdef STROMPREIS
 String strompreis="";
 #endif // strompreis
@@ -53,10 +48,6 @@ unsigned last_mon_in;
 unsigned last_mon_out;
 uint8_t updates;
 String latestYYMMInHistfile;
-#if DEBUGHW>0
-  char dbg[128];
-  String dbg_string;
-#endif // DEBUGHW
 kwhstruct kwh_hist[7];
 bool doSerialHwTest=false;
 
@@ -73,31 +64,21 @@ void setup() {
     disable_extra4k_at_link_time();
     */
 
-    Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-
-    #if DEBUGHW==2
-        #if DEBUG_OUTPUT==0
-            Serial.begin(115200);
-        #elif DEBUG_OUTPUT==1
-            Serial1.begin(115200);
-        #endif
-    #endif // DEBUGHW
-
+    bool is_ap_mode = false;
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
-    // pinMode(AP_PIN, INPUT); digitalWrite(AP_PIN, HIGH);
+    delay(10); // give the pullup time to settle before sampling
+    is_ap_mode = (digitalRead(AP_PIN) == LOW);
 #endif
+    Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert - TODO: notwendig?
+    Debug::Init();
 
     // Start filesystem early - so we can do some logging
     LittleFS.begin();
 
     Utils::init();
 
-#ifdef AP_PIN
-    Application.init(digitalRead(AP_PIN) == LOW);
-#else
-    Application.init(false);
-#endif
+    Application.init(is_ap_mode);
 
     // Init logging
     Log.init("eventlog.json");
@@ -148,8 +129,8 @@ void setup() {
 
     Config.applySettingsConfigGeneral();
 
-  // Start Network
-    Network.init(Application.inAPMode());
+    // Start Network
+    Network.init(is_ap_mode);
     NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
     Network.connect();
 
@@ -162,7 +143,7 @@ void setup() {
     Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
     Webserver.setTryGzipFirst(Config.webserverTryGzipFirst); // webserverTryGzipFirst sollte hier true sein (lesen wir nicht aus der config)
 
-    // Smart Meter Simulator
+    // Modbus Smart Meter Emulator
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
@@ -204,27 +185,7 @@ void setup() {
 }
 
 void loop() {
-#if DEBUGHW==1
-    if (dbg_string.length()) {          // Debug-Ausgaben TCP
-        dbg_string+="\n";
-        if (!dbg_client.connected()) dbg_client.stop();
-        if (!dbg_client) dbg_client = dbg_server.available();
-        if (dbg_client)  dbg_client.print(dbg_string);
-        dbg_string="";
-    }
-#elif DEBUGHW==2
-    if (dbg_string.length()) {          // Debug-Ausgaben Serial
-        S.print(dbg_string);
-        dbg_string="";
-    }
-#elif DEBUGHW==3
-    if (dbg_string.length()) {          // Debug-Ausgaben Websock
-        ws.text(clientId,dbg_string);
-        //Serial1.println(dbg_string);
-        dbg_string="";
-    }
-#endif
-
+    Debug::Handle();
     FileBlobs.loop();
 
     Reboot.loop();
@@ -241,6 +202,7 @@ void loop() {
     Log.loop(); // Eine Seite des Logfiles an einen Websocket client senden
 
     LedBlue.loop();
+    
     WatchdogPing.loop();
 
     MDNS.update();
@@ -258,7 +220,7 @@ void loop() {
 
 
 static void writeHistFileIn(int x, uint32_t val) {
-    DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
+    DBG("hist_in "+String(x)+" "+String(val));
     File f = LittleFS.open("/hist_in"+String(x), "w");
     if (f) {
         f.print(val);
@@ -267,7 +229,7 @@ static void writeHistFileIn(int x, uint32_t val) {
 }
 
 static void writeHistFileOut(int x, uint32_t val) {
-    DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
+    DBG("hist_out "+String(x)+" "+String(val));
     File f = LittleFS.open("/hist_out"+String(x), "w");
     if (f) {
         f.print(val);
@@ -298,7 +260,7 @@ static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32
     String mm = "0" + String(m);
     if (s.length()<2) s="0"+s;
     s=String(y)+s;
-    eprintf("F: %u %u %s", y, m, s.c_str());
+    DBG("F: %u %u %s", y, m, s.c_str());
     File f = LittleFS.open("/monate", "a");
     f.print(s+" ");
     f.print(v_1_8_0);

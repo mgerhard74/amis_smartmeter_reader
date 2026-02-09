@@ -1,6 +1,6 @@
 
 //#define DEBUG
-#include "debug.h"
+#include "amis_debug.h"
 
 #include "config.h"
 #include "AmisReader.h"
