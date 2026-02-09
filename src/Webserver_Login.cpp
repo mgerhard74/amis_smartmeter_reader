@@ -4,6 +4,7 @@
 
 #include "Webserver_Login.h"
 
+#include "amis_debug.h"
 #include "config.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_BIT_WEBSERVER
@@ -18,7 +19,6 @@ void WebserverLoginClass::init(AsyncWebServer& server)
 void WebserverLoginClass::onRestRequest(AsyncWebServerRequest* request)
 {
     LOG_DP("Login attemp from %s", request->client()->remoteIP().toString().c_str());
-    DBGOUT("login "+remoteIP+"\n");
     if (!Config.use_auth) {
         request->send(200, F("text/plain"), F("Success"));
         return;

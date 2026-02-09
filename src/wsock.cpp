@@ -2,8 +2,6 @@
 #include "AmisReader.h"
 #include "ThingSpeak.h"
 
-//#define DEBUG
-#include "debug.h"
 
 void sendZDataWait() {
     // Zählerdaen ausgeben (jedoch noch keine Werte verfügbar)

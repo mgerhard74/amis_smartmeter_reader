@@ -1,0 +1,34 @@
+--- a/.pio/libdeps/$$$env$$$/RemoteDebug/src/RemoteDebugCfg.h
++++ b/.pio/libdeps/$$$env$$$/RemoteDebug/src/RemoteDebugCfg.h
+@@ -42,7 +42,7 @@
+ ///// Debug disable for compile to production/release
+ ///// as nothing of RemotedDebug is compiled, zero overhead :-)
+ // #define DEBUG_DISABLED true
+-#define VERSION "4.0.0"
++#define REMOTEDEBUG_VERSION "4.0.0"
+ 
+ // Debug enabled ?
+ #ifndef DEBUG_DISABLED
+
+--- a/.pio/libdeps/$$$env$$$/RemoteDebug/src/RemoteDebug.cpp
++++ b/.pio/libdeps/$$$env$$$/RemoteDebug/src/RemoteDebug.cpp
+@@ -952,9 +952,9 @@ void RemoteDebug::showHelp() {
+ #if defined(ESP8266)
+     help.concat("*** Remote debug - over telnet - for ESP8266 (NodeMCU) - version ");
+ #elif defined(ESP32)
+     help.concat("*** Remote debug - over telnet - for ESP32 - version ");
+ #endif
+-    help.concat(VERSION);
++    help.concat(REMOTEDEBUG_VERSION);
+     help.concat("\r\n");
+     help.concat("* Host name: ");
+     help.concat(_hostName);
+@@ -1508,7 +1508,7 @@ void RemoteDebug::wsSendInfo() {
+ #endif
+ 
+     // Send info
+-    String version = String(VERSION);
++    String version = String(REMOTEDEBUG_VERSION);
+     String board;
+ 
+ #ifdef ESP32
