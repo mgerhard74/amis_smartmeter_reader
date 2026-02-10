@@ -13,6 +13,9 @@
 */
 ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
 {
+    using std::placeholders::_1;
+    _udp.onPacket(std::bind(&ShellySmartmeterEmulationClass::handleRequest, this, _1));
+
     _currentValues.dataAreValid = false;
 }
 
@@ -138,9 +141,6 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
 bool ShellySmartmeterEmulationClass::listen() {
     if (_udp.listen(_device.port)) {
         LOGF_IP("Shelly Smartmeter Emulator listening on port %d", _device.port);
-
-        _udp.onPacket(std::bind(&ShellySmartmeterEmulationClass::handleRequest, this, std::placeholders::_1));
-
         return true;
     }
 
