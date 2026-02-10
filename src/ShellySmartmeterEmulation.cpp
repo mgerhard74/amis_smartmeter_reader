@@ -140,12 +140,9 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
 
 bool ShellySmartmeterEmulationClass::listen() {
     if (_udp.listen(_device.port)) {
-        LOGF_IP("Shelly Smartmeter Emulator listening on port %d", _device.port);
         return true;
-    } else {
-        LOGF_EP("Starting listener on port %d failed", _device.port);
     }
-
+    LOGF_EP("Starting listener on port %d failed", _device.port);
     return false;
 }
 
@@ -158,10 +155,7 @@ bool ShellySmartmeterEmulationClass::enable(void)
         return false;
     }
 
-    LOGF_IP("Shelly Smartmeter Emulation enabled with id %s", _device.id.c_str());
-    if (_offset != 0) {
-        LOGF_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
-    }
+    LOGF_IP("Starting listening on port %d, id '%s' offset %d W", _device.port, _device.id.c_str(), _offset);
     _enabled = listen();
 
     return _enabled;
@@ -170,8 +164,8 @@ bool ShellySmartmeterEmulationClass::enable(void)
 void ShellySmartmeterEmulationClass::disable(void)
 {
     if (_enabled) {
-        LOG_IP("Shelly Smartmeter Emulator disabled");
         _udp.close();
+        LOG_IP("disabled");
     }
     _enabled = false;
 }
