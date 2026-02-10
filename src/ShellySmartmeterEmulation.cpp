@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include "proj.h"
 #include "Log.h"
+#include "Network.h"
 #define LOGMODULE   LOGMODULE_SHELLY
 #include "unused.h"
 #include <functional>
@@ -148,13 +149,18 @@ bool ShellySmartmeterEmulationClass::listen() {
 
 bool ShellySmartmeterEmulationClass::enable(void)
 {
-    if (!_enabled) {
-       LOGF_IP("Shelly Smartmeter Emulation enabled with id %s", _device.id.c_str());
-       if (_offset != 0) {
-            LOGF_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
-       }
-       _enabled = listen();
+    if (_enabled) {
+        return true;
     }
+    if (Network.inAPMode()) {
+        return false;
+    }
+
+    LOGF_IP("Shelly Smartmeter Emulation enabled with id %s", _device.id.c_str());
+    if (_offset != 0) {
+        LOGF_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
+    }
+    _enabled = listen();
 
     return _enabled;
 }
