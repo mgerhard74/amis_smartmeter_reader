@@ -63,7 +63,7 @@ def printSubprocessResult(result):
 
 
 def isPatchApplied(gitExtraOptions, patchFilename):
-    gitExec = ['git', 'apply', '--ignore-space-change'] + gitExtraOptions + ['--reverse', '--check', patchFilename]
+    gitExec = ['git', 'apply'] + gitExtraOptions + ['--reverse', '--check', patchFilename]
     if globs.verbose >= 3:
         print("Running '%s'" % " ".join(gitExec))
     process = subprocess.run(gitExec, capture_output=True) # subprocess.DEVNULL
@@ -75,7 +75,7 @@ def isPatchApplied(gitExtraOptions, patchFilename):
 
 
 def applyPatch(gitExtraOptions, patchFilename):
-    gitExec = ['git', 'apply', '--ignore-space-change'] + gitExtraOptions + [patchFilename]
+    gitExec = ['git', 'apply'] + gitExtraOptions + [patchFilename]
     if globs.verbose >= 3:
         print("Running '%s'" % " ".join(gitExec))
     process = subprocess.run(gitExec, capture_output=True) # subprocess.DEVNULL
@@ -89,7 +89,7 @@ def applyPatch(gitExtraOptions, patchFilename):
 
 
 def unapplyPatch(gitExtraOptions, patchFilename):
-    gitExec = ['git', 'apply', '--reverse', '--ignore-space-change'] + gitExtraOptions + [patchFilename]
+    gitExec = ['git', 'apply', '--reverse'] + gitExtraOptions + [patchFilename]
     if globs.verbose >= 3:
         print("Running '%s'" % " ".join(gitExec))
     process = subprocess.run(gitExec, capture_output=True) # subprocess.DEVNULL
@@ -129,6 +129,9 @@ def main():
             preparedPatchFilename = origPatchFilename + "." + env['PIOENV'] + '.prepare'
 
             gitExtraOptions = []
+            # gitExtraOptions = ['--ignore-space-change'] # not needed as patch should apply exactly
+            # gitExtraOptions = ['--whitespace=error-all'] # try beeing very strict
+            # TODO(anybody) try figuring out how force git patching exacly (including check lineending win/linux)
             if strInFile(origPatchFilename, "$$$env$$$"):
                 replaceInFile(origPatchFilename, preparedPatchFilename, '$$$env$$$', env['PIOENV'] )
             else:
