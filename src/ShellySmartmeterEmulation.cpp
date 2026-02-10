@@ -142,6 +142,8 @@ bool ShellySmartmeterEmulationClass::listen() {
     if (_udp.listen(_device.port)) {
         LOGF_IP("Shelly Smartmeter Emulator listening on port %d", _device.port);
         return true;
+    } else {
+        LOGF_EP("Starting listener on port %d failed", _device.port);
     }
 
     return false;
