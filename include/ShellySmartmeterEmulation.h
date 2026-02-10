@@ -32,8 +32,8 @@ public:
 private:
     AsyncUDP _udp;
     Device _device;
-    int _offset;    
-    
+    int _offset;
+
     bool _enabled = false;
 
     struct {

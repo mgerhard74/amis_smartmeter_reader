@@ -6,8 +6,8 @@
 #include "unused.h"
 #include <functional>
 /*
-  Shelly Smartmeter Emulator für B2500 Batteriespeicher. 
-  Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen. 
+  Shelly Smartmeter Emulator für B2500 Batteriespeicher.
+  Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen.
   Nur notwendige Werte sind gesetzt, der Rest ist Fake, reicht aber für korrekte dyn. Einspeisebegrenzung.
 */
 ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
@@ -17,7 +17,7 @@ ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
 
 bool ShellySmartmeterEmulationClass::init(int selectedDeviceIndex, String customDeviceIDAppendix, int offset)
 
-{  
+{
     if(selectedDeviceIndex < 0 || selectedDeviceIndex > 3) {
         LOG_EP("selectedDeviceIndex out of range (%d)", selectedDeviceIndex);
         return false;
@@ -66,9 +66,9 @@ bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
 }
 
 /*
-    request looks like: 
+    request looks like:
         {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
-    response looks like:    
+    response looks like:
         {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"act_power":100.0}}
         {"id":1,"src":"shellypro3em-someid","dst":"unknown","result":{"a_act_power":100.0, "b_act_power":100.0,"c_act_power":100.0,"total_act_power":300.0}}
 */
@@ -95,9 +95,9 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     }
 
     //check for objects
-    if( !requestJson.containsKey("id") || !requestJson["id"].is<int>() || 
+    if( !requestJson.containsKey("id") || !requestJson["id"].is<int>() ||
         !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
-        !requestJson.containsKey("params")) 
+        !requestJson.containsKey("params"))
     {
         LOG_DP("Invalid json");
         return;
@@ -107,7 +107,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
         LOG_DP("Invalid json");
         return;
     }
-    
+
     int id = requestJson["id"];
     String method(requestJson["method"]);
 
@@ -118,7 +118,7 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
     responseJson["dst"] = "unknown";
     responseJson["result"] =  jsonBufferResponse.createObject();
     //the B2500 is VEEEERY picky... needs "float" formatted value with a dot
-    String saldo = String(_currentValues.saldo + _offset)+".0"; 
+    String saldo = String(_currentValues.saldo + _offset)+".0";
     if(method =="EM.GetStatus") {
         responseJson["result"]["a_act_power"] = RawJson(saldo);
         responseJson["result"]["b_act_power"] = RawJson("0.0");
@@ -155,7 +155,7 @@ bool ShellySmartmeterEmulationClass::enable(void)
        if(_offset != 0) LOG_IP("Shelly Smartmeter Emulation using offset %d W", _offset);
        _enabled = listen();
     }
-    
+
     return _enabled;
 }
 

@@ -20,7 +20,7 @@ public:
     bool log_sys;
 
     bool smart_mtr;
-    
+
     bool shelly_smart_mtr_udp;
     unsigned shelly_smart_mtr_udp_device_index;
     int shelly_smart_mtr_udp_offset;
