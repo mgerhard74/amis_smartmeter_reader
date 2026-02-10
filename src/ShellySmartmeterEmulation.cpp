@@ -26,7 +26,7 @@ bool ShellySmartmeterEmulationClass::init(int selectedDeviceIndex, String custom
     _offset = offset;
 
     //device ID not set yet
-    if (customDeviceIDAppendix == "") {
+    if (customDeviceIDAppendix.isEmpty()) {
         _device.id += "-" + String(ESP.getChipId(), HEX);
     } else {
         _device.id += "-" + customDeviceIDAppendix;
