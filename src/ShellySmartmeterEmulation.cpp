@@ -17,7 +17,7 @@ ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
 
 bool ShellySmartmeterEmulationClass::init(int selectedDeviceIndex, String customDeviceIDAppendix, int offset)
 {
-    if (selectedDeviceIndex < 0 || selectedDeviceIndex > 3) {
+    if (selectedDeviceIndex < 0 || selectedDeviceIndex >= std::size(DEVICES)) {
         LOG_EP("selectedDeviceIndex out of range (%d)", selectedDeviceIndex);
         return false;
     }
