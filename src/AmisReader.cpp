@@ -137,12 +137,12 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     }
 
     // check fields 'header' and 'repeat header' have expected value
-    if(encryptedSndUD->header.SND_UD.startSign!=0x68 || encryptedSndUD->header.SND_UD.startSignRepeat!=0x68) {
+    if (encryptedSndUD->header.SND_UD.startSign!=0x68 || encryptedSndUD->header.SND_UD.startSignRepeat!=0x68) {
         return -2;
     }
 
     // check fields 'length' and 'repeat length' have same value
-    if(encryptedSndUD->header.SND_UD.telegramLength != encryptedSndUD->header.SND_UD.telegramLengthRepeat) {
+    if (encryptedSndUD->header.SND_UD.telegramLength != encryptedSndUD->header.SND_UD.telegramLengthRepeat) {
         return -3;
     }
 
@@ -341,7 +341,7 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
         return 0;
     }
 
-    if(!_serialReadBufferIdx) {
+    if (!_serialReadBufferIdx) {
         if (_state == waitForReaderSerial) {
             strlcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n", sizeof(_serialReadBuffer));
             _serialReadBufferIdx = strlen((const char*)_serialReadBuffer);
@@ -598,7 +598,7 @@ void AmisReaderClass::eatSerialReadBuffer(size_t n)
         return;
     }
 
-    for(i=n; i<_serialReadBufferIdx; i++) {
+    for (i=n; i<_serialReadBufferIdx; i++) {
         _serialReadBuffer[i-n] = _serialReadBuffer[i];
     }
     _serialReadBufferIdx -= n;
@@ -623,7 +623,7 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
     }
     memcpy(_decodingWorkBuffer, _serialReadBuffer, n);
     _decodingWorkBufferLength = n;
-    for(i = 0; n < _serialReadBufferIdx;) {
+    for (i = 0; n < _serialReadBufferIdx;) {
         _serialReadBuffer[i++] = _serialReadBuffer[n++];
     }
     _serialReadBufferIdx = i;
@@ -664,7 +664,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     //MsgOut.println("Received SND_NKE");
                     LOG_DP("Received SND_NKE, sending ACK");
                     serialWrite(0xe5); // send ACK
-                    for(size_t i=5; i<_serialReadBufferIdx; i++) {
+                    for (size_t i=5; i<_serialReadBufferIdx; i++) {
                         _serialReadBuffer[i-5] = _serialReadBuffer[i];
                     }
                     _serialReadBufferIdx -= 5;

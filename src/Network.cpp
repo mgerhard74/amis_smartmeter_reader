@@ -246,7 +246,7 @@ static void readStringFromEEPROM(int beginaddress, size_t size, char *buffer, si
         return;
     }
 
-    for(size_t cnt = 0; cnt < size && cnt < bufferlen-1; cnt++) {
+    for (size_t cnt = 0; cnt < size && cnt < bufferlen-1; cnt++) {
         char ch;
         ch = EEPROM.read(beginaddress + cnt);
         *buffer++ = ch;
@@ -268,7 +268,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
     // TODO(anyone): Brauchen wir das wirklich noch?
 
     EEPROM.begin(256);
-    if(EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {
+    if (EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {
         EEPROM.end();
         return false;
     }

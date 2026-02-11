@@ -122,7 +122,7 @@ void LogfileClass::loop()
 
             _pageToEntries(request.pageNo, firstEntry, lastEntry);
             if (fileSkipLines(f, firstEntry-1) ) {
-                for(uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
+                for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
                     loglines.add(f.readStringUntil('\n'));
                 }
             }
@@ -139,14 +139,14 @@ void LogfileClass::loop()
 
     requestedLogPageClients.erase(requestedLogPageClients.begin());
 #else
-    if(_requestedLogPageClientIdx == 0) {
+    if (_requestedLogPageClientIdx == 0) {
         return;
     }
 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
     root["pages"] = noOfPages();
-    for(size_t i=0; i < _requestedLogPageClientIdx; i++) {
+    for (size_t i=0; i < _requestedLogPageClientIdx; i++) {
         _requestedLogPageClient_t *request = &_requestedLogPageClients[i];
         if (request->webSocket == nullptr) {
             // skip an already processed request
@@ -170,7 +170,7 @@ void LogfileClass::loop()
 
                 _pageToEntries(request->pageNo, firstEntry, lastEntry);
                 if (fileSkipLines(f, firstEntry-1) ) {
-                    for(uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
+                    for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
                         String entry = String();
                         entry = f.readStringUntil('\n');
                         items.add(entry);
@@ -357,7 +357,7 @@ void LogfileClass::_startNewFile()
 
     char filename_new[LFS_NAME_MAX];
     char filename_old[LFS_NAME_MAX];
-    for(uint32_t i=_keepPreviousFiles; i > 1; i--) {
+    for (uint32_t i=_keepPreviousFiles; i > 1; i--) {
         _prevFilename(i-1, filename_old);
         if (!Utils::fileExists(filename_old)) {
             continue;
@@ -401,7 +401,7 @@ uint32_t LogfileClass::noOfEntries()
     // Count number of entries
     size_t rlen, linelen = 0;
     char buffer[128];
-    for(;;) {
+    for (;;) {
         rlen = f.readBytes(buffer, std::size(buffer));
         if (rlen == 0) {
             break;
@@ -491,7 +491,7 @@ void LogfileClass::setLogLevelBits(uint32_t loglevelbits, uint32_t module)
     } else {
         return;
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         _logLevelBits[i] = loglevelbits;
     }
 }
@@ -509,7 +509,7 @@ void LogfileClass::enableLogLevelBits(uint32_t loglevelbits, uint32_t module)
     } else {
         return;
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         _logLevelBits[i] |= loglevelbits;
     }
 }
@@ -525,7 +525,7 @@ void LogfileClass::disableLogLevelBits(uint32_t loglevelbits, uint32_t module)
     } else {
         return;
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         _logLevelBits[i] &= (~loglevelbits);
     }
 }
@@ -566,7 +566,7 @@ uint32_t LogfileClass::getLoglevel(uint32_t module)
         return loglevel;
 
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         if (_logLevelBits[module] & LOGTYPE_BIT_VERBOSE) {
             loglevel = LOGLEVEL_VERBOSE;
             return loglevel;

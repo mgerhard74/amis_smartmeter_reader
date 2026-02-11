@@ -135,7 +135,7 @@ static inline size_t fetchStackValues(uint32_t start, uint32_t end, uint32_t *st
             }
         }
         */
-        if(!onlyInterresting || (stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd)) {
+        if (!onlyInterresting || (stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd)) {
 
             // Check if we have "stackValue" already in our list
             bool isNewAddress = true;
@@ -636,7 +636,7 @@ void Exception_Raise(unsigned int no) {
     } else if (no == 6) {
         LOG_EP("Hardware WDT ... wait");
         ESP.wdtDisable();
-        for(;;)
+        for (;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed
@@ -648,7 +648,7 @@ void Exception_Raise(unsigned int no) {
         LOG_EP("Hardware WDT done.");
     } else if (no == 7) {
         LOG_EP("Software WDT ... wait");
-        for(;;)
+        for (;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed

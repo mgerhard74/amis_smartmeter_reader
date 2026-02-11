@@ -98,7 +98,7 @@ void WebserverWsDataClass::sendDataTaskCb()
 
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
-    if(type == WS_EVT_ERROR) {
+    if (type == WS_EVT_ERROR) {
         LOGF_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
@@ -108,7 +108,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
         uint64_t index = info->index;
         uint64_t infolen = info->len;
 
-        if(info->final && info->index == 0 && infolen == len) {
+        if (info->final && info->index == 0 && infolen == len) {
             //the whole message is in a single frame and we got all of it's data
             client->_tempObject = malloc(infolen + 1);
             if (client->_tempObject) {
@@ -201,7 +201,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     // Web Browser sends some commands, check which command is given
     const char *command = root["command"];
 
-    if(!strcmp(command, "ping")) {
+    if (!strcmp(command, "ping")) {
         // handle "ping" explicit here as it's the most used command
         ws->text(client->id(),F("{\"pong\":\"\"}"));
         return;
@@ -210,36 +210,36 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     // Check whatever the command is and act accordingly
     LOGF_DP("websocket command: '%s'", command);
 
-    if(strcmp(command, "remove") == 0) {
+    if (strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
         if (filename && filename[0]) {
             LittleFS.remove(filename);
         }
-    } else if(strcmp(command,"weekfiles")==0) {
+    } else if (strcmp(command,"weekfiles")==0) {
         uint32_t zstand;
         AmisReader.disable();
         clearHist();
         for (unsigned i=0; i<7; i++){
             zstand = root["week"][0][i].as<uint32_t>();
             if (zstand) {
-            File f = LittleFS.open("/hist_in"+String(i), "w");
-            if(f) {
-                f.print(zstand);
-                f.close();
-            }
+                File f = LittleFS.open("/hist_in"+String(i), "w");
+                if (f) {
+                    f.print(zstand);
+                    f.close();
+                }
             }
             zstand = root["week"][1][i].as<uint32_t>();
             if (zstand) {
-            File f = LittleFS.open("/hist_out"+String(i), "w");
-            if(f) {
-                f.print(zstand);
-                f.close();
-            }
+                File f = LittleFS.open("/hist_out"+String(i), "w");
+                if (f) {
+                    f.print(zstand);
+                    f.close();
+                }
             }
         }
         historyInit();
         AmisReader.enable();
-    } else if(strcmp(command,"monthlist")==0) {
+    } else if (strcmp(command,"monthlist")==0) {
         AmisReader.disable();
         LittleFS.remove("/monate");
         File f = LittleFS.open("/monate", "w");
@@ -253,9 +253,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             historyInit();
         }
         AmisReader.enable();
-    } else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
+    } else if ((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
-        if(f) {
+        if (f) {
             root.prettyPrintTo(f);
             f.close();
             LOGF_DP("%s saved on LittleFS.", command);
@@ -266,11 +266,11 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 Mqtt.reloadConfig();
             }
         }
-    } else if(strcmp(command, "status") == 0) {
+    } else if (strcmp(command, "status") == 0) {
         sendStatus(client);
-    } else if(strcmp(command, "restart") == 0) {
+    } else if (strcmp(command, "restart") == 0) {
         Reboot.startReboot();
-    } else if(strcmp(command, "geteventlog") == 0) {
+    } else if (strcmp(command, "geteventlog") == 0) {
         //Logausgabe in main.loop() bzw Log.loop() bearbeiten, Timeout!!!
         uint32_t page = root["page"].as<uint32_t>();
         if (Log.websocketRequestPage(ws, client->id(), page)) {
@@ -278,28 +278,28 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         } else {
             ws->text(client->id(), R"({"r":1,"m":"Error: No slot available"})");
         }
-    } else if(strcmp(command, "clearevent") == 0) {
+    } else if (strcmp(command, "clearevent") == 0) {
         Log.clear();
-    } else if(strcmp(command, "scan_wifi") == 0) {
+    } else if (strcmp(command, "scan_wifi") == 0) {
         if (!_wifiScanInProgress) {
             _wifiScanInProgress = true;
             using std::placeholders::_1;
             WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
         }
-    } else if(strcmp(command, "getconf") == 0) {
+    } else if (strcmp(command, "getconf") == 0) {
         wsSendFile("/config_general", client);
         wsSendFile("/config_wifi", client);
         wsSendFile("/config_mqtt", client);
         wsSendRuntimeConfigAll(ws);
-    } else if(strcmp(command, "energieWeek") == 0) {
+    } else if (strcmp(command, "energieWeek") == 0) {
         energieWeekUpdate();         // Wochentagfiles an Webclient senden
-    } else if(strcmp(command, "energieMonth") == 0) {
+    } else if (strcmp(command, "energieMonth") == 0) {
         energieMonthUpdate();         // Monatstabelle an Webclient senden
-    } else if(strcmp(command, "weekdata") == 0) {
+    } else if (strcmp(command, "weekdata") == 0) {
         sendWeekData(client);                   // die hist_inx + hist_outx Fileinhalte für save konfig
-    } else if(strcmp(command, "clearhist") == 0) {
+    } else if (strcmp(command, "clearhist") == 0) {
         clearHist();
-    } else if(strcmp(command, "clearhist2") == 0) {
+    } else if (strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
     } else if (!strcmp(command, "set-amisreader")) {
         // Im AP Modus wird die Config nicht reloaded.
@@ -310,7 +310,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             AmisReader.setKey(key);
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
-    } else if(strcmp(command, "ls") == 0) {
+    } else if (strcmp(command, "ls") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
             path = "/";
@@ -343,7 +343,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         String buffer;
         doc.printTo(buffer);
         ws->text(client->id(), buffer);
-    } else if(strcmp(command, "rm") == 0) {
+    } else if (strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
             return;
@@ -363,18 +363,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         //    LittleFS.remove(F("/.idea"));
     } else if (strcmp(command, "test") == 0) {
         doSerialHwTest = !doSerialHwTest;
-    } else if(strcmp(command, "print") == 0) {
+    } else if (strcmp(command, "print") == 0) {
         const char *uid = root["file"];
         ws->text(client->id(), uid); // ws.text
-        int i;
         uint8_t ibuffer[65];
         File f = LittleFS.open(uid, "r");
-        if(f) {
+        if (f) {
+            int i;
             do {
-            i=f.read(ibuffer, 64);
-            ibuffer[i]=0;
-            ws->text(client->id(), (char *)ibuffer); // ws.text
-            } while (i);
+                i = f.read(ibuffer, 64);
+                ibuffer[i] = 0;
+                ws->text(client->id(), (char *)ibuffer); // ws.text
+                } while (i);
             f.close();
         } else {
             ws->text(client->id(), "no file\0");
@@ -574,7 +574,7 @@ static void sendWeekData(AsyncWebSocketClient *client)
 void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 {
 
-    if(!_wifiScanInProgress || nFound == 0) {
+    if (!_wifiScanInProgress || nFound == 0) {
         WiFi.scanDelete();
         _wifiScanInProgress = false;
         return;

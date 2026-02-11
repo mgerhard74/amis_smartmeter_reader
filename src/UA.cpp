@@ -41,7 +41,7 @@ uint16_t UA::ReadU16LE(const void *p)
 {
     size_t pn = (size_t) p;
 
-    if((pn & 0x01) == 0) { // we're already aligned to 2
+    if ((pn & 0x01) == 0) { // we're already aligned to 2
         return SWAP_LE2(*(const uint16_t*)p);
     }
     UNION_U16B r;
@@ -56,7 +56,7 @@ void UA::WriteU16LE(void *p, uint16_t v)
 {
     size_t pn = (size_t) p;
 
-    if((pn & 0x01) == 0) { // we're already aligned to 2
+    if ((pn & 0x01) == 0) { // we're already aligned to 2
         *(uint16_t*)p = SWAP_LE2(v);
         return;
     }
@@ -76,7 +76,7 @@ uint32_t UA::ReadU32LE(const void *p)
 {
     size_t pn = (size_t) p;
 
-    if((pn & 0x03) == 0) { // we're already aligned to 4
+    if ((pn & 0x03) == 0) { // we're already aligned to 4
         return SWAP_LE4(*(const uint32_t*)p);
     }
     UNION_U32B r;
@@ -93,7 +93,7 @@ void UA::WriteU32LE(void *p, uint32_t v)
 {
     size_t pn = (size_t) p;
 
-    if((pn & 0x03) == 0) { // we're already aligned to 4
+    if ((pn & 0x03) == 0) { // we're already aligned to 4
         *(uint32_t*)p = SWAP_LE4(v);
         return;
     }

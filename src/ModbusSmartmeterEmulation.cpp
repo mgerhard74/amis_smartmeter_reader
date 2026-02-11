@@ -291,14 +291,14 @@ bool ModbusSmartmeterEmulationClass::setEnabled(bool enabled)
 
 bool ModbusSmartmeterEmulationClass::enable(void)
 {
-    if(_enabled) {
+    if (_enabled) {
         return true;
     }
     if (Network.inAPMode()) {
         return false;
     }
     _enabled = perpareBuffers();
-    if(_enabled) {
+    if (_enabled) {
         _server.begin();
     }
     return _enabled;
@@ -306,7 +306,7 @@ bool ModbusSmartmeterEmulationClass::enable(void)
 
 void ModbusSmartmeterEmulationClass::disable(void)
 {
-    if(!_enabled) {
+    if (!_enabled) {
         return;
     }
     _enabled = false;

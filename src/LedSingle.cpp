@@ -25,7 +25,7 @@ void LedSingleClass::loop() {
         return;
     }
     _lastBlinkChangeMillis = now;
-    if(++_blinkIntervalsIdx >= std::size(_blinkIntervalsMs)) {
+    if (++_blinkIntervalsIdx >= std::size(_blinkIntervalsMs)) {
         _blinkIntervalsIdx = 0;
     }
     invert();
