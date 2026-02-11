@@ -6,6 +6,7 @@
 #include "Application.h"
 #include "Databroker.h"
 #include "Exception.h"
+#include "Failsafe.h"
 #include "LedSingle.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
@@ -55,6 +56,10 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
+   
+    if(Failsafe.check()) {
+        return;
+    }
 
     Exception_InstallPostmortem(1);
 
@@ -191,6 +196,9 @@ void setup() {
 }
 
 void loop() {
+    if (Failsafe.loop()) {
+        return;
+    }
     Reboot.loop();
 
     if (ws->count()) {      // ws-connections
