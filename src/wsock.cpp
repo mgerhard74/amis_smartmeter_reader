@@ -1,6 +1,9 @@
 #include "proj.h"
 #include "AmisReader.h"
 #include "Databroker.h"
+#include "Json.h"
+#include "Log.h"
+#define LOGMODULE LOGMODULE_WEBSSOCKET
 #include "ThingSpeak.h"
 
 //#define DEBUG
@@ -8,8 +11,19 @@
 
 void sendZDataWait() {
     // Zählerdaen ausgeben (jedoch noch keine Werte verfügbar)
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &doc = jsonBuffer.createObject();
+    /*
+    Beispiel:
+    {
+        "now": 0,
+        "time": 4294967295,
+        "valid": 5,
+        "uptime": 4294967294,
+        "things_up": "Verbindung zu http://api.thingspeak.com fehlgeschlagen.",
+        "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
+    }
+    */
+    StaticJsonDocument<256> doc; // Keys are <const char *>  // CHECK
+
     doc["now"] = 0;
     // For 64 bits seems we must define ARDUINOJSON_USE_LONG_LONG ... but 32 Bits unsigned is valid till 2106
     doc["time"] = static_cast<uint32_t>(time(NULL));
@@ -19,15 +33,32 @@ void sendZDataWait() {
     doc["serialnumber"] = AmisReader.getSerialNumber();
 
     String buffer;
-    doc.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(doc, buffer);
     ws->textAll(buffer);
 }
 
 void sendZData() {
     // Zählerdaen ausgeben
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &doc = jsonBuffer.createObject();
+    /*
+    Beispiel:
+    {
+        "now": "324b703624",
+        "time": 4294967288,
+        "1.8.0": 4294967295,
+        "2.8.0": 4294967294,
+        "3.8.1": 4294967293,
+        "4.8.1": 4294967292,
+        "1.7.0": 4294967291,
+        "2.7.0": 4294967290,
+        "3.7.0": 4294967289,
+        "4.7.0": 4294967288,
+        "1.128.0": -2147483647,
+        "uptime": 4294967287,
+        "things_up": "Verbindung zu http://api.thingspeak.com fehlgeschlagen.",
+        "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
+    }
+    */
+    StaticJsonDocument<352> doc; // Keys are <const char *>  // CHECK
 
     doc["now"] = Databroker.timeCp48Hex;
     doc["time"] = static_cast<uint32_t>(time(NULL));
@@ -45,8 +76,7 @@ void sendZData() {
     doc["serialnumber"] = AmisReader.getSerialNumber();
 
     String buffer;
-    doc.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(doc, buffer);
     ws->textAll(buffer);
 }
 

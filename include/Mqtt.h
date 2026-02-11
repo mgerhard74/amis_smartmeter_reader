@@ -5,6 +5,9 @@
 #include <Ticker.h>
 
 
+// Maximum of elements in /config_mqtt (incl "command" and all other values)
+#define MQTT_JSON_CONFIG_MQTT_DOCUMENT_SIZE    JSON_OBJECT_SIZE(13) + 768
+
 // Contains all the settings saved in file '/config_mqtt'
 typedef struct {
     bool mqtt_retain;

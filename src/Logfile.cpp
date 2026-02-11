@@ -1,4 +1,6 @@
+#include "Json.h"
 #include "Log.h"
+#define LOGMODULE   LOGMODULE_SYSTEM
 #include "unused.h"
 #include "Utils.h"
 
@@ -7,8 +9,6 @@
 
 #include <stdarg.h>
 
-
-#define LOGMODULE   LOGMODULE_SYSTEM
 
 #define LOGFILE_LINE_LEN_MAX    768
 
@@ -95,16 +95,27 @@ void LogfileClass::loop()
 {
     // Send requested pages of the log file to a client
     // Just handle one request per loop() call to keep system running
+
+    /* Example JSON:
+    {
+    "entries": 177,
+    "pages": 9,
+    "size": 18709,
+    "page": 9,
+    "loglines": [
+        "{\"ms\":123260,\"type\":\"INFO\",\"src\":\"system\",\"ts\":1770762978,\"desc\":\"Event log cleared!\"}",
+        "{\"ms\":1550200,\"type\":\"INFO\",\"src\":\"rebootAtMidnight\",\"ts\":1770764405,\"desc\":\"Starting scheduled reboot...\"}",
+        "{\"ms\":1550308,\"type\":\"WARN\",\"src\":\"mqtt\",\"ts\":1770764405,\"desc\":\"Disconnected from server 192.168.xx.yy:1883 reason=TCP_DISCONNECTED\"}",
+        "{\"ms\":1550428,\"type\":\"INFO\",\"src\":\"system\",\"ts\":1770764405,\"desc\":\"System is going to reboot\"}"
+      ]
+    }
+    */
+
 #if 1
     if (requestedLogPageClients.size() == 0) {
         return;
     }
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    root["entries"] = noOfEntries();
-    root["pages"] = noOfPages();
-    root["size"] = _size;
     _requestedLogPageClient_t request = requestedLogPageClients.front();
     // Adapt pagno to be in valid range
     if (request.pageNo == 0) {
@@ -112,27 +123,46 @@ void LogfileClass::loop()
     } else if (request.pageNo > noOfPages()) {
         request.pageNo = noOfPages();
     }
-    root["page"] = request.pageNo;
-    JsonArray &loglines = root.createNestedArray("loglines");
 
+    uint32_t firstEntry, lastEntry;
+    _pageToEntries(request.pageNo, firstEntry, lastEntry);
+
+    File f;
+    size_t jsonBytesNeed = JSON_OBJECT_SIZE(5) + 64;  // Keystrings and 5 objects
+    size_t pos = 0xffffffff;
     if (_noOfEntriesInFile) {
-        File f = LittleFS.open(_filename, "r");
+        f = LittleFS.open(_filename, "r");
         if (f) {
-            uint32_t firstEntry, lastEntry;
-
-            _pageToEntries(request.pageNo, firstEntry, lastEntry);
             if (fileSkipLines(f, firstEntry-1) ) {
+                pos = f.position();
                 for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
-                    loglines.add(f.readStringUntil('\n'));
+                    String s = f.readStringUntil('\n');
+                    jsonBytesNeed += JSON_ARRAY_SIZE(1) + s.length();
                 }
             }
-            f.close();
         }
     }
 
+    DynamicJsonDocument doc(jsonBytesNeed);
+    doc["entries"] = noOfEntries();
+    doc["pages"] = noOfPages();
+    doc["size"] = _size;
+    doc["page"] = request.pageNo;
+    JsonArray loglines = doc.createNestedArray("loglines");
+
+    if (_noOfEntriesInFile && pos != 0xffffffff) {
+        f.seek(pos, SeekSet);
+        for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
+            loglines.add(f.readStringUntil('\n'));
+        }
+    }
+
+    if (_noOfEntriesInFile && f) {
+        f.close();
+    }
+
     String buffer;
-    root.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(doc, buffer);
     if (!request.webSocket->text(request.clientId, buffer)) {
         LOG_EP("Could not send logfile via websocket.");
     }

@@ -17,8 +17,23 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
 {
     MqttConfig_t config = _mqttBase->getConfigMqtt();
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    StaticJsonDocument<384> root; // Keys NOT <const char*> // CHECK
+    /*
+    {
+        "1.8.0": 4294967295,
+        "2.8.0": 4294967294,
+        "3.8.1": 4294967293,
+        "4.8.1": 4294967292,
+        "1.7.0": 4294967291,
+        "2.7.0": 4294967290,
+        "3.7.0": 4294967289,
+        "4.7.0": 4294967288,
+        "1.128.0": -2147483647,
+        "saldo": -2147483646,
+        "time": 4294967288,
+        "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
+    }
+    */
     signed saldo = Databroker.results_u32[4] - Databroker.results_u32[5] - Config.rest_ofs;
     if (Config.rest_neg) {
         saldo =-saldo;
@@ -40,9 +55,7 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
     root[F("serialnumber")] = AmisReader.getSerialNumber();
 
     String mqttBuffer;
-    //root.prettyPrintTo(mqttBuffer);
-    root.printTo(mqttBuffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(root, mqttBuffer);
     _mqttBase->publish(config.mqtt_pub.c_str(), config.mqtt_qos, config.mqtt_retain, mqttBuffer.c_str());
     /*
     // TODO(StefanOberhumer): Fix the json logging problem

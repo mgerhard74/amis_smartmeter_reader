@@ -3,6 +3,9 @@
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
 
+// Maximum of elements in /config_wifi (incl "command" and all other values)
+#define NETWORK_JSON_CONFIG_WIFI_DOCUMENT_SIZE      JSON_OBJECT_SIZE(16) + 768
+
 // Contains all the settings saved in file '/config_wifi'
 typedef struct {
     bool allow_sleep_mode;

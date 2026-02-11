@@ -1,11 +1,14 @@
 #include "ShellySmartmeterEmulation.h"
-#include <ArduinoJson.h>
-#include "proj.h"
+#include "Json.h"
 #include "Log.h"
-#include "Network.h"
 #define LOGMODULE   LOGMODULE_SHELLY
+#include "Network.h"
 #include "unused.h"
+
+#include "proj.h"
+
 #include <functional>
+
 /*
   Shelly Smartmeter Emulator für B2500 Batteriespeicher.
   Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen.
@@ -70,6 +73,7 @@ bool ShellySmartmeterEmulationClass::setEnabled(bool enabled)
 
 /*
     request looks like:
+        {"id":1,"method":"EM.GetStatus","params":{"id":0}}
         {"id":1,"method":"EM1.GetStatus","params":{"id":0}}
     response looks like:
         {"id":1,"src":"shellyproem50-someid","dst":"unknown","result":{"act_power":100.0}}
@@ -82,59 +86,59 @@ void ShellySmartmeterEmulationClass::handleRequest(AsyncUDPPacket udpPacket) {
 
     // --- JSON parsen ---
     size_t len = udpPacket.length();
-    const size_t MAX_PACKET_SIZE = 128;  // limit valid packet size, prevents stack overflow receiving malformed packages
-    if (len == 0 || len > MAX_PACKET_SIZE) {
-        LOG_DP("Invalid packet size");
+    constexpr size_t MIN_PACKET_SIZE = 48;   // limit valid packet size, prevents stack overflow receiving malformed packages
+    constexpr size_t MAX_PACKET_SIZE = 128;
+    if (len < MIN_PACKET_SIZE || len > MAX_PACKET_SIZE) {
+        LOGF_DP("Invalid packet size %u", len);
         return;
     }
-    char tempBuffer[MAX_PACKET_SIZE + 1];
-    memcpy(tempBuffer, udpPacket.data(), len);
-    tempBuffer[len] = '\0';
-    StaticJsonBuffer<MAX_PACKET_SIZE*2> jsonBufferRequest; //need more space for parsing, 2x surely enough for the expected small packet
-    JsonObject& requestJson = jsonBufferRequest.parseObject(tempBuffer);
-    if (!requestJson.success()) {
-        LOG_DP("Failed to parse json");
+
+    constexpr size_t ADDITIONAL_JSON_OBJECTS = 4; // as we don't have full control over json request: allow 4 objects more
+    StaticJsonDocument<JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(ADDITIONAL_JSON_OBJECTS)> requestJson;
+    DeserializationError error = deserializeJson(requestJson, (char*)udpPacket.data(), len);
+    if (error) {
+        LOGF_EP("Failed to parse json. Error '%s'", error.c_str());
         return;
     }
 
     //check for objects
-    if ( !requestJson.containsKey("id") || !requestJson["id"].is<int>() ||
-         !requestJson.containsKey("method") || !requestJson["method"].is<char*>() ||
-         !requestJson.containsKey("params")) {
-        LOG_DP("Invalid json");
+    if ( !requestJson.containsKey("id") || !requestJson["id"].is<JsonInteger>() ||
+         !requestJson.containsKey("method") || !requestJson["method"].is<const char*>() ||
+         !requestJson.containsKey("params" )) {
+        LOG_EP("Invalid json #1.");
         return;
     }
-    JsonObject& params = requestJson["params"];
-    if (!params.containsKey("id") || !params["id"].is<int>()) {
-        LOG_DP("Invalid json");
+    JsonObject params = requestJson["params"];
+    if (!params.containsKey("id") || !params["id"].is<JsonInteger>()) {
+        LOG_EP("Invalid json #2.");
         return;
     }
 
+    const char *method = requestJson["method"];
     int id = requestJson["id"];
-    String method(requestJson["method"]);
 
-    StaticJsonBuffer<256> jsonBufferResponse;
-    JsonObject& responseJson = jsonBufferResponse.createObject();
+    StaticJsonDocument<260> responseJson;
     responseJson["id"] = id;
     responseJson["src"] = _device.id;
     responseJson["dst"] = "unknown";
-    responseJson["result"] =  jsonBufferResponse.createObject();
+    JsonObject result = responseJson.createNestedObject("result");
+
     //the B2500 is VEEEERY picky... needs "float" formatted value with a dot
-    String saldo = String(_currentValues.saldo + _offset)+".0";
-    if (method =="EM.GetStatus") {
-        responseJson["result"]["a_act_power"] = RawJson(saldo);
-        responseJson["result"]["b_act_power"] = RawJson("0.0");
-        responseJson["result"]["c_act_power"] = RawJson("0.0");
-        responseJson["result"]["total_act_power"] = RawJson(saldo);
-    } else if (method == "EM1.GetStatus") {
-        responseJson["result"]["act_power"] = RawJson(saldo);
+    String saldo = String(_currentValues.saldo + _offset) + ".0";
+    if (!strcmp(method, "EM.GetStatus")) {
+        result["a_act_power"] = serialized(saldo);
+        result["b_act_power"] = serialized("0.0");
+        result["c_act_power"] = serialized("0.0");
+        result["total_act_power"] = serialized(saldo);
+    } else if (!strcmp(method, "EM1.GetStatus")) {
+        result["act_power"] = serialized(saldo);
     } else {
-        LOGF_WP("Unknown method: %s", method.c_str());
+        LOGF_WP("Unknown method: %s", method);
         return;
     }
 
     AsyncUDPMessage message;
-    responseJson.printTo(message);
+    SERIALIZE_JSON_LOG(responseJson, message);
     _udp.sendTo(message, udpPacket.remoteIP(), udpPacket.remotePort()); //respond directly via "udpPacket" doesn't work
 }
 

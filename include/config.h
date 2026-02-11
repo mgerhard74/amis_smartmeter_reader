@@ -29,6 +29,8 @@
 #define CONFIG_AUTH_USERNAME_MAXLEN     32
 #define CONFIG_AUTH_PASSWORD_MAXLEN     32
 
+#define CONFIG_JSON_CONFIG_GENERAL_DOCUMENT_SIZE    JSON_OBJECT_SIZE(33) + 1024
+
 
 extern const char* Config_restValueKeys[2][9];
 

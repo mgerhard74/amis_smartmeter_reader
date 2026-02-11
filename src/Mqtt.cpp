@@ -5,6 +5,7 @@
 #include "config.h"
 #include "Databroker.h"
 #include "DefaultConfigurations.h"
+#include "Json.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_MQTT
 #include "Network.h"

@@ -9,6 +9,7 @@
 #include "Application.h"
 #include "config.h"
 #include "Exception.h"
+#include "Json.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSSOCKET
 #include "Mqtt.h"
@@ -19,7 +20,6 @@
 #include "Utils.h"
 #include "__compiled_constants.h"
 
-#include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 
@@ -179,10 +179,98 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     if (!tempObjectLength) {
         return;
     }
-    //LOGF_EP("Websock %d", (int)tempObjectLength);
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
-    if (!root.success()) {
+
+    //LOGF_VP("wsClientRequest() client=" PRsIP ":%d, len=%u", PRIPVal(client->remoteIP()), client->remotePort(), tempObjectLength);
+    //LOGF_VP("wsClientRequest() strlen= %d", strlen((char *)(client->_tempObject)));
+
+    /*
+    {"command":"ping"}
+    {"command":"getconf"}
+    {"command":"energieWeek"}
+    {"command":"energieMonth","jahr":22}
+    {"command":"geteventlog","page":1}
+    {"command":"status"}
+    {"command":"scan_wifi"}
+    {  // 16 Objects
+        "command": "/config_wifi",
+        "ssid": "xxxxx-ssid",
+        "wifipassword": "password",
+        "dhcp": false,
+        "ip_static": "192.168.xx.yy",
+        "ip_netmask": "255.255.255.0",
+        "ip_gateway": "192.168.xx.aa",
+        "ip_nameserver": "192.168.11.1",
+        "rfpower": "21",
+        "mdns": true,
+        "allow_sleep_mode": false,
+        "pingrestart_do": false,
+        "pingrestart_ip": "192.168.xx.cc",
+        "pingrestart_interval": "60",
+        "pingrestart_max": "5",
+        "channel": "0"
+    }
+    { // 33 Objects
+        "command": "/config_general",
+        "devicetype": "AMIS-Reader",
+        "devicename": "Amis-1",
+        "auth_passwd": "password",
+        "auth_user": "user",
+        "use_auth": true,
+        "log_sys": true,
+        "amis_key": "1234567890abcdef1234567890abcdef",
+        "thingspeak_aktiv": true,
+        "channel_id": "1234567",
+        "write_api_key": "writePASSWORD",
+        "read_api_key": "readPASSWORD",
+        "thingspeak_iv": "30",
+        "channel_id2": "",
+        "read_api_key2": "",
+        "rest_var": "0",
+        "rest_ofs": "0",
+        "rest_neg": false,
+        "smart_mtr": true,
+        "developerModeEnabled": true,
+        "switch_on": "0",
+        "switch_off": "0",
+        "switch_url_on": "http://url.on",
+        "switch_url_off": "http://url.off",
+        "switch_intervall": "60",
+        "reboot0": true,
+        "shelly_smart_mtr_udp": false,
+        "shelly_smart_mtr_udp_device": "shellypro3em",
+        "shelly_smart_mtr_udp_offset": "0",
+        "shelly_smart_mtr_udp_hardwareID": "",
+        "shelly_smart_mtr_udp_device_index": "0",
+        "shelly_smart_mtr_udp_hardware_id_appendix": ""
+    }
+    {   // 13 Objects
+        "command": "/config_mqtt",
+        "mqtt_enabled": true,
+        "mqtt_broker": "192.168.aa.dd",
+        "mqtt_port": "1883",
+        "mqtt_user": "",
+        "mqtt_password": "",
+        "mqtt_clientid": "mqclientID1",
+        "mqtt_qos": "0",
+        "mqtt_retain": true,
+        "mqtt_keep": "8",
+        "mqtt_pub": "amis/out/",
+        "mqtt_will": "lastwill1",
+        "mqtt_ha_discovery": true
+    }
+    */
+
+    DynamicJsonDocument root(2048);
+    DeserializationError error;
+    if (root.capacity() == 0) {
+        error = DeserializationError::NoMemory;
+    } else  {
+        error = DeserializationError::InvalidInput;
+    }
+    if (tempObjectLength >= 15 && tempObjectLength <= root.capacity()) { // '{"command":"x"}'
+        error = deserializeJson(root, client->_tempObject, tempObjectLength);
+    }
+    if (error) {
         /*
         TODO(anyone): sending
         {"comm
@@ -256,7 +344,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if ((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
         if (f) {
-            root.prettyPrintTo(f);
+            serializeJsonPretty(root, f);
             f.close();
             LOGF_DP("%s saved on LittleFS.", command);
             if (strcmp(command, "/config_general")==0) {
@@ -311,14 +399,31 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
     } else if (strcmp(command, "ls") == 0) {
-        String path = root["path"].as<String>();
+        String path;
+        if (root.containsKey(F("path"))) {
+            path = root[F("path")].as<String>();
+        }
         if (path.isEmpty()) {
             path = "/";
         }
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &doc = jsonBuffer.createObject();
-        unsigned i=0;
+
+        unsigned fileCnt=0;
         if (Utils::dirExists(path.c_str())) {
+            Dir dir = LittleFS.openDir(path);
+
+            while (dir.next()) {
+                fileCnt++;
+                ESP.wdtFeed();
+            }
+        }
+        DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+5+path.length()+1 +                 // "path":path
+                                JSON_OBJECT_SIZE(1)+3 +                                 // "ls":fileCnt
+                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(86*fileCnt));    // "1": "fileinfo1"
+        if (!doc.capacity()) {
+            return; // Out of memory
+        }
+        if (fileCnt) {
+            fileCnt = 0;
             Dir dir = LittleFS.openDir(path);
             while (dir.next()) {
                 File f = dir.openFile("r");
@@ -331,17 +436,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                                     f.getCreationTime(),
                                     f.getLastWrite());
                     f.close();
-                    doc[String(i)] = puffer;
+                    doc[String(fileCnt)] = puffer;
                 } else {
-                    doc[String(i)] = dir.fileName();
+                    doc[String(fileCnt)] = dir.fileName();
                 }
-                i++;
+                fileCnt++;
                 ESP.wdtFeed();
             }
         }
-        doc["ls"] = i;
+        doc["ls"] = fileCnt;
+        doc["path"] = path;
         String buffer;
-        doc.printTo(buffer);
+        SERIALIZE_JSON_LOG(doc, buffer);
         ws->text(client->id(), buffer);
     } else if (strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
@@ -397,6 +503,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // {"command":"set-loglevel", "module":6, "level":5} // MQTT
         // {"command":"set-loglevel", "module":11, "level":5} // WATCHDOGPING
         // {"command":"set-loglevel", "module":10, "level":5} // WEBSOCKET
+        // {"command":"set-loglevel", "level":5} // ALL
+        // {"command":"set-loglevel", "module":2, "level":0} // READER
         uint32_t level = CONFIG_LOG_DEFAULT_LEVEL;
         uint32_t module = LOGMODULE_ALL;
         if (root.containsKey(F("level"))) {
@@ -428,7 +536,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if (!strcmp(command, "dev-tools-button1")) {
 #if (AMIS_DEVELOPER_MODE)
         DynamicJsonBuffer jsonBuffer;
-        JsonObject &doc = jsonBuffer.createObject();
+        JsonObject doc = jsonBuffer.createObject();
         doc["AAAA"]="ABCDEF";
         String buffer;
         String buffer1;
@@ -574,35 +682,49 @@ static void sendWeekData(AsyncWebSocketClient *client)
 void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 {
 
-    if (!_wifiScanInProgress || nFound == 0) {
+    if (!_wifiScanInProgress) {
         WiFi.scanDelete();
         _wifiScanInProgress = false;
         return;
     }
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    JsonArray &array = jsonBuffer.createArray();
-    String buffer;
+    /*
+    {
+        "stations": [
+            "{\"ssid\":\"meine-ssid1234567890123456789012\",\"rssi\":-2147483647,\"channel\":-2147483647,\"encrpt\":\"255\",\"bssid\":\"aa:bb:cc:dd:ee:ff\"}",
+            "{\"ssid\":\"meiNE-ssid1234567890123456789012\",\"rssi\":-2147483647,\"channel\":-2147483647,\"encrpt\":\"255\",\"bssid\":\"11:bb:cc:dd:ee:ff\"}",
+            "{\"ssid\":\"meine-ssID1234567890123456789012\",\"rssi\":-2147483647,\"channel\":-2147483647,\"encrpt\":\"255\",\"bssid\":\"aa:22:cc:dd:ee:ff\"}"
+        ]
+    }
+    */
+    DynamicJsonDocument root(JSON_OBJECT_SIZE(1)+10 + JSON_ARRAY_SIZE(nFound)+(148*nFound));
+    if (root.capacity() == 0) {
+        // out of memory
+        WiFi.scanDelete();
+        _wifiScanInProgress = false;
+        return ;
+    }
+
+    JsonArray stations = root.createNestedArray("stations");
     for (int i = 0; i < nFound; ++i) {           // esp_event_legacy.h
-        root[F("ssid")]    = WiFi.SSID(i);
-        root[F("rssi")]    = WiFi.RSSI(i);
-        root[F("channel")] = WiFi.channel(i);
-        root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
-        root[F("bssid")]  = WiFi.BSSIDstr(i);
-        buffer = "";
-        root.printTo(buffer);
-        array.add(buffer);
+        StaticJsonDocument<JSON_OBJECT_SIZE(5) + 148> singleStation;
+        String singleStationStr = "";
+
+        singleStation[F("ssid")]    = WiFi.SSID(i);
+        singleStation[F("rssi")]    = WiFi.RSSI(i);
+        singleStation[F("channel")] = WiFi.channel(i);
+        singleStation[F("encrpt")]  = String(WiFi.encryptionType(i));
+        singleStation[F("bssid")]  = WiFi.BSSIDstr(i);
+
+        SERIALIZE_JSON_LOG(singleStation, singleStationStr);                 // als string
+        stations.add(singleStationStr);
     }
     WiFi.scanDelete();
     _wifiScanInProgress = false;
 
-    buffer = "";
-    array.printTo(buffer);
-    jsonBuffer.clear();
-    buffer = "{\"stations\":" + buffer + "}";
-
     // If we have a new Wifi-Scan-Result: Publish to *ALL* clients
+    String buffer;
+    SERIALIZE_JSON_LOG(root, buffer);
     ws->textAll(buffer);
     SYSTEMMONITOR_STAT();
 }
@@ -617,8 +739,7 @@ static void sendStatus(AsyncWebSocketClient *client)
         memset(&fsinfo, 0, sizeof(fsinfo));
     }
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    StaticJsonDocument<1792> root;
     root[F("chipid")] = String(ESP.getChipId(), HEX);
     root[F("cpu")] = ESP.getCpuFreqMHz();
     root[F("reset_reason")] = ESP.getResetReason();
@@ -702,11 +823,9 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("vcc")] = ESP.getVcc();
     //root["vcc"] = "N/A (TOUT) ";
     root[F("mqttStatus")] = Mqtt.isConnected() ?"connected" :"N/A";
-    root[F("ntpSynced")] = "N/A";
 
     String buffer;
-    root.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(root, buffer);
     client->text(buffer);
     SYSTEMMONITOR_STAT();
 }
@@ -725,13 +844,17 @@ static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
 static void wsSendRuntimeConfigAll(AsyncWebSocket *ws)
 {
     // send the runtime-config to all clients
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &doc = jsonBuffer.createObject();
-    doc[F("command")] = F("config_runtime");
-    doc[F("webUseFilesFromFirmware")] = ApplicationRuntime.webUseFilesFromFirmware();
+    /*
+    {
+        "command": "config_runtime",
+        "webUseFilesFromFirmware": true
+    }
+    */
+    StaticJsonDocument<JSON_OBJECT_SIZE(2)+96> root;
+    root[F("command")] = F("config_runtime");
+    root[F("webUseFilesFromFirmware")] = ApplicationRuntime.webUseFilesFromFirmware();
     String buffer;
-    doc.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(root, buffer);
     ws->textAll(buffer);
 }
 

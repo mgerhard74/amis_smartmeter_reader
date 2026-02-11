@@ -9,12 +9,11 @@
 #include "LedSingle.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_NETWORK
+#include "Json.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "SystemMonitor.h"
 
-
-#include <ArduinoJson.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
@@ -102,76 +101,80 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 #endif
     }
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject *json = nullptr;
+    DynamicJsonDocument json(NETWORK_JSON_CONFIG_WIFI_DOCUMENT_SIZE);
+    if (!json.capacity()) {
+        LOGF_EP("Json /config_wifi: Out of memory");
+        return false;
+    }
+    DeserializationError error = DeserializationError::EmptyInput;
     if (configFile) {
-        json = &jsonBuffer.parseObject(configFile);
+        error = deserializeJson(json, configFile);
         configFile.close();
     } else {
 #ifdef DEFAULT_CONFIG_WIFI_JSON
-        json = &jsonBuffer.parseObject(DEFAULT_CONFIG_WIFI_JSON);
+        error = deserializeJson(json, DEFAULT_CONFIG_WIFI_JSON);
 #endif
     }
-    if (json == nullptr || !json->success()) {
-        LOGF_EP("Failed parsing %s", "/config_wifi");
+    if (error) {
+        LOGF_EP("Failed parsing %s. Error:'%s'", "/config_wifi", error.c_str());
         return false;
     }
 
-    config.pingrestart_do = (*json)[F("pingrestart_do")].as<bool>();
+    config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
     IPAddress pingrestart_ip;
-    pingrestart_ip.fromString((*json)[F("pingrestart_ip")] | "");
+    pingrestart_ip.fromString(json[F("pingrestart_ip")] | "");
     config.pingrestart_ip[0] = pingrestart_ip[0];
     config.pingrestart_ip[1] = pingrestart_ip[1];
     config.pingrestart_ip[2] = pingrestart_ip[2];
     config.pingrestart_ip[3] = pingrestart_ip[3];
-    config.pingrestart_interval = (*json)[F("pingrestart_interval")].as<unsigned int>();
-    config.pingrestart_max = (*json)[F("pingrestart_max")].as<unsigned int>();
+    config.pingrestart_interval = json[F("pingrestart_interval")].as<unsigned int>();
+    config.pingrestart_max = json[F("pingrestart_max")].as<unsigned int>();
 
-    config.allow_sleep_mode = (*json)[F("allow_sleep_mode")].as<bool>();
+    config.allow_sleep_mode = json[F("allow_sleep_mode")].as<bool>();
 
-    strlcpy(config.ssid, (*json)[F("ssid")] | "", sizeof(config.ssid));
-    strlcpy(config.wifipassword, (*json)[F("wifipassword")] | "", sizeof(config.wifipassword));
+    strlcpy(config.ssid, json[F("ssid")] | "", sizeof(config.ssid));
+    strlcpy(config.wifipassword, json[F("wifipassword")] | "", sizeof(config.wifipassword));
 
-    config.channel = (*json)[F("channel")].as<int32_t>();
+    config.channel = json[F("channel")].as<int32_t>();
     if (config.channel < 0 || config.channel > 13) {
         config.channel = 0;
     }
 
-    config.dhcp = (*json)[F("dhcp")].as<bool>();
+    config.dhcp = json[F("dhcp")].as<bool>();
 
-    config.mdns = (*json)[F("mdns")].as<bool>();
+    config.mdns = json[F("mdns")].as<bool>();
 
     config.rfpower = 20;
-    if ((*json)[F("rfpower")] != "") {
-        config.rfpower = (*json)[F("rfpower")].as<int>();
+    if (json.containsKey(F("rfpower"))) {
+        config.rfpower = json[F("rfpower")].as<unsigned int>();
         if (config.rfpower > 21) {
             config.rfpower = 21;
         }
     }
 
     IPAddress ip_static;
-    ip_static.fromString((*json)[F("ip_static")] | "");
+    ip_static.fromString(json[F("ip_static")] | "");
     config.ip_static[0] = ip_static[0];
     config.ip_static[1] = ip_static[1];
     config.ip_static[2] = ip_static[2];
     config.ip_static[3] = ip_static[3];
 
     IPAddress ip_netmask;
-    ip_netmask.fromString((*json)[F("ip_netmask")] | "");
+    ip_netmask.fromString(json[F("ip_netmask")] | "");
     config.ip_netmask[0] = ip_netmask[0];
     config.ip_netmask[1] = ip_netmask[1];
     config.ip_netmask[2] = ip_netmask[2];
     config.ip_netmask[3] = ip_netmask[3];
 
     IPAddress ip_nameserver;
-    ip_nameserver.fromString((*json)[F("ip_nameserver")] | "");
+    ip_nameserver.fromString(json[F("ip_nameserver")] | "");
     config.ip_nameserver[0] = ip_nameserver[0];
     config.ip_nameserver[1] = ip_nameserver[1];
     config.ip_nameserver[2] = ip_nameserver[2];
     config.ip_nameserver[3] = ip_nameserver[3];
 
     IPAddress ip_gateway;
-    ip_gateway.fromString((*json)[F("ip_gateway")] | "");
+    ip_gateway.fromString(json[F("ip_gateway")] | "");
     config.ip_gateway[0] = ip_gateway[0];
     config.ip_gateway[1] = ip_gateway[1];
     config.ip_gateway[2] = ip_gateway[2];
@@ -306,8 +309,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
 
     File f = LittleFS.open("/config_wifi", "w");
     if (f) {
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &root = jsonBuffer.createObject();
+        StaticJsonDocument<JSON_OBJECT_SIZE(9) + 768> root;
         root["dhcp"] = config.dhcp;
         root["ip_gateway"] = config.ip_gateway.toString();
         root["ip_nameserver"] = config.ip_nameserver.toString();
@@ -317,7 +319,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
         root["ssid"] = config.ssid;
         root["wifipassword"] = config.wifipassword;
         root["command"] = "/config_wifi";
-        root.printTo(f);
+        SERIALIZE_JSON_LOG(root, f);
         f.close();
     }
     return true;

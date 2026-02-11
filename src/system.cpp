@@ -1,7 +1,10 @@
+#include "Databroker.h"
+#include "Json.h"
+#include "Log.h"
+#define LOGMODULE LOGMODULE_WEBSSOCKET
+
 #include <AsyncJson.h>
 #include <LittleFS.h>
-
-#include "Databroker.h"
 
 #include "proj.h"
 
@@ -54,59 +57,86 @@ void historyInit()
 
 void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients senden
 {
-  if (ws->count() == 0) {
-      return; // No Websock clients
-  }
-  if (Databroker.valid != 5) {
-      return;
-  }
+    if (ws->count() == 0) {
+        return; // No Websock clients
+    }
+    if (Databroker.valid != 5) {
+        return;
+    }
 
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject &root = jsonBuffer.createObject();
+    /*
+        {
+            "today_in": 57002601,
+            "today_out": 250936,
+            "yestd_in": 56991932,
+            "yestd_out": 250858,
+            "data0": [ 2, 17767, 71 ],
+            "data1": [ 1, 16549, 1176 ],
+            "data2": [ 0, 18147, 0 ],
+            "data3": [ 6, 18942, 48 ],
+            "data4": [ 5, 16393, 0 ],
+            "data5": [ 4, 15813, 121 ],
+            "data6": [ 4, 15813, 121 ]
+        }
+    */
 
-  int x = dow - 2;        // gestern
-  if (x < 0) {
-    x = 6;
-  }
+    StaticJsonDocument<7*JSON_ARRAY_SIZE(3) + JSON_OBJECT_SIZE(11) + 80 + 32> root; // 80 = Keystrings
 
-  root[F("today_in")]  = Databroker.results_u32[0];
-  root[F("today_out")] = Databroker.results_u32[1];
-  root[F("yestd_in")]  = kwh_day_in[x];
-  root[F("yestd_out")] = kwh_day_out[x];
-  for (size_t i=0; i < 7; i++) {
-      if (kwh_hist[i].kwh_in != 0 || kwh_hist[i].kwh_out != 0) {
-          JsonArray& data = root.createNestedArray("data"+String(i));
-          data.add(kwh_hist[i].dow);
-          data.add(kwh_hist[i].kwh_in);
-          data.add(kwh_hist[i].kwh_out);
-      }
-  }
-  String buffer;
-  root.printTo(buffer);
-  jsonBuffer.clear();
-  ws->textAll(buffer);
+    int x = dow - 2;        // gestern
+    if (x < 0) {
+        x = 6;
+    }
+
+    root[F("today_in")]  = Databroker.results_u32[0];
+    root[F("today_out")] = Databroker.results_u32[1];
+    root[F("yestd_in")]  = kwh_day_in[x];
+    root[F("yestd_out")] = kwh_day_out[x];
+    for (size_t i=0; i < 7; i++) {
+        if (kwh_hist[i].kwh_in != 0 || kwh_hist[i].kwh_out != 0) {
+            JsonArray data = root.createNestedArray("data"+String(i));
+            data.add(kwh_hist[i].dow);
+            data.add(kwh_hist[i].kwh_in);
+            data.add(kwh_hist[i].kwh_out);
+        }
+    }
+    String buffer;
+    SERIALIZE_JSON_LOG(root, buffer);
+    ws->textAll(buffer);
 }
 
 
 void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients senden
 {
-  if (ws->count() == 0) {
-      return; // No Websock clients
-  }
+    /*
+    {
+        "monthlist":[
+            "2403 45798763 41052",
+            "2404 46105098 43623",
+            "2405 46575911 48787"
+        ]
+    }
+    */
+    if (ws->count() == 0) {
+        return; // No Websock clients
+    }
 
-  DynamicJsonBuffer jsonBuffer;
-  JsonObject &root = jsonBuffer.createObject();
-  JsonArray &items = root.createNestedArray("monthlist");       // Key name JS
-  File f = LittleFS.open("/monate", "r");
-  while (f.available()) {
-      items.add(f.readStringUntil('\n'));           // das ist Text, kein JSON-Obj!
-  }
-  f.close();
+    bool isFirst = true;
+    String buffer = "{ \"monthlist\": [";
+    File f = LittleFS.open("/monate", "r");
+    while (f.available()) {
+        if (isFirst) {
+            isFirst = false;
+        } else {
+            buffer += ",";
+        }
+        buffer += "\"";
+        buffer += f.readStringUntil('\n');           // das ist Text, kein JSON-Obj!
+        buffer += "\"";
+    }
+    buffer += "]}";
+    f.close();
 
-  String buffer;
-  root.printTo(buffer);
-  jsonBuffer.clear();
-  ws->textAll(buffer);
+    ws->textAll(buffer);
 }
 
 /* vim:set ts=4 et: */
