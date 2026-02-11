@@ -5,11 +5,12 @@
 
 void MqttBaseClass::init()
 {
-    _mqttReaderData.init(*this);
-    _mqttHA.init(*this);
+    _mqttReaderData.init(this);
+    _mqttHA.init(this);
     loadConfigMqtt(_config);
     _reloadConfigState = 0;
 }
+
 
 MqttBaseClass::MqttBaseClass()
 {
@@ -29,7 +30,7 @@ MqttBaseClass::MqttBaseClass()
 
 void MqttBaseClass::onPublish(uint16_t packetId) {
     // seems that callback is not not working!!!
-    LOG_WP("Unexpected onPublish() call: %d", packetId);
+    LOGF_WP("Unexpected onPublish() call: %d", packetId);
 }
 
 
@@ -44,25 +45,19 @@ void MqttBaseClass::onMessage(char* topic, char* payload, AsyncMqttClientMessage
     UNUSED_ARG(index);
     UNUSED_ARG(total);
 
-    LOG_WP("Unexpected onMessage() call: %s", topic);
-#ifdef STROMPREIS
-    char p[20];
-    memcpy(p,payload,len);
-    p[len]=0;
-    strompreis = String(p);
-    //DBGOUT(strompreis+"\n");
-#endif // STROMPREIS
+    LOGF_WP("Unexpected onMessage() call: %s", topic);
 }
 
 void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
 
     if (!_mqttClient.connected()) {
-        LOG_WP("MQTT publishTickerCb() but not connected!");
+        LOG_WP("publishTickerCb() but not connected!");
         return; // _actionTicker will be armed in onConnect()
     }
 
-    if (valid == 5 && first_frame == 1) {
+    if (Databroker.valid == 5 && first_frame == 1) {
+        LOG_DP("Publishing reader data");
         _mqttReaderData.publish();
         _actionTicker.once_scheduled(_config.mqtt_keep, std::bind(&MqttBaseClass::publishTickerCb, this));
     } else {
@@ -83,7 +78,7 @@ void MqttBaseClass::onConnect(bool sessionPresent)
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
-    LOG_IP("Connected to MQTT server");
+    LOGF_IP("Connected to server " PRsIP ":%" PRIu16, PRIPVal(_brokerIp), _config.mqtt_port);
 
     // Für HA melden wir uns mal "Online" und "verbreiten" alle unsere Sensoren
     if (_config.mqtt_ha_discovery) {
@@ -101,42 +96,52 @@ void MqttBaseClass::doConnect()
     if (Network.inAPMode()) {
         return;
     }
+    if (!Network.isConnected()) {
+        // Only try connect if we have a WIFI connection
+        _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
+        return;
+    }
 
     if (!_brokerIp.isSet()) {
         // WiFi.hostByName() is a "blocking call" with a default timeout of 10000ms (that raises watchdog!)
         // So we set timeout to 1000ms here (which should be enough for DNS lookup / also 1000ms used in HttpClient)
         // If the FQN is a "local" name, it seems, this does not work proper on the 8266
 
-        if (!WiFi.hostByName(_config.mqtt_broker.c_str(), _brokerIp, 1000) || !_brokerIp.isSet()) {
-            LOG_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
+        IPAddress ip;
+        if (!WiFi.hostByName(_config.mqtt_broker.c_str(), ip, 1000) || !ip.isSet()) {
+            LOGF_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
             _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
             return;
         }
+        _brokerIp[0] = ip[0];
+        _brokerIp[1] = ip[1];
+        _brokerIp[2] = ip[2];
+        _brokerIp[3] = ip[3];
         _brokerByIPAddr = false;
     }
 
-    LOG_DP("MQTT init: %s:%" PRId16, _brokerIp.toString().c_str(), _config.mqtt_port);
+    LOGF_DP("setServer: " PRsIP ":%" PRIu16, PRIPVal(_brokerIp), _config.mqtt_port);
     _mqttClient.setServer(_brokerIp, _config.mqtt_port);
 
     if (!_config.mqtt_will.isEmpty()) {
-        _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
-        LOG_DP("MQTT SetWill: %s %u %u %s\n", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName.c_str());
+        _mqttClient.setWill(_config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName);
+        LOGF_DP("setWill: %s %u %u %s", _config.mqtt_will.c_str(), _config.mqtt_qos, _config.mqtt_retain, Config.DeviceName);
     }
     if (!_config.mqtt_user.isEmpty()) {
         _mqttClient.setCredentials(_config.mqtt_user.c_str(), _config.mqtt_password.c_str());
-        LOG_DP("MQTT User: %s %s\n", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
+        LOGF_VP("user: '%s' password: '%s'", _config.mqtt_user.c_str(), _config.mqtt_password.c_str());
     }
     if (!_config.mqtt_client_id.isEmpty()) {
         _mqttClient.setClientId(_config.mqtt_client_id.c_str());
-        LOG_DP("MQTT ClientId: %s\n", _config.mqtt_client_id.c_str());
+        LOGF_DP("setClientId: %s", _config.mqtt_client_id.c_str());
     }
 
     if (_brokerByIPAddr) {
-        LOG_IP("Connecting to MQTT server %s:%" PRId16 , _config.mqtt_broker.c_str(), _config.mqtt_port);
+        LOGF_IP("Connecting to server %s:%" PRIu16 "...", _config.mqtt_broker.c_str(), _config.mqtt_port);
     } else {
-        LOG_IP("Connecting to MQTT server %s:%" PRId16 " [%s:%d]",
+        LOGF_IP("Connecting to server %s:%" PRIu16 " [" PRsIP ":%d]...",
                 _config.mqtt_broker.c_str(), _config.mqtt_port,
-                _brokerIp.toString().c_str(), _config.mqtt_port);
+                PRIPVal(_brokerIp), _config.mqtt_port);
     }
     _mqttClient.connect();
 }
@@ -184,11 +189,14 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     case(AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE):
         reasonstr = F("ESP8266_NOT_ENOUGH_SPACE");
         break;
+    case(AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT):
+        reasonstr = F("TLS_BAD_FINGERPRINT");
+        break;
     default:
         reasonstr = F("Unknown");
         break;
     }
-    LOG_WP("Disconnected from MQTT server: %s", reasonstr.c_str());
+    LOGF_WP("Disconnected from server " PRsIP ":%" PRIu16 " reason=%s", PRIPVal(_brokerIp), _config.mqtt_port, reasonstr.c_str());
 }
 
 
@@ -206,15 +214,15 @@ void MqttBaseClass::networkOnStationModeDisconnected(const WiFiEventStationModeD
 
     _actionTicker.detach();
     _reconnectTicker.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-    _mqttClient.disconnect();
+    _mqttClient.disconnect(true);
 }
 
 
 void MqttBaseClass::reloadConfig() {
     if (_reloadConfigState == 0) {
         // Start disconnect
-        _mqttClient.disconnect();
         _reloadConfigState = 1;
+        _mqttClient.disconnect(true);
         _actionTicker.attach_ms(500, std::bind(&MqttBaseClass::reloadConfig, this));
     } else if (_reloadConfigState == 1) {
         // Wait till disconnect finisehd
@@ -254,7 +262,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
     File configFile;
     configFile = LittleFS.open("/config_mqtt", "r");
     if (!configFile) {
-        LOG_EP("Could not open %s", "/config_mqtt");
+        LOGF_EP("Could not open %s", "/config_mqtt");
 #ifndef DEFAULT_CONFIG_MQTT_JSON
         return false;
 #endif
@@ -271,7 +279,7 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        LOG_EP("Failed parsing %s", "/config_mqtt");
+        LOGF_EP("Failed parsing %s", "/config_mqtt");
         return false;
     }
     ///json.prettyPrintTo(Serial);
@@ -301,9 +309,13 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
         config.mqtt_port = 1883;
     }
 
-    _brokerIp = IPAddress();
-    _brokerIp.fromString(config.mqtt_broker.c_str());
-    _brokerByIPAddr = _brokerIp.isSet();
+    IPAddress ip;
+    ip.fromString(config.mqtt_broker);
+    _brokerIp[0] = ip[0];
+    _brokerIp[1] = ip[1];
+    _brokerIp[2] = ip[2];
+    _brokerIp[3] = ip[3];
+    _brokerByIPAddr = ip.isSet();
 
     return true;
 }
@@ -322,8 +334,11 @@ uint16_t MqttBaseClass::publish(const char* topic, uint8_t qos, bool retain, con
 
 void MqttBaseClass::stop()
 {
-    _mqttClient.disconnect();
-    for (;isConnected();) {} // wait till disconnected
+    LOG_DP("Stopping client.");
+    _mqttClient.disconnect(true);
+    for (;isConnected();) { // wait till disconnected
+        yield();
+    }
     _actionTicker.detach();
     _reconnectTicker.detach();
 }

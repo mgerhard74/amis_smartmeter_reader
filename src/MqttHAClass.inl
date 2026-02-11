@@ -22,7 +22,7 @@ struct HASensor {
 
 // Publish discovery for all relevant measurement keys. Use bracket notation
 // for JSON access to handle keys with dots or underscores.
-static HASensor HASensors[] = {
+static const HASensor HASensors[] = {
     {"1.8.0",   "Bezug",                "kWh",  "energy",   "total_increasing"},
     {"2.8.0",   "Lieferung",            "kWh",  "energy",   "total_increasing"},
     {"1.7.0",   "Leistung Bezug",       "W",    "power",    "measurement"},
@@ -64,9 +64,9 @@ static String getHaTopic(MqttConfig_t &configMqtt)
 }
 
 
-void MqttHAClass::init(MqttBaseClass &mqttBase)
+void MqttHAClass::init(MqttBaseClass *mqttBase)
 {
-    _mqttBase = &mqttBase;
+    _mqttBase = mqttBase;
 }
 
 

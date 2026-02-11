@@ -2,11 +2,18 @@
 #
 # Copyright (C) 2023 Thomas Basler and others
 #
-import os
+import os, sys
 import subprocess
 import re
 
 Import("env")
+
+
+class globs:
+    honorErrors = True
+    errCnt = 0
+    verbose = 1
+
 
 def getPatchPath(env):
     patchList = []
@@ -38,51 +45,133 @@ def replaceInFile(in_file, out_file, text, subs, flags=0):
                 outfile.truncate()
                 outfile.write(file_contents.encode())
 
+
+def strInFile(filename, strToSearch):
+    if (not os.path.exists(filename)):
+        return False
+    infile = open(filename, "rb")
+    content = infile.read().decode('utf-8')
+    infile.close()
+    return content.find(strToSearch) != -1
+
+
+def printSubprocessResult(result):
+    if (result.stdout):
+        print(result.stdout)
+    if (result.stderr):
+        print(result.stderr)
+
+
+def isPatchApplied(gitExtraOptions, patchFilename):
+    gitExec = ['git', 'apply'] + gitExtraOptions + ['--reverse', '--check', patchFilename]
+    if globs.verbose >= 3:
+        print("Running '%s'" % " ".join(gitExec))
+    process = subprocess.run(gitExec, capture_output=True) # subprocess.DEVNULL
+    if globs.verbose >= 3:
+        printSubprocessResult(process)
+    if (process.returncode == 0):
+        return True
+    return False
+
+
+def applyPatch(gitExtraOptions, patchFilename):
+    gitExec = ['git', 'apply'] + gitExtraOptions + [patchFilename]
+    if globs.verbose >= 3:
+        print("Running '%s'" % " ".join(gitExec))
+    process = subprocess.run(gitExec, capture_output=True) # subprocess.DEVNULL
+    if globs.verbose >= 3:
+        printSubprocessResult(process)
+    if (process.returncode == 0):
+        return True
+    if globs.verbose < 3:
+        printSubprocessResult(process)
+    return False
+
+
+def unapplyPatch(gitExtraOptions, patchFilename):
+    gitExec = ['git', 'apply', '--reverse'] + gitExtraOptions + [patchFilename]
+    if globs.verbose >= 3:
+        print("Running '%s'" % " ".join(gitExec))
+    process = subprocess.run(gitExec, capture_output=True) # subprocess.DEVNULL
+    if globs.verbose >= 3:
+        printSubprocessResult(process)
+    if (process.returncode == 0):
+        return True
+    if globs.verbose < 3:
+        printSubprocessResult(process)
+    return False
+
+
 def main():
     if (env.GetProjectOption('custom_patches', '') == ''):
         print('No custom_patches specified')
-        return
+        return 0
 
     if (not is_tool('git')):
         print('Git not found. Will not apply custom patches!')
-        return
+        if (globs.honorErrors):
+            sys.exit(10)
+        return 0
 
     directories = getPatchPath(env)
     for directory in directories:
         if (not os.path.isdir(directory)):
             print('Patch directory not found: ' + directory)
-            return
+            if (globs.honorErrors):
+                sys.exit(11)
+            return 0
 
-        for file in os.listdir(directory):
-            if (not file.endswith('.patch')):
+        for filename in os.listdir(directory):
+            if (not filename.endswith('.patch')):
                 continue
 
-            fullPath = os.path.join(directory, file)
-            preparePath = fullPath + "." + env['PIOENV'].strip() + '.prepare'
-            replaceInFile(fullPath, preparePath, '$$$env$$$', env['PIOENV'])
-            print('Working on patch: ' + fullPath + '... ', end='')
+            origPatchFilename = os.path.join(directory, filename)
+            preparedPatchFilename = origPatchFilename + "." + env['PIOENV'] + '.prepare'
+
+            gitExtraOptions = []
+            # gitExtraOptions = ['--ignore-space-change'] # not needed as patch should apply exactly
+            # gitExtraOptions = ['--whitespace=error-all'] # try beeing very strict
+            # TODO(anybody) try figuring out how force git patching exacly (including check lineending win/linux)
+            if strInFile(origPatchFilename, "$$$env$$$"):
+                replaceInFile(origPatchFilename, preparedPatchFilename, '$$$env$$$', env['PIOENV'] )
+            else:
+                print("error: Invalid patch format '%s'" % origPatchFilename)
+                globs.errCnt += 1
+                continue
+
+            if globs.verbose >= 2:
+                # print the adapted .patch file
+                print("Adapted patch file: '%s'" % preparedPatchFilename)
+                print(open(preparedPatchFilename, "rt").read())
+
+            print('Working on patch: ' + origPatchFilename + '... ', end='')
+            if globs.verbose >= 3:
+                print()
 
             # Check if patch was already applied
-            process = subprocess.run(
-                ['git', 'apply', '--reverse', '--check', '--ignore-space-change', preparePath],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-            if (process.returncode == 0):
-                print('already applied')
-                os.remove(preparePath)
+            if (isPatchApplied(gitExtraOptions, preparedPatchFilename)):
+                os.remove(preparedPatchFilename)
+                if globs.verbose >= 1:
+                    print('already applied')
                 continue
 
             # Apply patch
-            process = subprocess.run(['git', 'apply', '--ignore-space-change', preparePath])
-            if (process.returncode == 0):
+            if (applyPatch(gitExtraOptions, preparedPatchFilename)):
                 print('applied')
             else:
                 print('failed')
-                os.remove(preparePath)
-                env.Exit(1)
+                globs.errCnt += 1
+            os.remove(preparedPatchFilename)
 
-            os.remove(preparePath)
+    if (globs.honorErrors and globs.errCnt):
+        sys.exit(12)
+    return 0
 
+
+# Variablen und Werte
+# print(env.Dump())
+#
+# Methoden/Attribute
+# print(dir(env))
 
 main()

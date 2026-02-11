@@ -22,7 +22,7 @@ public:
         {1010, "shellypro3em"}      //Shelly Pro 3EM (Firmware <224)
     };
 
-    bool init(int selectedDeviceIndex, String customDeviceIDAppendix, int saldoOffset);
+    bool init(unsigned selectedDeviceIndex, String customDeviceIDAppendix, int saldoOffset);
     bool setEnabled(bool enabled);
     bool enable();
     void disable();
@@ -32,8 +32,8 @@ public:
 private:
     AsyncUDP _udp;
     Device _device;
-    int _offset;    
-    
+    int _offset;
+
     bool _enabled = false;
 
     struct {

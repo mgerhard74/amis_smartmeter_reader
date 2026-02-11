@@ -9,7 +9,7 @@
 #include "AmisReader.h"
 #include "config.h"
 #include "Log.h"
-#define LOGMODULE LOGMODULE_BIT_UPDATE
+#define LOGMODULE LOGMODULE_UPDATE
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"
@@ -28,7 +28,7 @@ void WebserverUpdateClass::init(AsyncWebServer& server)
     using std::placeholders::_6;
 
     server.on("/update", HTTP_POST,
-                std::bind(&WebserverUpdateClass::onRestRequest, this, _1),
+                std::bind(&WebserverUpdateClass::onUploadRequest, this, _1),
                 std::bind(&WebserverUpdateClass::onUpload, this, _1, _2, _3, _4, _5, _6));
 }
 
@@ -39,7 +39,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
 
     //Upload handler chunks in data
     if (!index) {  // Start der Übertragung: index==0
-        LOG_IP("Update started: %s", filename.c_str());
+        LOGF_IP("Update started: %s", filename.c_str());
         if (filename.isEmpty()) {
             return;
         }
@@ -77,7 +77,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             _uploadFile = LittleFS.open(_uploadFilename, "w");// Open the file for writing in LittleFS (create if it doesn't exist)
             if (!_uploadFile) {
-                LOG_EP("Error creating file: %s", _uploadFilename.c_str());
+                LOGF_EP("Error creating file: %s", _uploadFilename.c_str());
             }
         }
     }       // !index
@@ -87,14 +87,14 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
     if (_uploadfiletype == firmware || _uploadfiletype == littlefs) { // Update Flash
         if (!Update.hasError()) {
             if (Update.write(data, len) != len) {
-                LOG_EP("Error writing to flash: %s", _uploadFilename.c_str());
+                LOGF_EP("Error writing to flash: %s", _uploadFilename.c_str());
                 Update.printError(Serial);
             }
         }
     } else if (_uploadfiletype == anyOther) { // write "any other file" content
         if (_uploadFile) {
             if (_uploadFile.write(data, len) != len) {
-                LOG_EP("Error writing file: %s", _uploadFilename.c_str());
+                LOGF_EP("Error writing file: %s", _uploadFilename.c_str());
             }
         }
     }
@@ -124,12 +124,12 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
     SYSTEMMONITOR_STAT();
 }
 
-void WebserverUpdateClass::onRestRequest(AsyncWebServerRequest* request)
+void WebserverUpdateClass::onUploadRequest(AsyncWebServerRequest* request)
 {
     // the request handler is triggered after the upload has finished...
     AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
     request->send(response);
-    LOG_DP("WebserverUpdateClass::onRestRequest()");
+    LOG_DP("WebserverUpdateClass::onUploadRequest()");
 }
 
 /* vim:set ts=4 et: */

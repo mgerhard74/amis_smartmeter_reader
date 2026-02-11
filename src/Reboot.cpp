@@ -5,8 +5,9 @@
 
 #include "AmisReader.h"
 #include "config.h"
+#include "Databroker.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "RemoteOnOff.h"
@@ -17,7 +18,6 @@
 #include <Ticker.h>
 
 extern Ticker secTicker;
-extern int valid;
 
 void RebootClass::init()
 {
@@ -41,7 +41,7 @@ bool RebootClass::startUpdateFirmware()
     }
     _state = -1;
     AmisReader.end();
-    valid = 6;
+    Databroker.valid = 6;
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
@@ -67,7 +67,7 @@ bool RebootClass::startUpdateLittleFS()
     }
     _state = -2;
     AmisReader.end();
-    valid = 6;
+    Databroker.valid = 6;
     ModbusSmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
@@ -110,8 +110,7 @@ void RebootClass::loop()
             ModbusSmartmeterEmulation.disable();
             break;
         case 7:
-            DOLOG_I("System is going to reboot")
-            DBGOUT("Rebooting...");
+            LOG_PRINT_IP("System is going to reboot");
             break;
         case 8:
             delay(150);

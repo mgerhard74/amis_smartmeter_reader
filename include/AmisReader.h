@@ -4,9 +4,6 @@
 #include <time.h>
 
 // TODO(anyone): Refactor this global vars
-extern uint32_t a_result[10];
-extern int valid;
-extern char timecode[13];
 extern uint8_t dow;
 extern uint8_t mon, myyear;
 
@@ -21,9 +18,9 @@ extern uint8_t mon, myyear;
 typedef struct {
     bool isSet;
     struct tm time;
-    char timecode[13]; // die "Aufbereitung" des timecodes
-    uint32_t results[8];
-    int32_t results_8;
+    char timeCp48Hex[11];    // Wie vom Zäler bekommen (MBUS CP48 Format) als lesbarer Hexstring - aber nur 5 Bytes
+    uint32_t results_u32[8]; // Zählerwerte
+    int32_t  results_i32[1]; // Sonderfall Inkasso 1.128.0: Ist als int32 definiert
 } AmisReaderNumResult_t;
 
 
@@ -112,6 +109,8 @@ private:
 
     bool _isEnabled = false;
     bool _readerIsOnline = false;
+
+    uint32_t _validFrameCnt=0; // Gültige Zählerdaten-Frames hintereinander
 
     uint32_t _lastTimeSync;
 };

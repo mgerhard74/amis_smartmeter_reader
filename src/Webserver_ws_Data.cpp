@@ -6,18 +6,18 @@
 
 #include "Webserver_ws_Data.h"
 
+#include "Application.h"
 #include "config.h"
 #include "Exception.h"
-#include "FileBlob.h"
 #include "Log.h"
-#define LOGMODULE LOGMODULE_BIT_WEBSSOCKET
+#define LOGMODULE LOGMODULE_WEBSSOCKET
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "Webserver.h"
-#include "unused.h"
 #include "Utils.h"
+#include "__compiled_constants.h"
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -26,6 +26,7 @@
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
 static void sendStatus(AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
+static void wsSendRuntimeConfigAll(AsyncWebSocket *ws);
 static void clearHist();
 static bool EEPROMClear();
 
@@ -42,7 +43,7 @@ WebserverWsDataClass::WebserverWsDataClass()
 
 void WebserverWsDataClass::init(AsyncWebServer& server)
 {
-    _subscribedClientsWifiScanLen = 0;
+    _wifiScanInProgress = false;
 
     using std::placeholders::_1;
     using std::placeholders::_2;
@@ -71,12 +72,11 @@ void WebserverWsDataClass::reload()
     }
 
     _ws.enable(false);
-    _simpleDigestAuth.setUsername(Config.auth_user.c_str());
-    _simpleDigestAuth.setPassword(Config.auth_passwd.c_str());
+    _simpleDigestAuth.setUsername(Config.auth_user);
+    _simpleDigestAuth.setPassword(Config.auth_passwd);
     _ws.addMiddleware(&_simpleDigestAuth);
     //_ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
     _ws.closeAll();
-    _subscribedClientsWifiScanLen = 0;
     _ws.enable(true);
 }
 
@@ -98,10 +98,8 @@ void WebserverWsDataClass::sendDataTaskCb()
 
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
-    UNUSED_ARG(server);
-
     if(type == WS_EVT_ERROR) {
-        LOG_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
+        LOGF_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
 
@@ -160,9 +158,6 @@ extern kwhstruct kwh_hist[7];
 extern void historyInit(void);
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
-extern const char *__COMPILED_DATE_TIME_UTC_STR__;
-extern const char *__COMPILED_GIT_HASH__;
-extern const char *__COMPILED_GIT_BRANCH__;
 
 static void clearHist() {
     String s="";
@@ -181,12 +176,26 @@ static void clearHist() {
 }
 
 void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength) {
-    UNUSED_ARG(tempObjectLength);
-
+    if (!tempObjectLength) {
+        return;
+    }
+    //LOGF_EP("Websock %d", (int)tempObjectLength);
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
     if (!root.success()) {
-        DBGOUT(F("[ WARN ] Couldn't parse WebSocket message"));
+        /*
+        TODO(anyone): sending
+        {"comm
+
+        and":"set-loglevel", "module":10, "level":5}
+
+        raises an exception
+
+        if (root == JsonObject::invalid()) { ... does not help as JsonObject::invalid().sucess() returns false
+        */
+        LOGF_EP("Parsing failed: message[%u]='%s'",
+                            tempObjectLength,
+                            Utils::escapeJson((char *)(client->_tempObject), tempObjectLength, 64).c_str());
         return;
     }
     // Web Browser sends some commands, check which command is given
@@ -199,7 +208,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     }
 
     // Check whatever the command is and act accordingly
-    LOG_VP("websocket command: '%s'", command);
+    LOGF_DP("websocket command: '%s'", command);
 
     if(strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
@@ -247,10 +256,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
         if(f) {
-            //size_t len = root.measurePrettyLength();
             root.prettyPrintTo(f);
             f.close();
-            eprintf("[ INFO ] %s stored in the LittleFS (%u bytes)\n", command, len);
+            LOGF_DP("%s saved on LittleFS.", command);
             if (strcmp(command, "/config_general")==0) {
                 Config.loadConfigGeneral();
                 Config.applySettingsConfigGeneral();
@@ -273,17 +281,16 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     } else if(strcmp(command, "clearevent") == 0) {
         Log.clear();
     } else if(strcmp(command, "scan_wifi") == 0) {
-        if (_subscribedClientsWifiScanLen < std::size(_subscribedClientsWifiScan)) {
+        if (!_wifiScanInProgress) {
+            _wifiScanInProgress = true;
             using std::placeholders::_1;
-            _subscribedClientsWifiScan[_subscribedClientsWifiScanLen++] = client->id();
-            if (_subscribedClientsWifiScanLen == 1) {
-                WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
-            }
+            WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
         }
     } else if(strcmp(command, "getconf") == 0) {
         wsSendFile("/config_general", client);
         wsSendFile("/config_wifi", client);
         wsSendFile("/config_mqtt", client);
+        wsSendRuntimeConfigAll(ws);
     } else if(strcmp(command, "energieWeek") == 0) {
         energieWeekUpdate();         // Wochentagfiles an Webclient senden
     } else if(strcmp(command, "energieMonth") == 0) {
@@ -335,7 +342,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         doc["ls"] = i;
         String buffer;
         doc.printTo(buffer);
-        //DBGOUT(buffer+"\n");
         ws->text(client->id(), buffer);
     } else if(strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
@@ -353,6 +359,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
         LittleFS.remove(F("/config_mqtt"));
+        Log.remove(true);
         //    LittleFS.remove(F("/.idea"));
     } else if (strcmp(command, "test") == 0) {
         doSerialHwTest = !doSerialHwTest;
@@ -372,27 +379,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         } else {
             ws->text(client->id(), "no file\0");
         }
-    } else if(strcmp(command, "print2") == 0) {
-        //ws.text(client->id(), "prn\0"); // ws.text
-        eprintf("prn\n");
-        uint8_t ibuffer[10];      //12870008
-        File f;
-        unsigned i,j;
-        for (i=0; i<7; i++) {
-            f = LittleFS.open("/hist_in"+String(i), "r");
-            if (f) {
-                ///val=f.parseInt();    !!!!!!!!!! parseInt() ist buggy, enorme Zeit- und Resourcenverschwendung!!!!!!!!!!!!!!!!!
-                j=f.read(ibuffer,8);
-                ibuffer[j]=0;
-                f.close();
-                eprintf("%d %d\n", i, atoi((char*)ibuffer));
-        //       ws.text(client->id(), ibuffer); // ws.text
-            }
-            //else ws.text(client->id(), "no file\0");
-            else {
-                eprintf("no file\n");
-            }
-        }
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
         if (!LittleFS.format()) {
@@ -400,26 +386,44 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
         EEPROMClear();
         Reboot.startReboot();
-    } else if (!strcmp(command, "dev-extract-webdeveloper-files")) {
-        // Delete all files contained in the image from filesystem and
-        // start recreation/extraction from image into filesystem
-        FileBlobs.remove(true);
-        FileBlobs.checkIsChanged();
-/*  } else if (!strcmp(command, "set-developer-mode")) {
+    } else if (!strcmp(command, "set-runtime-useFilesFromFirmware")) {
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
-            Config.developerModeEnabled = (bool)(strcmp(onOff, "on") == 0);
-        }
-*/
-    } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
-        // Delete all "unzipped" files in filesystem contained in the image
-        FileBlobs.removeNonZipped();
-    } else if (!strcmp(command, "set-webserverTryGzipFirst")) {
-        const char *onOff = root[F("value")].as<const char*>();
-        if (onOff) {
-            Config.webserverTryGzipFirst = (bool)(strcmp(onOff, "on") == 0);
-            Webserver.setTryGzipFirst(Config.webserverTryGzipFirst);
+            ApplicationRuntime.webUseFilesFromFirmware(strcmp(onOff, "on") == 0);
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        }
+    } else if (!strcmp(command, "set-loglevel")) {
+        // {"command":"set-loglevel", "module":5, "level":5} // THINGSPEAK
+        // {"command":"set-loglevel", "module":6, "level":5} // MQTT
+        // {"command":"set-loglevel", "module":11, "level":5} // WATCHDOGPING
+        // {"command":"set-loglevel", "module":10, "level":5} // WEBSOCKET
+        uint32_t level = CONFIG_LOG_DEFAULT_LEVEL;
+        uint32_t module = LOGMODULE_ALL;
+        if (root.containsKey(F("level"))) {
+            level = root[F("level")].as<uint32_t>();
+        }
+        if (root.containsKey(F("module"))) {
+            module = root[F("module")].as<uint32_t>();
+        }
+        Log.setLoglevel(level, module);
+        ws->text(client->id(), R"({"r":0,"m":"OK"})");
+    } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
+        // Remove use self uploaded and old/unused files from filesystem
+        const char *filenamesToDelete[] = {
+            "amis.css",
+            "chart.js",
+            "cust.js",
+            "index.html",
+            "jquery371slim.js",
+            "pure-min.css"
+        };
+        for (size_t i=0; i<std::size(filenamesToDelete); i++) {
+            String filename = "/" + String(filenamesToDelete[i]);
+            LittleFS.remove(filename);
+            filename += ".gz";
+            LittleFS.remove(filename);
+            filename += ".md5";
+            LittleFS.remove(filename);
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
 #if (AMIS_DEVELOPER_MODE)
@@ -466,8 +470,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // TODO(StefanOberhumer): Figure out why  dev-tools-button1 works and dev-tools-button2 crashes
         // Works
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
-        String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-        ws->text(client->id(), x);
+        String info = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
+        ws->text(client->id(), info);
 
     } else if (!strcmp(command, "dev-tools-button2")) {
         // Crashes
@@ -493,8 +497,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
-        const char *v = root[F("value")].as<const char*>();
-        if (v) {
+        if (root.containsKey(F("value"))) {
             const uint8_t vv = root[F("value")].as<uint8_t>();
             AmisReader.end();
             AmisReader.init(vv);
@@ -514,10 +517,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         const char* value = root[F("value")].as<const char*>();
         if (value && value[0]) {
             IPAddress ipAddr;
-            uint32_t timeout=10000;
-            const char* timeout_c = root[F("timeout")].as<const char*>();
-            if (timeout_c) {
-                timeout=root[F("timeout")].as<uint32_t>();
+            uint32_t timeout = 10000;
+            if (root.containsKey(F("timeout"))) {
+                timeout = root[F("timeout")].as<uint32_t>();
             }
             int r;
             r = WiFi.hostByName(value, ipAddr, timeout);
@@ -572,9 +574,9 @@ static void sendWeekData(AsyncWebSocketClient *client)
 void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 {
 
-    if(_subscribedClientsWifiScanLen == 0 || nFound == 0) {
+    if(!_wifiScanInProgress || nFound == 0) {
         WiFi.scanDelete();
-        _subscribedClientsWifiScanLen = 0;
+        _wifiScanInProgress = false;
         return;
     }
 
@@ -583,23 +585,25 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
     JsonArray &array = jsonBuffer.createArray();
     String buffer;
     for (int i = 0; i < nFound; ++i) {           // esp_event_legacy.h
-        buffer = "";
         root[F("ssid")]    = WiFi.SSID(i);
         root[F("rssi")]    = WiFi.RSSI(i);
         root[F("channel")] = WiFi.channel(i);
         root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
+        root[F("bssid")]  = WiFi.BSSIDstr(i);
+        buffer = "";
         root.printTo(buffer);
         array.add(buffer);
     }
+    WiFi.scanDelete();
+    _wifiScanInProgress = false;
+
     buffer = "";
     array.printTo(buffer);
-    buffer = "{\"stations\":"+buffer+"}";
+    jsonBuffer.clear();
+    buffer = "{\"stations\":" + buffer + "}";
 
-    for (size_t i=0; i < _subscribedClientsWifiScanLen; i++) {
-        ws->text(_subscribedClientsWifiScan[i], buffer);
-    }
-    _subscribedClientsWifiScanLen = 0;
-    WiFi.scanDelete();
+    // If we have a new Wifi-Scan-Result: Publish to *ALL* clients
+    ws->textAll(buffer);
     SYSTEMMONITOR_STAT();
 }
 
@@ -609,7 +613,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     struct ip_info info;
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
-        LOG_EP("Error getting info on LittleFS");
+        LOGF_EP("Error getting info on LittleFS");
         memset(&fsinfo, 0, sizeof(fsinfo));
     }
 
@@ -631,6 +635,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("library_ArduinoJson")] = ARDUINOJSON_VERSION;
     root[F("library_AsyncMqttClient")] = "0.9.0";
     root[F("library_AsyncPing_esp8266")] = "95ac7e4ce1d4b41087acc0f7d8109cfd1f553881";
+    root[F("library_ESPAsyncUDP")] = "0.0.0-alpha+sha.697c75a025";
     root[F("library_ESPAsyncTCP")] = "2.0.0";
     root[F("library_ESPAsyncWebServer")] = ASYNCWEBSERVER_VERSION;
 
@@ -667,7 +672,7 @@ static void sendStatus(AsyncWebSocketClient *client)
         memset(&conf, 0, sizeof(conf));
         wifi_softap_get_config(&conf);
 
-        root[F("mac")] = WiFi.softAPmacAddress();
+        root[F("status_wifi_mac")] = WiFi.softAPmacAddress();
     } else {
         wifi_get_ip_info(STATION_IF, &info);
 
@@ -679,18 +684,19 @@ static void sendStatus(AsyncWebSocketClient *client)
         memcpy(ssid_str, conf.ssid, sizeof(conf.ssid));
         ssid_str[sizeof(ssid_str) - 1] = 0;
 
-        root[F("ssid")] = ssid_str;
-        root[F("dns")] = WiFi.dnsIP().toString();
-        root[F("mac")] = WiFi.macAddress();
-        root[F("channel")] = WiFi.channel();
-        root[F("rssi")] = WiFi.RSSI();
+        root[F("status_wifi_ssid")] = ssid_str;
+        root[F("status_wifi_dns")] = WiFi.dnsIP().toString();
+        root[F("status_wifi_mac")] = WiFi.macAddress();
+        root[F("status_wifi_channel")] = WiFi.channel();
+        root[F("status_wifi_rssi")] = WiFi.RSSI();
+        root[F("status_wifi_bssid")] = WiFi.BSSIDstr();
     }
     IPAddress ipaddr = IPAddress(info.ip.addr);
     IPAddress gwaddr = IPAddress(info.gw.addr);
     IPAddress nmaddr = IPAddress(info.netmask.addr);
-    root[F("deviceip")] = ipaddr.toString();
-    root[F("gateway")] = gwaddr.toString();
-    root[F("netmask")] = nmaddr.toString();
+    root[F("status_wifi_ip")] = ipaddr.toString();
+    root[F("status_wifi_gateway")] = gwaddr.toString();
+    root[F("status_wifi_netmask")] = nmaddr.toString();
     //root["loadaverage"] = systemLoadAverage();
     //if (ADC_MODE_VALUE == ADC_VCC) {
     root[F("vcc")] = ESP.getVcc();
@@ -700,28 +706,41 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     String buffer;
     root.printTo(buffer);
+    jsonBuffer.clear();
     client->text(buffer);
     SYSTEMMONITOR_STAT();
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
-    LOG_DP("Sending file '%s' to client %u", filename, client->id());
+    LOGF_DP("Sending file '%s' to client %u", filename, client->id());
     File f = LittleFS.open(filename, "r");
     if (f) {
         client->text(f.readString());
         f.close();
     } else {
-        LOG_EP("File '%s' not found", filename);
+        LOGF_EP("File '%s' not found", filename);
     }
+}
+
+static void wsSendRuntimeConfigAll(AsyncWebSocket *ws)
+{
+    // send the runtime-config to all clients
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject &doc = jsonBuffer.createObject();
+    doc[F("command")] = F("config_runtime");
+    doc[F("webUseFilesFromFirmware")] = ApplicationRuntime.webUseFilesFromFirmware();
+    String buffer;
+    doc.printTo(buffer);
+    jsonBuffer.clear();
+    ws->textAll(buffer);
 }
 
 static bool EEPROMClear()
 {
     EEPROM.begin(256);
-    for (size_t i=0; i<256; i++) {
-        if (EEPROM.read(i) != 0) { // Don't write EEPROM every time
-            EEPROM.write(i, 0);
-        }
+    const char empty = 0xff;
+    for (int i=0; i<256; i++) {
+        EEPROM.put(i, empty);
     }
     return EEPROM.end();
 }

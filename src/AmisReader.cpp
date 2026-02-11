@@ -1,11 +1,13 @@
 #include "AmisReader.h"
 
 #include "aes.h"
+#include "Databroker.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_AMISREADER
+#define LOGMODULE   LOGMODULE_AMISREADER
 #include "ModbusSmartmeterEmulation.h"
-#include "ShellySmartmeterEmulation.h"
+#include "RebootAtMidnight.h"
 #include "RemoteOnOff.h"
+#include "ShellySmartmeterEmulation.h"
 #include "SystemMonitor.h"
 #include "ThingSpeak.h"
 #include "UA.h"
@@ -13,9 +15,6 @@
 
 
 // TODO(anyone): Refactor this global vars and external function
-uint32_t a_result[10] = {};
-int valid = 0;
-char timecode[13] = {}; // "0x" + 5*2 + '\0'
 extern bool new_data_for_websocket;
 extern unsigned first_frame;
 uint8_t dow;
@@ -101,20 +100,21 @@ static_assert(sizeof(struct decryptedTelegramData_SND_UD) == 80);
 
 // ---------------------------------------------------------------------------------------------------------------------------
 
-static void setTime(AmisReaderNumResult_t &result) {
-    struct timeval ti;
+static void setTime(time_t ts_now) {
     time_t tv_sec_old;
-    ti.tv_sec = mktime(&result.time);
     tv_sec_old = time(NULL);
-    if (ti.tv_sec == tv_sec_old) {
+    if (ts_now == tv_sec_old) {
         LOG_DP("Time already in sync");
         return; // skip if we're already in sync!
     }
     // Transfer of enryptedMBUSTelegram_SND_UD (101 bytes) needs ~105ms at 9600 8N1
+    struct timeval ti;
+    ti.tv_sec = ts_now;
     ti.tv_usec = 105000;
     settimeofday(&ti, NULL);
 
-    LOG_IP("Time synchronized. (ts-old=%llu, ts-new=%llu, millis=%u)", tv_sec_old, ti.tv_sec, millis());
+    LOGF_IP("Time synchronized. (ts-old=%llu, ts-now=%llu, millis=%u)", tv_sec_old, ts_now, millis());
+    RebootAtMidnight.adjustTicker();
 }
 
 int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResult_t &result)
@@ -198,8 +198,6 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
 #else
     AES128_CBC_decrypt_buffer(decrypted_ptr,    &encryptedSndUD->encryptedData[0],  16*5, nullptr, initialVector);
 #endif
-    //yield();
-    //sprintf(timecode,"0x%02x%02x%02x%02x%02x",decrypted[8],decrypted[7],decrypted[6],decrypted[5],decrypted[4]);
 
     if (decrypted.filler_prev[0] != 0x2f || decrypted.filler_prev[1] != 0x2f) {
         return -8; // Füllbytes vorne
@@ -254,27 +252,36 @@ int AmisReaderClass::decodeBuffer(uint8_t *buffer, size_t len, AmisReaderNumResu
     if (!Utils::MbusCP48IToTm(numresult.time, decrypted.valueDT)) {
         return -20;
     }
-    numresult.results[0] = UA::ReadU32LE(&decrypted.value1_8_0);
-    numresult.results[1] = UA::ReadU32LE(&decrypted.value2_8_0);
-    numresult.results[2] = UA::ReadU32LE(&decrypted.value3_8_1);
-    numresult.results[3] = UA::ReadU32LE(&decrypted.value4_8_1);
-    numresult.results[4] = UA::ReadU32LE(&decrypted.value1_7_0);
-    numresult.results[5] = UA::ReadU32LE(&decrypted.value2_7_0);
-    numresult.results[6] = UA::ReadU32LE(&decrypted.value3_7_0);
-    numresult.results[7] = UA::ReadU32LE(&decrypted.value4_7_0);
-    numresult.results_8  = UA::ReadS32LE(&decrypted.value1_128_0);
 
-    // TODO(anyone): "Diese Aufbereitung" Timecode entfernen
-    // timecode: 10 stelliges hexformat (= 5 bytes) welches vom Webclient verwendet wird
-    // und eigentlich das MBUS CP48 Format ist
+
+    // timeCp48Hex: 10 stelliges hexformat (= 5 bytes) welches 1:1 vom Zähler übernommen wird
+    // Ist eigentlich das MBUS CP48 Format - hier jedoch nur 5 Bytes
     //                 40    32 31    24 23    16 15     8 7      0
-    //                 YYYYMMMM YYYDDDDD ???hhhhh ?mmmmmmm ?sssssss    Webclient Verwendung
+    //                 YYYYMMMM YYYDDDDD WWWhhhhh 0mmmmmmm Xsssssss    Webclient Verwendung
+    //          beim Jahr(Y) muss noch 2000 hinzugefügt werden
+    //          0 muss 0 sein (sonst ungültig)
+    //          X könnte unter Umständen Info ob Schaltjahr??
+    //          WWW ist der Wochentag (1=Mon, 2=Die, .... 7=Son)
+    //          s:7 Bits, m:7 Bits, h:5 Bits, W:3 Bits, D:5 Bits, M:4 Bits, Y:7 Bits
     //
-    snprintf(numresult.timecode, sizeof(numresult.timecode),
-             "0x%02x%02x%02x%02x%02x",
+    // Das ganze gleich als Hexstring, weil wir nur 4 Byte Variablen mit json ausgeben können
+    // (siehe auch: #define ARDUINOJSON_USE_LONG_LONG )
+    snprintf(numresult.timeCp48Hex, sizeof(numresult.timeCp48Hex),
+             "%02x%02x%02x%02x%02x",
              decrypted.valueDT[4], decrypted.valueDT[3], decrypted.valueDT[2],
              decrypted.valueDT[1], decrypted.valueDT[0]
     );
+
+    // Zahlenwerte noch kopieren
+    numresult.results_u32[0] = UA::ReadU32LE(&decrypted.value1_8_0);
+    numresult.results_u32[1] = UA::ReadU32LE(&decrypted.value2_8_0);
+    numresult.results_u32[2] = UA::ReadU32LE(&decrypted.value3_8_1);
+    numresult.results_u32[3] = UA::ReadU32LE(&decrypted.value4_8_1);
+    numresult.results_u32[4] = UA::ReadU32LE(&decrypted.value1_7_0);
+    numresult.results_u32[5] = UA::ReadU32LE(&decrypted.value2_7_0);
+    numresult.results_u32[6] = UA::ReadU32LE(&decrypted.value3_7_0);
+    numresult.results_u32[7] = UA::ReadU32LE(&decrypted.value4_7_0);
+    numresult.results_i32[0] = UA::ReadS32LE(&decrypted.value1_128_0);
 
     numresult.isSet = true;
     result = numresult; // memcpy(&result, &numresult, sizeof(numresult));
@@ -312,6 +319,7 @@ size_t AmisReaderClass::serialWrite(uint8_t byte)
     size_t r;
     if (_serial) {
         r = _serial->write(byte);
+        _serial->flush();
     } else {
         r = sizeof(byte);
     }
@@ -335,7 +343,7 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
 
     if(!_serialReadBufferIdx) {
         if (_state == waitForReaderSerial) {
-            strcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n"); // NOLINT
+            strlcpy((char*)_serialReadBuffer, "/SAT63511D-SiMuLaToR-\r\n", sizeof(_serialReadBuffer));
             _serialReadBufferIdx = strlen((const char*)_serialReadBuffer);
             lastSent = now;
         } else if (_state == readReaderCounters) {
@@ -443,7 +451,7 @@ void AmisReaderClass::init(uint8_t serialNo)
     _baudRateIdentifier = 0; _serialNumber[0] = 0;
     _serialReadBufferIdx = 0;
 
-    memset(&a_result, 0, sizeof(a_result));
+    memset(&Databroker, 0, sizeof(Databroker));
 
     if (serialNo == 1) {
         _serial = &Serial;
@@ -462,7 +470,7 @@ void AmisReaderClass::end()
         _serial = nullptr;
     }
 
-    valid = 0;
+    Databroker.valid = 0;
     new_data_for_websocket = false;
 
     _readerIsOnline = false;
@@ -474,6 +482,7 @@ void AmisReaderClass::end()
 void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
+        LOG_DP("Initalizing reading serialnumber");
         _baudRateIdentifier = 0; _serialNumber[0] = 0;
 
         if (_readSerialNumberMode == disabled ) {
@@ -493,6 +502,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         _stateTimoutMs = 5000;
         _stateErrorCnt = 0;
         _stateErrorMax = 13; // 5 sec * 13 ... we try for 65 seconds
+        _validFrameCnt = 0;
     } else if (_state == requestReaderSerial) {
         // Geräteadresse lesen (IEC 62056-21 Mode "C")
         // Senden des Anforderungstelegramm
@@ -500,6 +510,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         // siehe AMIS TD-351x Benutzerhandbuch
         _serialReadBufferIdx = 0;
         clearSerialRx();
+        LOG_DP("Requesting serialnumber");
         serialWrite("/?!\r\n");
         // vor dem nächsten Senden muss zwischen 1500 und 2200ms gewartet werden
         // Übertragen der Gerätenummer dauert etwa 1200ms
@@ -510,42 +521,71 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         // "/SATx1234567890123\r\n", wobei "x" 0,1,2,3,4,5,6 oder 9 sein darf
         //     x ... gibt die Baudrate der Datentelegramme im Mode C
         //     siehe AMIS TD-351x Benutzerhandbuch - Kapitel 5.2.5 ff  bzw.  gesamtes 5.2 Kapitel
-        if (_serialReadBufferIdx > 7) {
-            if (!memcmp(_serialReadBuffer, "/SAT", 4) && memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2)) {
-                // OK wir haben irgwas, das grundsätzlich schon mal gültig aussieht
-                if ((_serialReadBuffer[4] >= '0' && _serialReadBuffer[4] <= '6') || _serialReadBuffer[4] == '9') {
-                    // Wir haben eine "gültige" Zähler-Antwort bekommen!
-
-                    // "0" ...  300 Bd, "1" ...  600 Bd, "2" ...  1200 Bd, "3" ...   2400 Bd
-                    // "4" ... 4800 Bd, "5" ... 9600 Bd, "6" ... 19200 Bd. "9" ... 115200 Bd
-                    _baudRateIdentifier = _serialReadBuffer[5];
-
-
-                    char *crlf;
-                    crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
-                    *crlf = 0;
-                    const char *serialNr = (const char *)_serialReadBuffer+5;
-                    strncpy(_serialNumber, serialNr, std::min(size_t(AMISREADER_MAX_SERIALNUMER), strlen(serialNr)));
-                    _serialNumber[sizeof(_serialNumber)-1] = 0;
-
-                    _state = initReadCounters;
-                    _stateLastSetMs = msNow;
-                    _stateErrorCnt = 0;
-                    LOG_IP("Serialnumber %s found", _serialNumber);
-
-                    //serialWrite("\x06" "060\r\n");
-                } else {
-                    // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
-                    _state = requestReaderSerial;
-                }
-                return;
-            }
-
-            if (_serialReadBufferIdx >= 4 + 32 + 2) {
-                // das wäre eine ganze Serialnummer gewesen ... alles wegwerfen und nochmals probieren
-                _state = requestReaderSerial;
-            }
+        if (_serialReadBufferIdx < 4) {
+            return;
         }
+        if (memcmp(_serialReadBuffer, "/SAT", 4)) {
+            LOGF_VP("Got %u bytes: %02x %02x %02x %02x ....",
+                        _serialReadBufferIdx,
+                        _serialReadBuffer[0], _serialReadBuffer[1],
+                        _serialReadBuffer[2], _serialReadBuffer[3]);
+            _state = requestReaderSerial;
+            return;
+        }
+        if (_serialReadBufferIdx <= 7) {
+            // wir brauchen auf jeden Fall 8 Byte:  "/SATxY\r\n"
+            return;
+        }
+
+        if (_serialReadBufferIdx > 4 + AMISREADER_MAX_SERIALNUMER + 2) {
+            // Zuviel Input (das wäre eine ganze Serialnummer gewesen) ... alles wegwerfen und nochmals probieren
+            _state = requestReaderSerial;
+            LOG_WP("Serialnumber invalid response #2 (Too much data)");
+            return;
+        }
+
+        char *crlf;
+        crlf = (char *) memmem(_serialReadBuffer+6, _serialReadBufferIdx-6, "\r\n", 2);
+        if (!crlf) {
+            return;
+        }
+        *crlf = 0;
+
+        // OK wir haben irgendwas, das grundsätzlich schon mal gültig aussieht
+        if ((_serialReadBuffer[4] >= '0' && _serialReadBuffer[4] <= '6') || _serialReadBuffer[4] == '9') {
+            // Wir haben eine "gültige" Zähler-Antwort bekommen!
+
+            // "0" ...  300 Bd, "1" ...  600 Bd, "2" ...  1200 Bd, "3" ...   2400 Bd
+            // "4" ... 4800 Bd, "5" ... 9600 Bd, "6" ... 19200 Bd. "9" ... 115200 Bd
+            _baudRateIdentifier = _serialReadBuffer[5];
+
+            const char *serialNr = (const char *)_serialReadBuffer+5;
+            strlcpy(_serialNumber, serialNr, sizeof(_serialNumber));
+
+            // Der Zähler bleibt nun anscheinend 10 Sekunden in dem IEC 62056-21 Modus
+            // siehe https://wiki.volkszaehler.org/_media/hardware/channels/meters/power/siemens/amis_td-351x_bhbk.pdf 5.2.13.1
+            _state = initReadCounters;
+            _stateLastSetMs = msNow;
+            _stateErrorCnt = 0;
+            LOGF_IP("Serialnumber %s found", _serialNumber);
+
+            // Senden wir noch gleich ein "Break" (siehe 5.2.8.12. Break B0) - das sollte das aktuelle Protokoll beenden
+            // SOH B0 ETX BCC
+            //
+            // SOH=0x01 (Start of Header)  (STX wäre 0x02)
+            // ETX=0x03
+            // BCC=BlockPrüfzeichen lt ISO 1155 (=XOR aller Bytes)
+            constexpr uint8_t bcc = 0x01 ^ 'B' ^ '0' ^ 0x03;
+            serialWrite("\x01BO\x03");
+            serialWrite(bcc);
+            delay(15); // Wait a bit till it's really sent as we change to 9600 in next step
+
+        } else {
+            // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
+            _state = requestReaderSerial;
+            LOG_WP("Serialnumber invalid response #1 (Invalid baudrate identifier)");
+        }
+        return;
     }
 }
 
@@ -592,6 +632,7 @@ void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
 void AmisReaderClass::processStateCounters(const uint32_t msNow)
 {
     if (_state == initReadCounters) {
+        LOG_DP("Initalizing reading counter values");
         if (_serial) {
             _serial->begin(9600, SERIAL_8E1); /* Zählerdaten kommen angeblich mit 9600 8E1 */
             _serial->setTimeout(5);           // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
@@ -606,6 +647,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         _stateTimoutMs = 4000; // Timeout für das Lesen: 16 * 4 (=64 Sekunden)
         _stateErrorCnt = 0;
         _stateErrorMax = 16;
+        _validFrameCnt = 0;
     } else if (_state == readReaderCounters) {
         if (_bytesInBufferExpectd == 0) {
             // we're waiting of starting message
@@ -620,8 +662,8 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     // was it message "<DLE>@ð0<SYN> ??  (= SND_NKE)
                     //MsgOut.writeTimestamp();
                     //MsgOut.println("Received SND_NKE");
-                    LOG_DP("Received SND_NKE");
-                    serialWrite(0xe5);
+                    LOG_DP("Received SND_NKE, sending ACK");
+                    serialWrite(0xe5); // send ACK
                     for(size_t i=5; i<_serialReadBufferIdx; i++) {
                         _serialReadBuffer[i-5] = _serialReadBuffer[i];
                     }
@@ -640,7 +682,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     */
                     // Expected Length should be 0x5F (see structure enryptedMBUSTelegram_SND_UD)
                     _bytesInBufferExpectd = _serialReadBuffer[1]+6;
-                    LOG_DP("Found SND_UD head. Expected length: %u", _bytesInBufferExpectd);
+                    LOGF_DP("Found SND_UD head. Expected length: %u", _bytesInBufferExpectd);
 
                     if (_bytesInBufferExpectd != 0x5f + 6) {
                         _serialReadBufferIdx = 0;
@@ -653,9 +695,9 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         }
 
         if (_serialReadBufferIdx >= _bytesInBufferExpectd) {
-            serialWrite(0xe5); // the receifed datas must be confirmed
+            serialWrite(0xe5); // received data must be confirmed
 
-            LOG_DP("Got expected bytes");
+            LOGF_DP("Got %u bytes (expected %u)", _serialReadBufferIdx, _bytesInBufferExpectd);
 
             moveSerialBufferToDecodingWorkBuffer(_bytesInBufferExpectd);
             _bytesInBufferExpectd = 0;
@@ -671,33 +713,41 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         // Es war ja sogar im ursprünglichen amis_decoder() ein Aufruf von yield() enthalten
         // Anmerkung: Bei mir braucht die Dekodierung etwas 1-2ms
 
-        valid = 0;
+        Databroker.valid = 0;
 
         AmisReaderNumResult_t l_result;
         int r;
         r = decodeBuffer(_decodingWorkBuffer, _decodingWorkBufferLength,  l_result);
         if (r == 0) {
-            // OK, we got new valid data
-            RemoteOnOff.onNewValidData(l_result.results[4]/* 1.7.0 */, l_result.results[5] /* 2.7.0 */);
+            // OK, we got new valid data ...
+            _validFrameCnt++;
 
-            // TODO(anyone): Refactor
-            // Transfer the result into the "old/global" result variables
-            // Vars: valid, timecode, a_result
-            valid = 5;
+            // Move them to Databroker
+            static_assert(std::size(Databroker.results_u32) == std::size(l_result.results_u32));
+            for (size_t i=0;i < std::size(Databroker.results_u32); i++) {
+                Databroker.results_u32[i] = l_result.results_u32[i];
+            }
+            static_assert(std::size(Databroker.results_i32) == std::size(l_result.results_i32));
+            for (size_t i=0;i < std::size(Databroker.results_i32); i++) {
+                Databroker.results_i32[i] = l_result.results_i32[i];
+            }
+
+            strlcpy(Databroker.timeCp48Hex, l_result.timeCp48Hex, sizeof(Databroker.timeCp48Hex));  // Hextsring der MBUS-CP48 Bytes[aber NUR 5 Bytes] (wie vom Zähler bekommen)
+            memcpy(&Databroker.time, &l_result.time, sizeof(Databroker.time));  // struct tm (gefüllt - wie vom Zähler bekommen)
+            Databroker.ts = mktime(&l_result.time); // Seconds since epoch in UTC (umgewandelt von l_result.time)
+
+            Databroker.valid = 5;
+
+            // Now all new data should be fetched only from Databroker!
+
             new_data_for_websocket = true;
             if (first_frame == 0) {
                 first_frame = 3; // Erster Datensatz nach Reboot oder verlorenem Sync
             }
 
-            for (int i=0;i < 8; i++) {
-                a_result[i] = l_result.results[i];
-            }
-            a_result[8] = l_result.results_8;
-            a_result[9] = mktime(&l_result.time); // Seconds since epoch
-            strcpy(timecode, l_result.timecode);  // NOLINT
+            RemoteOnOff.onNewValidData(Databroker.results_u32[4]/* 1.7.0 */, Databroker.results_u32[5] /* 2.7.0 */);
 
             // TODO(anyone): Refactor that "special values" from main.cpp
-
             dow = l_result.time.tm_wday; // dow: 1..7 (1=MON...7=SUN)
             if (dow == 0) {              // tm_wday: days since Sunday (0...6)
                 dow = 7;
@@ -711,7 +761,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
                     _readerIsOnline = true;
                 }
                 // Sync time afer sync with reader or each 30 minutes avoid internal clock drift
-                setTime(l_result);
+                setTime(Databroker.ts);
                 _lastTimeSync = msNow;
             }
 
@@ -722,25 +772,24 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         } else if (r < -7) {
             // das Zählertelegramm sah prinzipiell gut aus aber nach dem Entschlüsseln passten einige Werte nicht
             // ==> d.h.: vermutlich stimmt der AMIS-Key nicht !
-            valid = 1;
-            LOG_DP("Decrypting data failed: error=%d", r);
+            Databroker.valid = 1;
+            LOGF_DP("Decrypting data failed: error=%d", r);
         } else {
             // Beim Zählertelegram stimmten schon die Eckdatenm (Header, Checksumme, usw nicht)
             // ==> d.h.: vermutlich ungültige Daten empfangen
-            valid = 0;
-            LOG_DP("Invalid data received: error=%d", r);
+            Databroker.valid = 0;
+            LOGF_DP("Invalid data received: error=%d", r);
         }
         _state = readReaderCounters;
 
         // TODO(anyone): Refactor - Create events on changed data
-        ModbusSmartmeterEmulation.setCurrentValues((bool)(valid == 5),
-                                                   l_result.results[4], l_result.results[5],
-                                                   l_result.results[0], l_result.results[1]);
-
-        ShellySmartmeterEmulation.setCurrentValues((bool)(valid == 5),
-                                                   l_result.results[4], l_result.results[5],
-                                                   l_result.results[0], l_result.results[1]);
-        ThingSpeak.onNewData((bool)(valid == 5), &l_result.results[0], l_result.timecode);
+        ModbusSmartmeterEmulation.setCurrentValues((bool)(Databroker.valid == 5),
+                                                   Databroker.results_u32[4], Databroker.results_u32[5],
+                                                   Databroker.results_u32[0], Databroker.results_u32[1]);
+        ShellySmartmeterEmulation.setCurrentValues((bool)(Databroker.valid == 5),
+                                                   Databroker.results_u32[4], Databroker.results_u32[5],
+                                                   Databroker.results_u32[0], Databroker.results_u32[1]);
+        ThingSpeak.onNewData((bool)(Databroker.valid == 5), &Databroker.results_u32[0], Databroker.ts);
         SYSTEMMONITOR_STAT();
      }
 }
@@ -765,7 +814,9 @@ void AmisReaderClass::loop()
     processStateCounters(msNow);
 
     if ( msNow - _stateLastSetMs >= _stateTimoutMs ) {
-        // Timeout: seems something gone wrong and needed too long
+        // Timeout: seems something gone at the actual state wrong and needed too long
+        LOGF_DP("State timeout occured! current state=%d", (int)_state);
+
         _stateLastSetMs = msNow;
         _stateErrorCnt++;
 
@@ -773,15 +824,21 @@ void AmisReaderClass::loop()
         _serialReadBufferIdx = 0;
         clearSerialRx();
         _bytesInBufferExpectd = 0;
+
+        if (_state == waitForReaderSerial) {
+            _state = requestReaderSerial;
+        }
     }
+
     if (_stateErrorCnt >= _stateErrorMax) {
-        LOG_DP("Timeout occured! state=%d", (int)_state);
+        LOGF_DP("State max errors reached! Switching state. current state=%d", (int)_state);
 
         if (_readerIsOnline) {
-            LOG_IP("Sync lost ... starting resync.");
+            LOGF_WP("Sync lost. %u data frames received. Starting resync...", _validFrameCnt);
+            _readerIsOnline = false;
         }
-        _readerIsOnline = false;
-        valid = 0;
+        _validFrameCnt = 0;
+        Databroker.valid = 0;
         ModbusSmartmeterEmulation.setCurrentValues(false);
         ThingSpeak.onNewData(false);
 

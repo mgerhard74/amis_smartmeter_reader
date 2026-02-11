@@ -40,32 +40,32 @@ Current state:
 #define DEFAULT_ENTRIES_PER_PAGE        20
 
 // Log-Modules
-//eg: #define LOGMODULE     LOGMODULE_BIT_NETWORK
-#define LOGMODULE_BIT_NONE              0x00000000
-#define LOGMODULE_BIT_SETUP             0x00000100
-#define LOGMODULE_BIT_NETWORK           0x00000200
-#define LOGMODULE_BIT_AMISREADER        0x00000400
-#define LOGMODULE_BIT_UPDATE            0x00000800
-#define LOGMODULE_BIT_MODBUS            0x00001000
-#define LOGMODULE_BIT_THINGSPEAK        0x00002000
-#define LOGMODULE_BIT_MQTT              0x00004000
-#define LOGMODULE_BIT_SYSTEM            0x00008000
-#define LOGMODULE_BIT_WEBSERVER         0x00010000
-#define LOGMODULE_BIT_REBOOTATMIDNIGHT  0x00020000
-#define LOGMODULE_BIT_WEBSSOCKET        0x00040000
-#define LOGMODULE_BIT_WATCHDOGPING      0x00080000
-#define LOGMODULE_BIT_REMOTEONOFF       0x00100000
-#define LOGMODULE_BIT_SHELLY            0x00200000
-#define LOGMODULE_BIT_ALL               0xffffff00
+//eg: #define LOGMODULE     LOGMODULE_NETWORK
+#define LOGMODULE_SETUP             0x00
+#define LOGMODULE_NETWORK           0x01
+#define LOGMODULE_AMISREADER        0x02
+#define LOGMODULE_UPDATE            0x03
+#define LOGMODULE_MODBUS            0x04
+#define LOGMODULE_THINGSPEAK        0x05
+#define LOGMODULE_MQTT              0x06
+#define LOGMODULE_SYSTEM            0x07
+#define LOGMODULE_WEBSERVER         0x08
+#define LOGMODULE_REBOOTATMIDNIGHT  0x09
+#define LOGMODULE_WEBSSOCKET        0x0a
+#define LOGMODULE_WATCHDOGPING      0x0b
+#define LOGMODULE_REMOTEONOFF       0x0c
+#define LOGMODULE_SHELLY            0x0d
+#define LOGMODULE_LAST              0x0d // If added one: Do not forget to adapt _getModuleName()
+#define LOGMODULE_ALL               0xff
 
 // Log-Types (info/warning/error/debug/verbose)
-#define LOGTYPE_BIT_NONE                0x00000000
-#define LOGTYPE_BIT_INFO                0x00000001
-#define LOGTYPE_BIT_WARN                0x00000002
-#define LOGTYPE_BIT_ERROR               0x00000004
-#define LOGTYPE_BIT_DEBUG               0x00000008
-#define LOGTYPE_BIT_VERBOSE             0x00000010
-#define LOGTYPE_BIT_ALL                 0x0000001f
+#define LOGTYPE_BIT_NONE                0x00
+#define LOGTYPE_BIT_INFO                0x01
+#define LOGTYPE_BIT_WARN                0x02
+#define LOGTYPE_BIT_ERROR               0x04
+#define LOGTYPE_BIT_DEBUG               0x08
+#define LOGTYPE_BIT_VERBOSE             0x10
+#define LOGTYPE_BIT_ALL                 0x1f
 
 // Log-Levels
 #define LOGLEVEL_NONE                   0x00000000
@@ -74,6 +74,26 @@ Current state:
 #define LOGLEVEL_INFO                   0x00000003
 #define LOGLEVEL_DEBUG                  0x00000004
 #define LOGLEVEL_VERBOSE                0x00000005
+
+
+#ifndef CONFIG_LOG_DEFAULT_LEVEL
+#define CONFIG_LOG_DEFAULT_LEVEL    LOGLEVEL_INFO
+#endif
+
+#if 1
+// Helper for printing IP Numbers:
+// Using IP.toString().c_str() creates a temporary String() object
+// which could increase memory fragmentation.
+// So instead:
+//    printf("ip=%s netmask=%s", ipnumber.toString().c_str(), netmask.toString().c_str());
+// use
+//    printf("ip=" PRsIP " netmask=" PRsIP, PRIPVal(ipnumber), PRIPVal(netmask));
+#define PRsIP                           "%d.%d.%d.%d"
+#define PRIPVal(__IP)                   __IP[0], __IP[1], __IP[2], __IP[3]
+#else
+#define PRsIP                           "%s"
+#define PRIPVal(__IP)                   __IP.toString().c_str()
+#endif
 
 
 #include "Logfile.h"

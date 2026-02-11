@@ -13,14 +13,13 @@ class WebserverClass
     public:
         WebserverClass();
         void init();
-        void setCredentials(bool auth_enabled, const String &auth_username, const String &auth_password);
+        void reloadCredentials();
         bool checkCredentials(AsyncWebServerRequest* request);
-        void setTryGzipFirst(bool tryGzipFirst=true);
 
     private:
-        void onNotFound(AsyncWebServerRequest *request);
-        void onRequest_Upgrade(AsyncWebServerRequest *request);
         void reload();
+        void onNotFound(AsyncWebServerRequest *request);
+        void responseBinaryDataWithETagCache(AsyncWebServerRequest* request, const char *contentType, bool utf8, const char *contentEncoding, const uint8_t* content, size_t len, const char *md5sum);
 
         AsyncWebServer _server;
         AsyncStaticWebHandler *_staticFilesServer;

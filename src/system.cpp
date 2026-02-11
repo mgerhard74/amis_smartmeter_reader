@@ -1,10 +1,10 @@
 #include <AsyncJson.h>
 #include <LittleFS.h>
 
+#include "Databroker.h"
+
 #include "proj.h"
 
-extern uint32_t a_result[10];
-extern int valid;
 extern String latestYYMMInHistfile;
 
 void historyInit()
@@ -57,7 +57,7 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
   if (ws->count() == 0) {
       return; // No Websock clients
   }
-  if (valid != 5) {
+  if (Databroker.valid != 5) {
       return;
   }
 
@@ -69,8 +69,8 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
     x = 6;
   }
 
-  root[F("today_in")]  = a_result[0];
-  root[F("today_out")] = a_result[1];
+  root[F("today_in")]  = Databroker.results_u32[0];
+  root[F("today_out")] = Databroker.results_u32[1];
   root[F("yestd_in")]  = kwh_day_in[x];
   root[F("yestd_out")] = kwh_day_out[x];
   for (size_t i=0; i < 7; i++) {
@@ -83,6 +83,7 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
   }
   String buffer;
   root.printTo(buffer);
+  jsonBuffer.clear();
   ws->textAll(buffer);
 }
 
@@ -104,6 +105,7 @@ void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients se
 
   String buffer;
   root.printTo(buffer);
+  jsonBuffer.clear();
   ws->textAll(buffer);
 }
 

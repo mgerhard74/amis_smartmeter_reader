@@ -14,32 +14,16 @@
 
 #include "config.h"
 
-/// Debug Einstellungen:
-/// DEBUGHW 0             keine Ausgaben
-/// DEBUGHW 1             TCP Port 10000
-/// DEBUGHW 2             DEBUG_OUTPUT 0 | 1 : Serial(Pin Txd) | Serial1(Pin GPIO2)
-/// DEBUGHW 3             Websock
-#define DEBUGHW 0
-#define DEBUG_OUTPUT 0
-//#define STROMPREIS
-extern String dbg_string;
-extern char dbg[128];
-#if DEBUG_OUTPUT==0
-    #define S Serial
-#else
-    #define S Serial1
-#endif
+
 struct kwhstruct {
     unsigned kwh_in;
     unsigned kwh_out;
     unsigned dow;
 };
-extern int logPage;
+
 //extern AsyncWebServer server;
 //extern AsyncWebSocket ws;
 extern AsyncWebSocket *ws;
-extern WiFiClient dbg_client;
-extern WiFiServer dbg_server;
 
 extern unsigned first_frame;
 extern uint8_t dow;

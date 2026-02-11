@@ -14,7 +14,7 @@
 #include "RemoteOnOff.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_REMOTEONOFF
+#define LOGMODULE   LOGMODULE_REMOTEONOFF
 #include "Network.h"
 
 #include <WiFiClient.h>
@@ -49,22 +49,22 @@ void RemoteOnOffClass::sendURL(switchState_t newState)
     int httpResultCode;
     HTTPClient http;
     WiFiClient client;
-    String *url = (newState == on) ?&_urlOn :&_urlOff;
-    LOG_DP("Sending http get request: %s", *url->c_str());
-    http.begin(client, *url);
+    const String &url = (newState == on) ?_urlOn :_urlOff;
+    LOGF_DP("Sending http get request: %s", url.c_str());
+    http.begin(client, url);
     http.setReuse(false);
-    //http.setTimeout(4000);
+    // Do not block the ESP too long! ... DefaultTimeout = 5000 (see HTTPClient::_tcpTimeout)
+    http.setTimeout(3500);
     httpResultCode = http.GET();
     http.end();
     _lastSentStateMs = millis();
-    if (httpResultCode == HTTP_CODE_OK || !_honorHttpResult) {
+    if (!_honorHttpResult || httpResultCode == HTTP_CODE_OK) {
         _lastSentState = newState;
-
     } else {
         // Failure
         _lastSentStateMs += 5000u - _switchIntervalMs; // Try again in 5 secs
     }
-    LOG_DP("http result code = %d", httpResultCode);
+    LOGF_DP("http result code = %d", httpResultCode);
 }
 
 bool RemoteOnOffClass::enable()

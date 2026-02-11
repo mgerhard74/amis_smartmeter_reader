@@ -8,21 +8,11 @@
 #include "DefaultConfigurations.h"
 #include "LedSingle.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_NETWORK
+#define LOGMODULE   LOGMODULE_NETWORK
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "SystemMonitor.h"
 
-//#define DEBUG
-#include "debug.h"
-
-#if 0
-#undef DBGOUT
-#define DBGOUT(X)  Serial.print(X)
-#define DBGPRINTF(fmt, args...)  Serial.printf(fmt, ##args)
-#else
-#define DBGPRINTF(fmt, args...) (void)(0)
-#endif
 
 #include <ArduinoJson.h>
 #include <EEPROM.h>
@@ -51,30 +41,34 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
 {
-    DBGOUT("WiFi onStationModeGotIP()\n");
-    DBGPRINTF("%d\n", _tickerReconnect.active());
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
     _isConnected = true;
     _tickerReconnect.detach();
-    LedBlue.turnBlink(4000, 10);
-    LOG_IP("WiFi connected to %s with local IP %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
-    LOG_VP("mask=%s, gateway=%s", event.mask.toString().c_str(), event.gw.toString().c_str());
 
-    startMDNSIfNeeded();
+    LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
 
-#if DEBUGHW==1
-    dbg_server.begin();
-    //  dbg_server.setNoDelay(true);  Nicht benützen, bei WIFI nicht funktionell
-#endif
+    restartMDNSIfNeeded();
+
     Mqtt.networkOnStationModeGotIP(event);
+
+    LedBlue.turnBlink(4000, 10);
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
     SYSTEMMONITOR_STAT();
 }
 
 void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
 {
-    LOG_DP("WiFi onStationModeDisconnected() start");
-    _isConnected = false;
-    Mqtt.networkOnStationModeDisconnected(event);
-    MDNS.end();
+    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() start");
+    if (!_isConnected) {
+        // seems this gets called even we were not connected ..,. skip it
+        LOG_DP("were not connected");
+    } else {
+        LOGF_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
+        _isConnected = false;
+        Mqtt.networkOnStationModeDisconnected(event);
+        restartMDNSIfNeeded(); // MDNS.end();
+    }
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
@@ -84,8 +78,7 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
 #endif
     LedBlue.turnBlink(150, 150);
-    LOG_IP("WiFi disconnected! Errorcode: %d", (int)event.reason);
-    LOG_DP("WiFi onStationModeDisconnected() end");
+    LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
 }
 
@@ -99,7 +92,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
     File configFile;
     configFile = LittleFS.open("/config_wifi", "r");
     if (!configFile) {
-        LOG_EP("Could not open %s", "/config_wifi");
+        LOGF_EP("Could not open %s", "/config_wifi");
 #ifndef DEFAULT_CONFIG_WIFI_JSON
         return loadConfigWifiFromEEPROM(config);
 #else
@@ -120,7 +113,7 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 #endif
     }
     if (json == nullptr || !json->success()) {
-        LOG_EP("Failed parsing %s", "/config_wifi");
+        LOGF_EP("Failed parsing %s", "/config_wifi");
         return false;
     }
 
@@ -138,6 +131,11 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 
     strlcpy(config.ssid, (*json)[F("ssid")] | "", sizeof(config.ssid));
     strlcpy(config.wifipassword, (*json)[F("wifipassword")] | "", sizeof(config.wifipassword));
+
+    config.channel = (*json)[F("channel")].as<int32_t>();
+    if (config.channel < 0 || config.channel > 13) {
+        config.channel = 0;
+    }
 
     config.dhcp = (*json)[F("dhcp")].as<bool>();
 
@@ -197,27 +195,32 @@ void NetworkClass::connect(void)
 
     WiFi.mode(WIFI_STA);
     if (!_configWifi.allow_sleep_mode) {
-        WiFi.setSleepMode(WIFI_NONE_SLEEP);
-        LOG_IP("Wifi sleep mode disabled");
+        WiFi.setSleepMode(WIFI_NONE_SLEEP); // listenInterval=0
+        LOG_DP("Wifi sleep mode disabled");
     } else {
         // TODO(anyone) ... sollte hier nicht auch was gemacht werden?
+        // WIFI_NONE_SLEEP = 0, WIFI_LIGHT_SLEEP = 1, WIFI_MODEM_SLEEP = 2
+        // WiFi.getSleepMode()
     }
 
-    LOG_DP("Starting Wifi in Station-Mode");
+    LOGF_DP("Starting Wifi in Station-Mode");
     WiFi.setOutputPower(_configWifi.rfpower);  // 0..20.5 dBm
     if (_configWifi.dhcp) {
-        LOG_DP("Using DHCP");
+        LOGF_DP("Using DHCP");
         IPAddress ip_0_0_0_0;
         WiFi.config(ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0, ip_0_0_0_0); // Enforce DHCP enabled (WiFi._useStaticIp = false)
-        WiFi.hostname(getHostname(Config.DeviceName.c_str()));               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
+        String validHostname = getValidHostname(Config.DeviceName);
+        WiFi.hostname(validHostname);               /// !!!!!!!!!!!!!Funktioniert NUR mit DHCP !!!!!!!!!!!!!
     } else {
-        LOG_DP("Using static IP configuration");
+        LOGF_DP("Using static IP configuration");
         WiFi.config(_configWifi.ip_static, _configWifi.ip_gateway, _configWifi.ip_netmask, _configWifi.ip_nameserver, _configWifi.ip_nameserver);
     }
 
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
-    WiFi.begin(_configWifi.ssid, _configWifi.wifipassword);
+    LOGF_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+
+    WiFi.begin(_configWifi.ssid, _configWifi.wifipassword, _configWifi.channel);
     LedBlue.turnBlink(150, 150);
     LOG_DP("WiFi connect() end");
 }
@@ -321,48 +324,53 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
 }
 
 
-void NetworkClass::startMDNSIfNeeded()
+void NetworkClass::restartMDNSIfNeeded()
 {
     if (Network.inAPMode()) {
         return;
     }
 
-    // Return if no state change
-    if (MDNS.isRunning() == _configWifi.mdns) {
-        return;
+    // Totally strange:
+    //   MDNS.isRunning() returns true even if we called MSND.end() previously ... check this
+    // So stop ... and if needed start
+    bool isRunning = MDNS.isRunning();
+    bool doRestart = false;
+    if (isRunning && _configWifi.mdns && _isConnected) {
+        doRestart = true;
+    } else {
+        doRestart = false;
     }
+    LOGF_VP("MDNS: isRunning=%d doRestart=%d _isConnected=%d _configWifi.mdns=%d",
+            isRunning, doRestart, _isConnected, _configWifi.mdns);
 
     MDNS.end();
 
-    if (!_configWifi.mdns) {
-        LOG_IP("MDNS is disabled");
-        return;
+    if (_configWifi.mdns && _isConnected) {
+        LOGF_IP("(Re)starting MDNS responder.");
+
+        // Hostname kann nur MDNS_DOMAIN_LABEL_MAXLENGTH Zeichen lang werden !
+        if (!MDNS.begin(Config.DeviceName)) {
+            LOGF_EP("Error setting up MDNS responder!");
+            return;
+        }
+
+        MDNS.addService("http", "tcp", 80);
+        MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
+        MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
+        /*
+        There is no 'modbus' service available
+        see: https://www.dns-sd.org/servicetypes.html abd RFC2782
+
+        if (Config.smart_mtr) {
+            MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
+        }*/
+
+        LOG_DP("MDNS (re)started");
     }
-
-    LOG_IP("Starting MDNS responder...");
-
-
-    if (!MDNS.begin(Config.DeviceName)) {
-        LOG_EP("Error setting up MDNS responder!");
-        return;
-    }
-
-    MDNS.addService("http", "tcp", 80);
-    MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
-    MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
-    /*
-    There is no 'modbus' service available
-    see: https://www.dns-sd.org/servicetypes.html abd RFC2782
-
-    if (Config.smart_mtr) {
-        MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
-    }*/
-
-    LOG_IP("MDNS started");
 }
 
 
-String NetworkClass::getHostname(const char *hostname)
+String NetworkClass::getValidHostname(const char *hostname)
 {
     // see: LwipIntf::hostname  --> Max 32 chars
     //
@@ -372,10 +380,9 @@ String NetworkClass::getHostname(const char *hostname)
 
     char rHostname[32 + 1];
 
-
     const char *s = hostname;
     char *t = rHostname;
-    char *te = t + sizeof(rHostname);
+    char * const te = t + sizeof(rHostname) - 1;
 
     // copy and transform chars from Config.DeviceName into rHostname
     while (*s && t < te) {
@@ -398,7 +405,7 @@ String NetworkClass::getHostname(const char *hostname)
 
     if (!rHostname[0]) {
         // Do now allow an empty hostname
-        snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%" PRIx32), APP_NAME, ESP.getChipId());
+        snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%08" PRIx32), APP_NAME, ESP.getChipId());
     }
     return rHostname;
 }

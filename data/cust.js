@@ -12,7 +12,7 @@ var yestd_out;
 var monthlist;
 var weekdata;
 var restoreData;
-var g_lastDT = new Date(); // letzte erhaltene Zeit
+var g_lastDT = new Date(); // Zuletzt erhaltene Zählerwerte (lt Zähleruhrzeit)
 var wsTimer;
 var wsActiveFlag=true;
 
@@ -40,7 +40,6 @@ var config_general = {
     "shelly_smart_mtr_udp_offset": 0,
     "shelly_smart_mtr_udp_hardware_id_appendix": "",
     "developerModeEnabled": false,
-    "webserverTryGzipFirst": true, // diese Einstellung wird vom AmisLeser beim Lesen der Konfig nicht beachtet
     "switch_on": 0,
     "switch_off": 0,
     "switch_url_on": "",
@@ -52,6 +51,7 @@ var config_general = {
 var config_wifi= {
     "ssid": "",
     "wifipassword": "",
+    "channel": 0,
     "dhcp": false,
     "ip_static": "192.168.",
     "ip_netmask": "255.255.255.0",
@@ -67,7 +67,7 @@ var config_wifi= {
     "command": "/config_wifi"
 };
 var config_mqtt={
-    "mqtt_enabled": 0,
+    "mqtt_enabled": false,
     "mqtt_broker": "192.168.",
     "mqtt_port": 1883,
     "mqtt_user": "",
@@ -80,6 +80,11 @@ var config_mqtt={
     "mqtt_will": "",
     "mqtt_ha_discovery": true,
     "command": "/config_mqtt"
+};
+
+var config_runtime = {
+    "webUseFilesFromFirmware": true,
+    "command": "config_runtime" // ohne führendes "/"
 };
 
 function toNumberString(value, numberOfDecimals) {
@@ -144,27 +149,81 @@ function secsWholeDay(date) {
   return r + 1; // Die Sekunde von 23:59:59 auf 00:00:00 auch noch dazuzählen !
 }
 
-function timeDecoder(tc) {
-  let hi = Number(tc.slice(0,4));
-  let lo = Number("0x"+tc.slice(4,12));
+function timeDecoderMbusCP48(tc, update_lastDT) {
+  // erwartet einen String im Format "abcdef1234" mit dem Datum/Uhrzeit des MBUS CP48 Formates - aber NUR 5 Bytes ohne "0x"
+  var v;
 
-  let secs = lo & 0x3f;
-  lo >>= 8;
-  let mins = lo & 0x3f;
-  lo >>= 8;
-  let hrs = lo & 0x1f;
-  lo >>= 8;
-  let day = lo & 0x1f;
-  lo >>= 5;
-  let month = hi & 0x0f;
-  let year = lo & 0x07;
-  year |= (hi & 0xf0) >> 1;
+  v = Number("0x" + tc.slice(8,10));
+  let secs = v & 0x3f;    // byte 1
+
+  v = Number("0x" + tc.slice(0,8));
+  let mins = v & 0x3f;    // byte 2
+  v >>= 8;
+
+  let hrs = v & 0x1f;     // byte 3
+  v >>= 8;
+
+  let day = v & 0x1f;     // byte 4
+  v >>= 5;
+  let year = v & 0x07;
+  v >>= 3;
+
+  let month = v & 0x0f;   // byte 5
+  v >>= 4;
+  year |= (v & 0x0f) << 3;
   year += 2000;
 
-  g_lastDT = new Date(year, month-1, day, hrs, mins, secs);
+  if (update_lastDT) {
+    g_lastDT = new Date(year, month-1, day, hrs, mins, secs);
+  }
 
   return year + '/' + zeroPad(month,2) + '/' + zeroPad(day,2) + '&nbsp;' +
          zeroPad(hrs,2) + ':' + zeroPad(mins,2) + ':' + zeroPad(secs,2);
+}
+
+function timeDecoderTS(timestamp) {
+
+  let dt = new Date(timestamp * 1000);
+
+  // return dt.toLocaleString(); // output will vary based on system locale settings
+
+  return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + '&nbsp;' +
+         zeroPad(dt.getHours(),2) + ':' + zeroPad(dt.getMinutes(),2) + ':' + zeroPad(dt.getSeconds(),2);
+}
+
+function runtimeTimeDecode(v, isMilliSeconds, displayDays, displayHours) {
+  var total_sec;
+  var millis;
+  if (isMilliSeconds) {
+    total_sec = (v / 1000) | 0;
+    millis = (v % 1000) | 0;
+  } else {
+    total_sec = v | 0;
+  }
+
+  let seconds = (total_sec % 60) | 0;
+  total_sec = (total_sec / 60) | 0;
+
+  let minutes = (total_sec % 60) | 0;
+  total_sec = (total_sec / 60) | 0;
+
+  let hours = (total_sec % 24) | 0;
+  let days = (total_sec / 24) | 0;
+
+  let r = "";
+  if (days || displayDays) {
+    r += days + "d ";
+  }
+  if (displayHours || hours || days || displayDays) {
+    r += hours + "h ";
+    r += zeroPad(minutes, 2) + "m " + zeroPad(seconds, 2) + "s";
+  } else {
+    r += minutes + "m " + zeroPad(seconds, 2) + "s";
+  }
+  if (isMilliSeconds) {
+    r += "." + zeroPad(millis, 3);
+  }
+  return r;
 }
 
 function setAvgItem(basitemname, totalValue, numberOfSeconds, setcolorNegPos) {
@@ -191,6 +250,9 @@ function updateElements(obj) {
           else                                 $(".menu-graf").hide();
           if (config_general.developerModeEnabled) $(".menu-developer").show();
           else                                     $(".menu-developer").hide();
+          if (config_general.devicename) {
+            config_general.devicename = config_general.devicename.trim();
+          }
           break;
         case "/config_wifi":
           config_wifi=obj;
@@ -198,23 +260,39 @@ function updateElements(obj) {
         case "/config_mqtt":
           config_mqtt=obj;
           break;
+        case "config_runtime":
+          config_runtime = obj;
+          $("input[name='webUseFilesFromFirmware']").value = config_runtime.webUseFilesFromFirmware;
+          break;
       }
     }
     else if (key==='now') {
-      let v=Number(value);
-      switch (v) {
-        case 0:
-          value = 'Warte auf Zählerdaten...';
-          break;
-        case 1:
-        case 2:
-        case 3:
-        case 4:
-          value = 'Amis-Key ungültig?';
-          break;
-        default:
-          value = timeDecoder((value));
+      // Now:
+      //      0:  dann beinhaltet .valid den "Fehlercode"
+      //  sonst:  ist es die MBUSCP48(5Byte) Uhrzeit vom Zähler (als Hexstring ohne "0x")
+      let v = Number(value);
+      if (v === 0) {
+        const valid = obj.valid;
+        switch (valid) {
+          case 0:
+            value = 'Warte auf Zählerdaten...';
+            break;
+          case 1:
+          case 2:
+          case 3:
+          case 4:
+            value = 'Amis-Key ungültig?';
+            break;
+          default:
+            value = 'Invalid valid ' + v;
+        }
+      } else {
+        value = timeDecoderMbusCP48(value, true);
       }
+    }
+    else if (key==='time') {
+      // UNIX Timestamp
+      value = timeDecoderTS(value);
     }
     /*
     else if (key==='serialnumber') {
@@ -288,23 +366,63 @@ function updateElements(obj) {
       $("#tdy_diff").html((((e180-yestd_in)-(e280-yestd_out)) / 1000).toFixed(3).replace('.',','));
     }
     else if (key==='things_up') {
-       if (value) value=timeDecoder(value);
-       else value="";
+      if (value) {
+        let v = Number("0x" + value) | 0;
+        if (v) {
+          value = timeDecoderTS(v, false);
+        }
+      }
     }
     else if (key==='page') {             // Logpanel
-      logpage=obj["page"];
-      logpages=obj["pages"];
-      value="Seite "+value+" von "+logpages;
+      logpage = obj["page"];
+      logpages = obj["pages"];
+      if (logpages <= 0) {
+        logpages = 1;
+      }
+      value = "Seite " + value + " von " + logpages;
     }
-    else if (key==='list') {             // Logpanel
-      let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Inhalt</th><th>Daten</th></tr></thead><Tbody>';
+    else if (key==='loglines') {         // Logpanel
+      // Altes Format (Version <= 1.5.4):
+      //     Beschreibung in desc und data
+      //     time = "0x" MBUS48-5Byte timestamp des Zählers
+      // {"type":"INFO","src":"wifi","desc":"WiFi is connected","data":"XXX.ssid 192.168.AAA.BBB","time":"0x123456789abc"}
+
+      // Format (Version == 1.5.5):
+      //     Beschreibung nurmehr in desc (data immer leer)
+      //     ms = Laufzeit in Milliskunden
+      //     time = "0x" MBUS48-5Byte timestamp des Zählers
+      // {"ms":12345,"type":"INFO","src":"wifi","time":"0x123456789abc","data":"","desc":"WiFi is connected. XXX.ssid 192.168.AAA.BBB"}
+
+      // Format (Version >= 1.5.6):
+      //     data entfernt (Beschreibung nurmehr in desc)
+      //     time entfernt dafür wird jetzt ts(= timestamp UTC des systems) verwendet
+      // {"ms":12345,"type":"INFO","src":"wifi","ts":1768780204,"desc":"WiFi is connected. XXX.ssid 192.168.AAA.BBB"}
+
+      let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Information</th></tr></thead><Tbody>';
       for (let i=0;i<value.length;i++ ) {
         let line=JSON.parse(value[i]);
+
         let t='- - -';
-        if (line.time) {
-          t=timeDecoder(line.time);
+        if (line.ts && Number(line.ts) > (2024-1970)*365*24*3600) {
+          // we have a system-timestamp (syncronized from counter)
+          t = timeDecoderTS(Number(line.ts));
+        } else if (line.time) {
+          // This is the "old" logfile format
+          // we have the time of last received counter data
+          t = timeDecoderMbusCP48(line.time, false);
+        } else if (line.ms) {
+          // we never have got any time - we just have the runtime
+          t = runtimeTimeDecode(line.ms, true, false, false);
         }
-        tab += '<tr><td>'+t+'</td><td>'+line.type+'</td><td>'+line.src+'</td><td>'+line.desc+'</td><td>'+line.data+'</td></tr>';
+
+        let desc = line.desc;
+        if (line.data) {
+          if (desc) {
+            desc += " ";
+          }
+          desc += line.data;
+        }
+        tab += '<tr><td>'+t+'</td><td>'+line.type+'</td><td>'+line.src+'</td><td>'+desc+'</td></tr>';
       }
       tab+='</tbody></table>';
       value=tab;
@@ -336,6 +454,8 @@ function updateElements(obj) {
       $("#month_table").html(t);
     }
     else if (key==='uptime') {
+      value = runtimeTimeDecode(value, false, true, true);
+      /*
       let uptime  = parseInt(value, 10);
       let seconds = uptime % 60;
       uptime = parseInt(uptime / 60, 10);
@@ -344,6 +464,7 @@ function updateElements(obj) {
       let hours   = uptime % 24;
       uptime = parseInt(uptime / 24, 10);
       value = uptime + "d " + hours + "h " + zeroPad(minutes, 2) + "m " + zeroPad(seconds, 2) + "s";
+      */
     }
     else if (key==='weekdata') {
       weekdata={command:"weekfiles",week:value};
@@ -366,7 +487,7 @@ function updateElements(obj) {
       }
     }
     else if (key === 'stations') {        // WiFi-Scan
-      let tab = '<table class="pure-table pure-table-striped"><thead><tr><th>SSID</th><th>RSSI</th><th>Channel</th><th>Encryption</th></tr></thead><Tbody>';
+      let tab = '<table class="pure-table pure-table-striped"><thead><tr><th>SSID</th><th>RSSI</th><th>Channel</th><th>Encryption</th><th>BSSID</th></tr></thead><Tbody>';
       for (let i = 0; i < value.length; i++) {
         let station = JSON.parse(value[i]);
         let encr="Unknown";
@@ -377,7 +498,7 @@ function updateElements(obj) {
           case '4': encr="WPA2_PSK";break;
           case '8': encr="auto";break;
         }
-        tab+='<tr><td>'+station.ssid+'</td><td>'+station.rssi+' dB</td><td>'+station.channel+'</td><td>'+encr+'</td></tr>'
+        tab+='<tr><td>'+station.ssid+'</td><td>'+station.rssi+' dB</td><td>'+station.channel+'</td><td>'+encr+'</td><td>'+station.bssid+'</td></tr>'
       }
       tab += '</tbody></table>';
       value = tab;
@@ -601,6 +722,10 @@ function doUpdateGeneral() {                 // button save config
     if ($(this).prop('type') == 'checkbox') config_general[this.name] = $(this).prop('checked');
     else config_general[this.name] = this.value;
   });
+  // Trim some strings before saving
+  if (config_general.devicename) {
+    config_general.devicename = config_general.devicename.trim();
+  }
   if (config_general.thingspeak_aktiv) $(".menu-graf").show();
   else $(".menu-graf").hide();
   if (config_general.developerModeEnabled) {
@@ -644,7 +769,6 @@ function doUpdateMQTT() {
 
 function doReboot(msg) {
   if(window.confirm(msg+"Neustart mit OK bestätigen, dann 25s warten...")) {
-    config_general.webserverTryGzipFirst = true;
     websock.send('{"command":"restart"}');
     doReload(25000);
   }
@@ -733,11 +857,13 @@ function developerModeEnabled() {  // display settings only if auth active
   }
 }
 
-function webserverTryGzipFirst() {  // display settings only if auth active
+function webUseFilesFromFirmware() {
   if ($(this).prop('checked')) {
-    websock.send('{"command":"set-webserverTryGzipFirst", "value":"on"}');
+    websock.send('{"command":"set-runtime-useFilesFromFirmware", "value":"on"}');
+    config_runtime.webUseFilesFromFirmware = true;
   } else {
-    websock.send('{"command":"set-webserverTryGzipFirst", "value":"off"}');
+    websock.send('{"command":"set-runtime-useFilesFromFirmware", "value":"off"}');
+    config_runtime.webUseFilesFromFirmware = false;
   }
 }
 
@@ -959,7 +1085,6 @@ $(function() {            // main
   });
   $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
     if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
-      config_general.webserverTryGzipFirst = true;
       websock.send('{"command":"factory-reset-reboot"}');
       doReload(25000);
     }
@@ -977,11 +1102,8 @@ $(function() {            // main
   $(".button-dev-cmd-clear").on("click", function () {
     websock.send('{"command":"clear"}');
   });
-  $(".button-dev-extract-webdeveloper-files").on("click", function () {
-    websock.send('{"command":"dev-extract-webdeveloper-files"}');
-  });
   $(".button-dev-remove-webdeveloper-files").on("click", function () {
-    if (window.confirm("Persönliche Webserverentwicklungsdateien löschen. Sicher?")) {
+    if (window.confirm("Webserverentwicklungsdateien löschen (auch *.gz und *.md5). Sicher?")) {
       websock.send('{"command":"dev-remove-webdeveloper-files"}');
     }
   });
@@ -1006,8 +1128,23 @@ $(function() {            // main
   $(".button-dev-cmd-raise-exception7").on("click", function () {
     websock.send('{"command":"dev-raise-exception","value":7}');
   });
+  $(".button-dev-cmd-raise-exception8").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":8}');
+  });
+  $(".button-dev-cmd-raise-exception9").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":9}');
+  });
+  $(".button-dev-cmd-raise-exception10").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":10}');
+  });
+  $(".button-dev-cmd-raise-exception11").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":11}');
+  });
+  $(".button-dev-cmd-raise-exception12").on("click", function () {
+    websock.send('{"command":"dev-raise-exception","value":12}');
+  });
   $(".button-dev-remove-exceptiondumpsall").on("click", function () {
-    if (window.confirm("Log-Datei löschen. Sicher?")) {
+    if (window.confirm("Dump-Dateien löschen. Sicher?")) {
       websock.send('{"command":"dev-remove-exceptiondumpsall"}');
     }
   });
@@ -1018,7 +1155,7 @@ $(function() {            // main
   $("input[name='dhcp']").on("click", wifiDetails);
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
   $("input[name='developerModeEnabled']").on("click", developerModeEnabled);
-  $("input[name='webserverTryGzipFirst']").on("click", webserverTryGzipFirst);
+  $("input[name='webUseFilesFromFirmware']").on("click", webUseFilesFromFirmware);
   //$("input[name='smart_aktiv']").on("click", smart_mtr);
   $("input[name='use_auth']").on("click", authDetails);
   $(".button-upgrade").on("click", doUpgrade);      // firmware update

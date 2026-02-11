@@ -9,6 +9,7 @@ typedef struct {
 
     char ssid[32+1];                // max uint8_t[32] - see WiFi.begin(ssid, password);
     char wifipassword[64+1];        // max uint8_t[64] - see WiFi.begin(ssid, password);
+    int32_t channel;                // 2.4Ghz channels: 0(=auto) and 1 ... 13
 
     bool mdns;
     unsigned int rfpower;
@@ -33,7 +34,7 @@ public:
     bool inAPMode(void);
     bool isConnected(void);
     const NetworkConfigWifi_t &getConfigWifi();
-    void startMDNSIfNeeded();
+    void restartMDNSIfNeeded();
 
 private:
     WiFiEventHandler _onStationModeGotIP;
@@ -44,7 +45,7 @@ private:
     bool loadConfigWifi(NetworkConfigWifi_t &config);
     bool loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config);
 
-    String getHostname(const char *hostname);
+    String getValidHostname(const char *hostname);
 
     Ticker _tickerReconnect;
 

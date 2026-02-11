@@ -1,17 +1,14 @@
 #include "ProjectConfiguration.h"
 
 #include "proj.h"
-//#define DEBUG
-#include "debug.h"
-
 
 #include "AmisReader.h"
 #include "Application.h"
+#include "Databroker.h"
 #include "Exception.h"
-#include "FileBlob.h"
 #include "LedSingle.h"
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
 #include "ModbusSmartmeterEmulation.h"
 #include "ShellySmartmeterEmulation.h"
 #include "Mqtt.h"
@@ -24,19 +21,7 @@
 #include "Utils.h"
 #include "WatchdogPing.h"
 #include "Webserver.h"
-
-
-extern const char *__COMPILED_DATE_TIME_UTC_STR__;
-extern const char *__COMPILED_GIT_HASH__;
-extern const char *__COMPILED_GIT_BRANCH__;
-
-#if DEBUGHW==1
-    WiFiServer dbg_server(10000);
-    WiFiClient dbg_client;
-#endif
-#ifdef STROMPREIS
-String strompreis="";
-#endif // strompreis
+#include "__compiled_constants.h"
 
 
 extern void historyInit();
@@ -54,17 +39,12 @@ unsigned last_mon_in;
 unsigned last_mon_out;
 uint8_t updates;
 String latestYYMMInHistfile;
-#if DEBUGHW>0
-  char dbg[128];
-  String dbg_string;
-#endif // DEBUGHW
 kwhstruct kwh_hist[7];
 bool doSerialHwTest=false;
 
 // Funktion __get_adc_mode() ( mittels Macro ADC_MODE() ) muss hier definiert werden,
 // ansonsten liefert ESP.getVcc() später keine gültigen Werte
 ADC_MODE(ADC_VCC);
-
 
 void setup() {
     /*
@@ -75,14 +55,8 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-   
-    #if DEBUGHW==2
-        #if DEBUG_OUTPUT==0
-            Serial.begin(115200);
-        #elif DEBUG_OUTPUT==1
-            Serial1.begin(115200);
-        #endif
-    #endif // DEBUGHW
+
+    Exception_InstallPostmortem(1);
 
 #ifdef AP_PIN
     pinMode(AP_PIN, INPUT_PULLUP);
@@ -102,20 +76,22 @@ void setup() {
 
     // Init logging
     Log.init("eventlog.json");
-    Log.setModules(LOGMODULE_BIT_ALL);
-    Log.setLoglevel(LOGLEVEL_INFO);
+    Log.setLoglevel(CONFIG_LOG_DEFAULT_LEVEL, LOGMODULE_ALL);
 
     // Log some booting information
-    DOLOG_IP("System starting...");
-    DOLOG_IP("  " APP_NAME " Version " APP_VERSION_STR);
-    DOLOG_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
-    DOLOG_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
-    DOLOG_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
-    DOLOG_IP("  PIO environment " PIOENV);
-    DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
+    LOG_PRINT_IP("System starting...");
+    LOG_PRINT_IP("  " APP_NAME " Version " APP_VERSION_STR);
+    LOG_PRINTF_IP("  Compiled [UTC] %s", __COMPILED_DATE_TIME_UTC_STR__);
+    LOG_PRINTF_IP("  Git branch %s", __COMPILED_GIT_BRANCH__);
+    LOG_PRINTF_IP("  Git version/hash %s", __COMPILED_GIT_HASH__);
+    LOG_PRINT_IP("  PIO environment " PIOENV);
+    //DOLOG_IP("  Reset reason %s", ESP.getResetReason().c_str());
+    LOG_PRINTF_IP("  Reset info %s", ESP.getResetInfo().c_str());
 
-    // Sichern des letzten Crashes
-    Exception_DumpLastCrashToFile();
+    if (!Application.inAPMode()) {
+        // Sichern des letzten Crashes ... auch das machen wir nur im "Normalbetrieb"
+        Exception_DumpLastCrashToFile();
+    }
 
     // Set timezone to CET/CEST
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
@@ -129,17 +105,11 @@ void setup() {
     Config.loadConfigGeneral();
 
     if (!Config.log_sys) {
-        Log.setLoglevel(LOGLEVEL_NONE);
+        Log.setLoglevel(LOGLEVEL_NONE, LOGMODULE_ALL);
     }
 
     // im Mqtt.init() wird die mqtt-config geladen
     Mqtt.init();
-
-    // Extraktion der Files für den Webserver vorbereiten
-    // Alle Dateien zu extrahieren dauert zu lange (HardwareWatchdok wir d ausgelöst)
-    // Deswegen passiert die eigentlich extraktion dann erst in der loop()
-    FileBlobs.init();
-    FileBlobs.checkIsChanged();
 
     // Starten wir mal den AMIS-Reader
     AmisReader.init(AMISREADER_SERIAL_NO);  // Init mit Serieller Schnittstellennummer
@@ -149,7 +119,17 @@ void setup() {
 
     Config.applySettingsConfigGeneral();
 
-  // Start Network
+    // Developer: Enable verbose logging on some modules
+#if 0
+    Log.setLoglevel(LOGLEVEL_VERBOSE, LOGMODULE_AMISREADER);
+    Log.setLoglevel(LOGLEVEL_VERBOSE, LOGMODULE_MODBUS);
+    Log.setLoglevel(LOGLEVEL_VERBOSE, LOGMODULE_MQTT);
+    Log.setLoglevel(LOGLEVEL_VERBOSE, LOGMODULE_THINGSPEAK);
+    Log.setLoglevel(LOGLEVEL_VERBOSE, LOGMODULE_WATCHDOGPING);
+    Log.setLoglevel(LOGLEVEL_VERBOSE, LOGMODULE_REMOTEONOFF);
+#endif
+
+    // Start Network
     Network.init(Application.inAPMode());
     NetworkConfigWifi_t networkConfigWifi = Network.getConfigWifi();
     Network.connect();
@@ -159,15 +139,13 @@ void setup() {
 
     // Webserver ... damit wir auch was machen können
     Webserver.init();    // Unter "/"" wird die "/index.html" ausgeliefert, "/update" ist eine statische fixe Seite
-
-    Webserver.setCredentials(Config.use_auth, Config.auth_user, Config.auth_passwd);
-    Webserver.setTryGzipFirst(Config.webserverTryGzipFirst); // webserverTryGzipFirst sollte hier true sein (lesen wir nicht aus der config)
+    Webserver.reloadCredentials();
 
     // Modbus Smart Meter Emulator
     ModbusSmartmeterEmulation.init();
     if (Config.smart_mtr) {
         ModbusSmartmeterEmulation.enable();
-        LOG_VP("ModbusSmartmeterEmulation enabled");
+        LOG_DP("ModbusSmartmeterEmulation enabled");
     }
 
     // Shelly Smart Meter Emulator
@@ -183,7 +161,7 @@ void setup() {
     WatchdogPing.config(networkConfigWifi.pingrestart_ip, networkConfigWifi.pingrestart_interval, networkConfigWifi.pingrestart_max);
     if (networkConfigWifi.pingrestart_do) {
         WatchdogPing.enable();
-        LOG_VP("WatchdogPing enabled");
+        LOG_DP("WatchdogPing enabled");
     }
 
     // Netzwerksteckdose (On/Off via Netzwerk)
@@ -194,7 +172,7 @@ void setup() {
     // ThingSpeak Datenupload
     ThingSpeak.init();
     ThingSpeak.setInterval(Config.thingspeak_iv);
-    ThingSpeak.setApiKeyWriite(Config.write_api_key);
+    ThingSpeak.setApiKeyWrite(Config.write_api_key);
     ThingSpeak.setEnabled(Config.thingspeak_aktiv);
 
     // Reboot um Mitternacht?
@@ -202,40 +180,17 @@ void setup() {
     RebootAtMidnight.config();
     if (Config.reboot0) {
         RebootAtMidnight.enable();
-        LOG_VP("RebootAtMidnight enabled");
+        LOG_DP("RebootAtMidnight enabled");
     }
 
     secTicker.attach_scheduled(1, secTick);
 
-    LOG_IP("System setup completed, running");
-
     SYSTEMMONITOR_STAT();
+
+    LOG_IP("System setup completed, running");
 }
 
 void loop() {
-#if DEBUGHW==1
-    if (dbg_string.length()) {          // Debug-Ausgaben TCP
-        dbg_string+="\n";
-        if (!dbg_client.connected()) dbg_client.stop();
-        if (!dbg_client) dbg_client = dbg_server.available();
-        if (dbg_client)  dbg_client.print(dbg_string);
-        dbg_string="";
-    }
-#elif DEBUGHW==2
-    if (dbg_string.length()) {          // Debug-Ausgaben Serial
-        S.print(dbg_string);
-        dbg_string="";
-    }
-#elif DEBUGHW==3
-    if (dbg_string.length()) {          // Debug-Ausgaben Websock
-        ws.text(clientId,dbg_string);
-        //Serial1.println(dbg_string);
-        dbg_string="";
-    }
-#endif
-
-    FileBlobs.loop();
-
     Reboot.loop();
 
     if (ws->count()) {      // ws-connections
@@ -250,6 +205,7 @@ void loop() {
     Log.loop(); // Eine Seite des Logfiles an einen Websocket client senden
 
     LedBlue.loop();
+
     WatchdogPing.loop();
 
     MDNS.update();
@@ -262,12 +218,13 @@ void loop() {
         Serial.flush();
         doSerialHwTest = false;
     }
+
     SYSTEMMONITOR_STAT();
 }
 
 
 static void writeHistFileIn(int x, uint32_t val) {
-    DBGOUT("hist_in "+String(x)+" "+String(val)+"\n");
+    LOGF_VP("writeHistFileIn(): /hist_in%d = %" PRIu32, x, val);
     File f = LittleFS.open("/hist_in"+String(x), "w");
     if (f) {
         f.print(val);
@@ -276,7 +233,7 @@ static void writeHistFileIn(int x, uint32_t val) {
 }
 
 static void writeHistFileOut(int x, uint32_t val) {
-    DBGOUT("hist_out "+String(x)+" "+String(val)+"\n");
+    LOGF_VP("writeHistFileOut(): /hist_out%d = %" PRIu32, x, val);
     File f = LittleFS.open("/hist_out"+String(x), "w");
     if (f) {
         f.print(val);
@@ -328,19 +285,19 @@ static void secTick() {
         }
     }
 
-    if (valid==5) {
+    if (Databroker.valid==5) {
         if (first_frame==3) { // 1. Zählerdatensatz nach reset
             first_frame=2;      // nächste action beim nächsten secTick
             int x=dow-2;        // gestern
             if (x < 0) x=6;
             if (x>6) x=0;
             if (kwh_day_in[x] ==0) {          // gestern noch keine Werte: momentanen Stand wegschreiben
-                kwh_day_in[x]=a_result[0];      // 1.8.0 Bezug
-                writeHistFileIn(x,a_result[0]);
+                kwh_day_in[x] = Databroker.results_u32[0];      // 1.8.0 Bezug
+                writeHistFileIn(x, Databroker.results_u32[0]);
             }
             if (kwh_day_out[x] ==0) {         // gestern noch keine Werte: momentanen Stand wegschreiben
-                kwh_day_out[x]=a_result[1];     // 2.8.0 Lieferung
-                writeHistFileOut(x,a_result[1]);
+                kwh_day_out[x] = Databroker.results_u32[1];     // 2.8.0 Lieferung
+                writeHistFileOut(x, Databroker.results_u32[1]);
             }
             dow_local=dow;
             String s=String(mon);
@@ -349,7 +306,7 @@ static void secTick() {
             }
             s=String(myyear)+s;
             if (s.compareTo(latestYYMMInHistfile)!=0) {
-                latestYYMMInHistfile = appendToMonthFile(myyear,mon, a_result[0], a_result[1]);  // Monat noch nicht im File
+                latestYYMMInHistfile = appendToMonthFile(myyear,mon, Databroker.results_u32[0], Databroker.results_u32[1]);  // Monat noch nicht im File
             }
             mon_local=mon;
         } else if (first_frame==2) {        // Wochentabelle Energie erzeugen
@@ -387,13 +344,13 @@ static void secTick() {
         if (dow_local != dow) {           // Tageswechsel, dow 1..7
             int x=dow-2;                    // gestern, idx ab 0
             if (x < 0) x=6;                 // x zeigt auf gestern
-            kwh_day_in[x]=a_result[0];      // 1.8.0
-            writeHistFileIn(x,a_result[0]);
-            kwh_day_out[x]=a_result[1];     // 2.8.0
-            writeHistFileOut(x,a_result[1]);
+            kwh_day_in[x] = Databroker.results_u32[0];      // 1.8.0
+            writeHistFileIn(x, Databroker.results_u32[0]);
+            kwh_day_out[x] = Databroker.results_u32[1];     // 2.8.0
+            writeHistFileOut(x, Databroker.results_u32[1]);
             dow_local=dow;
             if (mon_local != mon) {         // Monatswechsel
-                latestYYMMInHistfile = appendToMonthFile(myyear, mon, a_result[0], a_result[1]);
+                latestYYMMInHistfile = appendToMonthFile(myyear, mon, Databroker.results_u32[0], Databroker.results_u32[1]);
                 mon_local=mon;
             }
             first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen

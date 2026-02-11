@@ -2,8 +2,9 @@
 #include "ThingSpeak.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_THINGSPEAK
+#define LOGMODULE   LOGMODULE_THINGSPEAK
 #include "Network.h"
+#include "Utils.h"
 
 void ThingSpeakClass::init()
 {
@@ -23,6 +24,12 @@ void ThingSpeakClass::enable()
     }
     _enabled = true;
     _readerValues.isValid = false; // force fresh data
+
+    if (_apiKeyWrite[0] == 0) {
+        _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
+    } else {
+        _lastResult = F("Warte auf gültige Daten");
+    }
 
     uint32_t now = millis();
     if (now < 30000) {
@@ -53,17 +60,20 @@ void ThingSpeakClass::setInterval(unsigned int intervalSeconds)
     _intervalMs = (uint32_t)intervalSeconds * 1000ul;
 }
 
-void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
+void ThingSpeakClass::setApiKeyWrite(const char *apiKeyWrite)
 {
-    if (_apiKeyWrite.compareTo(apiKeyWrite) == 0) {
+    if (!strncmp(_apiKeyWrite, apiKeyWrite, sizeof(_apiKeyWrite))) {
         return;
     }
-    _apiKeyWrite = apiKeyWrite;
+    strlcpy(_apiKeyWrite, apiKeyWrite, sizeof(_apiKeyWrite));
     if (!_enabled) {
         return;
     }
 
     _readerValues.isValid = false; // force fresh data
+    if (_apiKeyWrite[0] == 0) {
+        _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
+    }
 
     uint32_t now = millis();
     if (now < 30000) {
@@ -73,7 +83,7 @@ void ThingSpeakClass::setApiKeyWriite(const String &apiKeyWrite)
     }
 }
 
-void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, const char *timecode)
+void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, time_t ts)
 {
     if (!_enabled) {
         return;
@@ -83,10 +93,10 @@ void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, cons
         return;
     }
 
-    for(size_t i=0; i<8; i++) {
+    for(size_t i=0; i<std::size(_readerValues.values); i++) {
         _readerValues.values[i] = *readerValues++;
     }
-    memcpy(_readerValues.timeCode, timecode, sizeof(_readerValues.timeCode));
+    _readerValues.ts = ts;
 
     /* Wir müssen vom Interval noch eine Sekunde abziehen, da wir jede Sekunde neue Werte bekommen
        und das Versenden ebenfalls etwas Zeit braucht.
@@ -109,14 +119,23 @@ void ThingSpeakClass::sendData()
         return;
     }
 
-    if (_apiKeyWrite.isEmpty()) {
+    if (_apiKeyWrite[0] == 0) {
         //_lastResult = "No ThingSpeak Write API Key configured.";
-        _lastResult = "Kein ThingSpeak Write API Key angegeben.";
+        _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
         _lastSentMs = millis();
         return;
     }
 
     _client.stop();
+
+    if (!Network.isConnected()) {
+        // Kein Netzwerk ... brauchen wir auch nichts senden
+        LOG_DP("Skipping - network not connected.");
+        _lastResult = F("Keine WiFi Netzwerkverbindung");
+        _lastSentMs = millis() - _intervalMs + 10000;
+        // Fühestens in 10 Sekunden wieder probieren
+        _ticker.once_ms_scheduled(10000, std::bind(&ThingSpeakClass::sendData, this));
+    }
 
 #if (THINGSPEAK_USE_SSL)
     #warning "Enabling SSL needs a lot of CPU. System may become unresponsible!"
@@ -131,25 +150,25 @@ void ThingSpeakClass::sendData()
         return;
     }
 #else
+    LOG_DP("Connecting to 'api.thingspeak.com'...");
     if (!_client.connect("api.thingspeak.com", 80)) {
-        //_lastResult = "Connecting http://api.thingspeak.com failed.";
-        //_lastResult = "Verbindung zu http://api.thingspeak.com fehlgeschlagen.";
+        //_lastResult = F("Connecting http://api.thingspeak.com failed.");
+        _lastResult = F("Verbindung zu http://api.thingspeak.com fehlgeschlagen.");
         LOG_EP("Connecting 'api.thingspeak.com' failed.");
         return;
     }
+    LOG_DP("Connected to 'api.thingspeak.com'.");
 #endif
 
-    String data = "api_key=" + _apiKeyWrite;
-#ifdef STROMPREIS
-    for (size_t i=0; i<7; i++) {
-        data += "&field" + String(i+1) + "=" + String(a_result[i]);
-    }
-    data += "&field8=" + strompreis;
-#else
-    for (size_t i=0; i<8; i++) {
+    String data = "api_key=" + String(_apiKeyWrite);
+    for (size_t i=0; i<std::size(_readerValues.values); i++) {
         data += "&field" + String(i+1) + "=" + String(_readerValues.values[i]);
     }
-#endif // strompreis
+    if (IFLOG_V()) {
+        LOG_PRINTF_VP("Sending data: '%s' ...", Utils::escapeJson(data.c_str(), data.length(), 0xffffffff).c_str());
+    } else {
+        LOG_DP("Sending data ...");
+    }
     _client.print(F("POST /update HTTP/1.1\r\n"
                   "Host: api.thingspeak.com\r\n"
                   "Connection: close\r\n"
@@ -157,8 +176,9 @@ void ThingSpeakClass::sendData()
                   "Content-Length: ")); _client.print(String(data.length()));  _client.print("\r\n"
                   "\r\n");
     _client.print(data);
-    //DBGOUT(data+"\n");
-    _lastResult = _readerValues.timeCode;
+
+    LOG_DP("Data sent.");
+    _lastResult = String(static_cast<uint32_t>(_readerValues.ts), HEX);
     _lastSentMs = millis();
 }
 

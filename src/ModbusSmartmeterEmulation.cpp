@@ -1,7 +1,7 @@
 #include "ModbusSmartmeterEmulation.h"
 
 #include "Log.h"
-#define LOGMODULE   LOGMODULE_BIT_MODBUS
+#define LOGMODULE   LOGMODULE_MODBUS
 #include "Network.h"
 #include "SystemMonitor.h"
 #include "UA.h"
@@ -258,7 +258,7 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
 void ModbusSmartmeterEmulationClass::clientOnClient(void* arg, AsyncClient* client)
 {
     UNUSED_ARG(arg);
-    //eprintf("[Fronius] new client has been connected to server, ip: %s\n", client->remoteIP().toString().c_str());
+    LOGF_VP("New client has been connected to server, ip: " PRsIP, PRIPVal(client->remoteIP()));
     if (_clientsConnectedCnt++ == 0) {
         // First client connected so prepare internal Modbus register buffer with our actual values
         setCurrentValues(_currentValues.dataAreValid,
@@ -317,33 +317,29 @@ void ModbusSmartmeterEmulationClass::disable(void)
 void ModbusSmartmeterEmulationClass::clientOnError(void* arg, AsyncClient* client, int8_t error)
 {
     UNUSED_ARG(arg);
-    UNUSED_ARG(client);
-    UNUSED_ARG(error);
-    //eprintf("[Fronius] connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+    LOGF_VP("Connection error %s from client " PRsIP, client->errorToString(error), PRIPVal(client->remoteIP()));
 }
 
 void ModbusSmartmeterEmulationClass::clientOnDisconnect(void* arg, AsyncClient* client)
 {
     UNUSED_ARG(arg);
-    UNUSED_ARG(client);
-    //eprintf("[Fronius] client %s disconnected \n", client->remoteIP().toString().c_str());
     if (_clientsConnectedCnt) {
         _clientsConnectedCnt--;
     }
+    LOGF_VP("Client " PRsIP " disconnected", PRIPVal(client->remoteIP()));
 }
 
 void ModbusSmartmeterEmulationClass::clientOnTimeOut(void* arg, AsyncClient* client, uint32_t time)
 {
     UNUSED_ARG(arg);
-    UNUSED_ARG(client);
     UNUSED_ARG(time);
-    //eprintf("[Fronius] client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
+    LOGF_VP("Client ACK timeout ip:" PRsIP, PRIPVal(client->remoteIP()));
 }
 
 void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client, void *data, size_t len)
 {
     UNUSED_ARG(arg);
-    //eprintf("[Fronius] Poll IP:%s\n",client->remoteIP().toString().c_str());
+    LOGF_VP("Client " PRsIP " requests data", PRIPVal(client->remoteIP()));
     if (!_currentValues.dataAreValid) {
         // nur beantworten wenn gültige Zählerdaten vorhanden
         client->close(false);
@@ -395,7 +391,7 @@ void ModbusSmartmeterEmulationClass::clientOnData(void* arg, AsyncClient* client
 
     // Logging des headers
     const uint8_t * header = (const uint8_t*) data;
-    LOG_DP("MBAP Header(%d):"      // 14B + %d
+    LOGF_VP("MBAP Header(%d):"      // 14B + %d
             " %02x %02x %02x %02x"  // 4*3B
             " %02x %02x %02x %02x"  // 4*3B
             " %02x %02x %02x %02x", // 4*3B + 1B

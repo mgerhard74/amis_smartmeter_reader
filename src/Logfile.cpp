@@ -8,11 +8,15 @@
 #include <stdarg.h>
 
 
-#define LOGMODULE   LOGMODULE_BIT_SYSTEM
+#define LOGMODULE   LOGMODULE_SYSTEM
+
+#define LOGFILE_LINE_LEN_MAX    768
+
+extern AsyncWebSocket *ws;
 
 static bool fileSkipLines(File &f, uint32_t lines)
 {
-    size_t rlen;
+    size_t rlen, linelen = 0;
     char buffer[128];
 
     for (;lines != 0;) {
@@ -26,6 +30,11 @@ static bool fileSkipLines(File &f, uint32_t lines)
                 if (lines == 0) {
                     f.seek(-rlen + i, SeekCur);
                     break;
+                }
+                linelen = 0;
+            } else {
+                if (++linelen > LOGFILE_LINE_LEN_MAX) {
+                    return false;
                 }
             }
         }
@@ -63,17 +72,16 @@ void LogfileClass::_prevFilename(unsigned int prevNo, char f[LFS_NAME_MAX])
     if (ext == f) {
         ext = &empty;
     } else {
-        ext[-1] = 0;  // ext now points to eg : "txt"
-    }
-
-    // ".prev01." + ext ==> 8 + strlen(ext) + '\0'
-    while(strlen(f) + strlen(ext) + 8 + 1 > LFS_NAME_MAX) {
-        f[strlen(f)-1] = 0;
+        ext[-1] = 0;  // ext now points to eg : "txt" and _f had no extension anymore
     }
 
     char newExtension[LFS_NAME_MAX];
-    snprintf(newExtension, sizeof(newExtension), ".prev%u.%s", prevNo, ext);
-    strcat(f, newExtension); // NOLINT
+    snprintf_P(newExtension, sizeof(newExtension), PSTR(".prev%u.%s"), prevNo, ext);
+
+    // strip f so that the new extension can be appended
+    f[LFS_NAME_MAX - strlen(newExtension) - 1] = 0;
+
+    strlcat(f, newExtension, LFS_NAME_MAX);
 }
 
 
@@ -82,7 +90,7 @@ void LogfileClass::init(const char *filename)
     strlcpy(_filename, filename, std::size(_filename));
     _reset();
 }
-extern AsyncWebSocket *ws;
+
 void LogfileClass::loop()
 {
     // Send requested pages of the log file to a client
@@ -94,7 +102,9 @@ void LogfileClass::loop()
 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
+    root["entries"] = noOfEntries();
     root["pages"] = noOfPages();
+    root["size"] = _size;
     _requestedLogPageClient_t request = requestedLogPageClients.front();
     // Adapt pagno to be in valid range
     if (request.pageNo == 0) {
@@ -103,9 +113,9 @@ void LogfileClass::loop()
         request.pageNo = noOfPages();
     }
     root["page"] = request.pageNo;
+    JsonArray &loglines = root.createNestedArray("loglines");
 
     if (_noOfEntriesInFile) {
-        JsonArray &items = root.createNestedArray("list");
         File f = LittleFS.open(_filename, "r");
         if (f) {
             uint32_t firstEntry, lastEntry;
@@ -113,7 +123,7 @@ void LogfileClass::loop()
             _pageToEntries(request.pageNo, firstEntry, lastEntry);
             if (fileSkipLines(f, firstEntry-1) ) {
                 for(uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
-                    items.add(f.readStringUntil('\n'));
+                    loglines.add(f.readStringUntil('\n'));
                 }
             }
             f.close();
@@ -122,6 +132,7 @@ void LogfileClass::loop()
 
     String buffer;
     root.printTo(buffer);
+    jsonBuffer.clear();
     if (!request.webSocket->text(request.clientId, buffer)) {
         LOG_EP("Could not send logfile via websocket.");
     }
@@ -184,16 +195,59 @@ void LogfileClass::loop()
 #endif
 }
 
+void LogfileClass::remove(bool allPrevious)
+{
+    LittleFS.remove(_filename);
+    _size = 0xffffffff;
+
+    if (allPrevious) {
+        char filenamePrev[LFS_NAME_MAX];
+        for (unsigned int prev=1; prev < _keepPreviousFiles; prev++) {
+            _prevFilename(prev, filenamePrev);
+            LittleFS.remove(filenamePrev);
+        }
+    }
+}
+
 void LogfileClass::_reset()
 {
     requestedLogPageClients.clear();
-    logMask = LOGMODULE_BIT_ALL | LOGTYPE_BIT_ALL;
+    for (size_t i = 0; i < std::size(_logLevelBits); i++) {
+        _logLevelBits[i] = CONFIG_LOG_DEFAULT_LEVEL;
+    }
     _size = 0xffffffff;
 }
 
 
-extern char timecode[13];
-void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...)
+static const char* _moduleNames[LOGMODULE_LAST+1] = {
+    "setup",
+    "network",
+    "reader",
+    "update",
+    "modbus",
+    "thingspeak",
+    "mqtt",
+    "system",
+    "webserver",
+    "rebootAtMidnight",
+    "websocket",
+    "watchdogPing",
+    "remoteOnOff",
+    "shelly"
+};
+const char *LogfileClass::_getModuleName(uint32_t module)
+{
+    if (module == LOGMODULE_ALL) {
+        return "ALL";
+    }
+    if (module >= std::size(_moduleNames)) {
+        return "UNDEFINED";
+    }
+    return _moduleNames[module];
+}
+
+
+void LogfileClass::printf(uint32_t type, uint32_t module, bool use_progmem, const char *format, ...)
 {
     va_list args;
     uint32_t entries = noOfEntries();
@@ -222,39 +276,12 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
         typeChar = 'I';
     }
 
-    const char *modulName = "";
-    if (module & LOGMODULE_BIT_SETUP) {
-        modulName = "setup";
-    } else if (module & LOGMODULE_BIT_NETWORK) {
-        modulName = "network";
-    } else if (module & LOGMODULE_BIT_AMISREADER) {
-        modulName = "reader";
-    } else if (module & LOGMODULE_BIT_MODBUS) {
-        modulName = "modbus";
-    } else if (module & LOGMODULE_BIT_THINGSPEAK) {
-        modulName = "thingspeak";
-    } else if (module & LOGMODULE_BIT_MQTT) {
-        modulName = "mqtt";
-    } else if (module & LOGMODULE_BIT_SYSTEM) {
-        modulName = "system";
-    } else if (module & LOGMODULE_BIT_WEBSERVER) {
-        modulName = "webserver";
-    } else if (module & LOGMODULE_BIT_UPDATE) {
-        modulName = "update";
-    } else if (module & LOGMODULE_BIT_REBOOTATMIDNIGHT) {
-        modulName = "rebootAtMidnight";
-    } else if (module & LOGMODULE_BIT_WEBSSOCKET) {
-        modulName = "websocket";
-    } else if (module & LOGMODULE_BIT_WATCHDOGPING) {
-        modulName = "watchdogPing";
-    } else if (module & LOGMODULE_BIT_REMOTEONOFF) {
-        modulName = "remoteOnOff";
-    }
 
 #if 0
 // neues Format
     // Type[IWEVD] Module[Name] millis() time() message
-    _size += f.printf("%c %s %lu %llu", typeChar, modulName, millis(), time(NULL));
+    // [18:04:50.591] V (7493926) temperature: Raw temperature value: 103
+    _size += f.printf("%llu %c (%lu) %s: %s", time(NULL), typeChar, _getModuleName(module), millis(), "daten");
     va_start(args, format);
     if (use_progmem) {
         _size += f.printf_P(format, args);
@@ -268,20 +295,20 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
     #include "unused.h"
     UNUSED_ARG(typeChar);
 
-    const char *t="";
+    const char *typeStr = "";
     if (type & LOGTYPE_BIT_ERROR) {
-        t = "ERROR";
+        typeStr = "ERROR";
     } else if (type & LOGTYPE_BIT_WARN) {
-        t = "WARN";
+        typeStr = "WARN";
     } else if (type & LOGTYPE_BIT_DEBUG) {
-        t = "DEBUG";
+        typeStr = "DEBUG";
     } else if (type & LOGTYPE_BIT_VERBOSE) {
-        t = "VERBOSE";
+        typeStr = "VERBOSE";
     } else if (type & LOGTYPE_BIT_INFO) {
-        t = "INFO";
+        typeStr = "INFO";
     }
 
-    char temp[128];
+    char temp[192];
     char* buffer = temp;
     size_t len;
     va_start(args, format);
@@ -305,10 +332,9 @@ void LogfileClass::log(uint32_t type, uint32_t module, bool use_progmem, const c
         va_end(args);
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
-    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","time":"%s","data":"","desc":"%s"})",
-                (unsigned int) millis(), t, modulName, timecode, buffer);
+    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","ts":%llu,"desc":"%s"})" "\n",
+                (unsigned int) millis(), typeStr, _getModuleName(module), time(NULL), buffer);
     va_end(args);
-    _size += f.write('\n');
 
     if (buffer != temp) {
         delete[] buffer;
@@ -362,10 +388,10 @@ uint32_t LogfileClass::noOfEntries()
         return _noOfEntriesInFile;
     }
 
-    // Set the size
+    // Get the size
     _size = f.size();
 
-    // Do not count if we're already to big!
+    // Do not count entries if we're already to big!
     if (_maxSize && _size >= _maxSize) {
         f.close();
         _startNewFile();
@@ -373,16 +399,25 @@ uint32_t LogfileClass::noOfEntries()
     }
 
     // Count number of entries
-    size_t rlen;
+    size_t rlen, linelen = 0;
     char buffer[128];
     for(;;) {
         rlen = f.readBytes(buffer, std::size(buffer));
         if (rlen == 0) {
-            return false;
+            break;
         }
         for (size_t i=0; i<rlen; ) {
             if (buffer[i++] == '\n') {
                 _noOfEntriesInFile++;
+                linelen = 0;
+            } else {
+                if (++linelen > LOGFILE_LINE_LEN_MAX) {
+                    // something is wrong with this logfile - it could blast our memory
+                    // so: start a new logfile
+                    f.close();
+                    _startNewFile();
+                    return _noOfEntriesInFile;
+                }
             }
         }
 
@@ -396,10 +431,10 @@ bool LogfileClass::websocketRequestPage(AsyncWebSocket *webSocket, uint32_t clie
 {
 #if 1
     if (requestedLogPageClients.size() >= _requestedLogPageClientsMax) {
-        LOG_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
+        LOGF_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
         return false;
     }
-    LOG_VP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
+    LOGF_DP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
     _requestedLogPageClient_t newRequest;
     newRequest.webSocket = webSocket;
     newRequest.clientId = clientId;
@@ -441,68 +476,117 @@ void LogfileClass::_pageToEntries(uint32_t pagNo, uint32_t &entryFrom, uint32_t 
 }
 
 
-void LogfileClass::setTypes(uint32_t types)
+void LogfileClass::setLogLevelBits(uint32_t loglevelbits, uint32_t module)
 {
-    logMask &= (~LOGTYPE_BIT_ALL);
-    logMask |= (types & LOGTYPE_BIT_ALL);
-}
-void LogfileClass::enableType(uint32_t type)
-{
-    logMask |= (type & LOGTYPE_BIT_ALL);
-}
-void LogfileClass::disableType(uint32_t type)
-{
-    logMask &= (~(type & LOGTYPE_BIT_ALL));
-}
-void LogfileClass::setModules(uint32_t modules)
-{
-    logMask &= (~LOGMODULE_BIT_ALL);
-    logMask |= (modules & LOGMODULE_BIT_ALL);
-}
-void LogfileClass::enableModule(uint32_t module)
-{
-    logMask |= (module & LOGMODULE_BIT_ALL);
-}
-void LogfileClass::disableModule(uint32_t module)
-{
-    logMask &= (~(module & LOGMODULE_BIT_ALL));
+    size_t i, m;
+
+    LOGF_DP("Called setLogLevelBits(0x%02x, 0x%02x[=%s]);", loglevelbits, module, _getModuleName(module));
+
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return;
+    }
+    for(; i < m; i++) {
+        _logLevelBits[i] = loglevelbits;
+    }
 }
 
-void LogfileClass::setLoglevel(uint32_t loglevel)
+#if (LOG_ENABLE_UNNEEDED_FUNCTIONS)
+void LogfileClass::enableLogLevelBits(uint32_t loglevelbits, uint32_t module)
 {
-    uint32_t logtypes = LOGTYPE_BIT_NONE;
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return;
+    }
+    for(; i < m; i++) {
+        _logLevelBits[i] |= loglevelbits;
+    }
+}
+void LogfileClass::disableLogLevelBits(uint32_t loglevelbits, uint32_t module)
+{
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return;
+    }
+    for(; i < m; i++) {
+        _logLevelBits[i] &= (~loglevelbits);
+    }
+}
+#endif
+
+void LogfileClass::setLoglevel(uint32_t loglevel, uint32_t module)
+{
+    uint32_t loglevelbits = LOGTYPE_BIT_NONE;
     if (loglevel >= LOGLEVEL_VERBOSE) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG | LOGTYPE_BIT_VERBOSE;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG | LOGTYPE_BIT_VERBOSE;
     } else if (loglevel >= LOGLEVEL_DEBUG) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO | LOGTYPE_BIT_DEBUG;
     } else if (loglevel >= LOGLEVEL_INFO) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN | LOGTYPE_BIT_INFO;
     } else if (loglevel >= LOGLEVEL_WARNING) {
-        logtypes = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN;
+        loglevelbits = LOGTYPE_BIT_ERROR | LOGTYPE_BIT_WARN;
     } else if (loglevel >= LOGLEVEL_ERROR) {
-        logtypes = LOGTYPE_BIT_ERROR;
+        loglevelbits = LOGTYPE_BIT_ERROR;
     }
-    setTypes(logtypes);
+    setLogLevelBits(loglevelbits, module);
 }
-uint32_t LogfileClass::getLoglevel()
+
+
+#if (LOG_ENABLE_UNNEEDED_FUNCTIONS)
+#define MAX(A,B) (((A)>(B)) ?(A) :(B))
+uint32_t LogfileClass::getLoglevel(uint32_t module)
 {
-    if (logMask & LOGTYPE_BIT_VERBOSE) {
-        return LOGLEVEL_VERBOSE;
+    uint32_t loglevel=LOGLEVEL_NONE;
+
+    size_t i, m;
+    if (module == LOGMODULE_ALL) {
+        i = 0;
+        m = std::size(_logLevelBits);
+    } else if (module < std::size(_logLevelBits)) {
+        i = module;
+        m = module + 1;
+    } else {
+        return loglevel;
+
     }
-    if (logMask & LOGTYPE_BIT_DEBUG) {
-        return LOGLEVEL_DEBUG;
+    for(; i < m; i++) {
+        if (_logLevelBits[module] & LOGTYPE_BIT_VERBOSE) {
+            loglevel = LOGLEVEL_VERBOSE;
+            return loglevel;
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_DEBUG) {
+            loglevel = MAX(loglevel, LOGLEVEL_DEBUG);
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_INFO) {
+            loglevel = MAX(loglevel, LOGLEVEL_INFO);
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_WARN) {
+            loglevel = MAX(loglevel, LOGLEVEL_WARNING);
+        }
+        if (_logLevelBits[module] & LOGTYPE_BIT_ERROR) {
+            loglevel = MAX(loglevel, LOGLEVEL_ERROR);
+        }
     }
-    if (logMask & LOGTYPE_BIT_INFO) {
-        return LOGLEVEL_INFO;
-    }
-    if (logMask & LOGTYPE_BIT_WARN) {
-        return LOGLEVEL_WARNING;
-    }
-    if (logMask & LOGTYPE_BIT_ERROR) {
-        return LOGLEVEL_ERROR;
-    }
-    return LOGLEVEL_NONE;
+    return loglevel;
 }
+#endif
 
 
 LogfileClass Log;
