@@ -166,37 +166,37 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
         _reconnectTicker.once_scheduled(2, std::bind(&MqttBaseClass::doConnect, this));
     }
 
-    String reasonstr = "";
+    const char *reasonstr;
     switch (reason) {
     case(AsyncMqttClientDisconnectReason::TCP_DISCONNECTED):
-        reasonstr = F("TCP_DISCONNECTED");
+        reasonstr = PSTR("TCP_DISCONNECTED");
         break;
     case(AsyncMqttClientDisconnectReason::MQTT_UNACCEPTABLE_PROTOCOL_VERSION):
-        reasonstr = F("MQTT_UNACCEPTABLE_PROTOCOL_VERSION");
+        reasonstr = PSTR("MQTT_UNACCEPTABLE_PROTOCOL_VERSION");
         break;
     case(AsyncMqttClientDisconnectReason::MQTT_IDENTIFIER_REJECTED):
-        reasonstr = F("MQTT_IDENTIFIER_REJECTED");
+        reasonstr = PSTR("MQTT_IDENTIFIER_REJECTED");
         break;
     case(AsyncMqttClientDisconnectReason::MQTT_SERVER_UNAVAILABLE):
-        reasonstr = F("MQTT_SERVER_UNAVAILABLE");
+        reasonstr = PSTR("MQTT_SERVER_UNAVAILABLE");
         break;
     case(AsyncMqttClientDisconnectReason::MQTT_MALFORMED_CREDENTIALS):
-        reasonstr = F("MQTT_MALFORMED_CREDENTIALS");
+        reasonstr = PSTR("MQTT_MALFORMED_CREDENTIALS");
         break;
     case(AsyncMqttClientDisconnectReason::MQTT_NOT_AUTHORIZED):
-        reasonstr = F("MQTT_NOT_AUTHORIZED");
+        reasonstr = PSTR("MQTT_NOT_AUTHORIZED");
         break;
     case(AsyncMqttClientDisconnectReason::ESP8266_NOT_ENOUGH_SPACE):
-        reasonstr = F("ESP8266_NOT_ENOUGH_SPACE");
+        reasonstr = PSTR("ESP8266_NOT_ENOUGH_SPACE");
         break;
     case(AsyncMqttClientDisconnectReason::TLS_BAD_FINGERPRINT):
-        reasonstr = F("TLS_BAD_FINGERPRINT");
+        reasonstr = PSTR("TLS_BAD_FINGERPRINT");
         break;
     default:
-        reasonstr = F("Unknown");
+        reasonstr = PSTR("Unknown");
         break;
     }
-    LOGF_WP("Disconnected from server " PRsIP ":%" PRIu16 " reason=%s", PRIPVal(_brokerIp), _config.mqtt_port, reasonstr.c_str());
+    LOGF_WP("Disconnected from server " PRsIP ":%" PRIu16 " reason=%S", PRIPVal(_brokerIp), _config.mqtt_port, reasonstr);
 }
 
 
