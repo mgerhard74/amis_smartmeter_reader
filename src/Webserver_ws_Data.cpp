@@ -663,7 +663,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     //  root[F("heap_alloc_max")] = ESP.getMaxAllocHeap();
     root[F("flashspeed")] = ESP.getFlashChipSpeed();
     root[F("flashsize")] = ESP.getFlashChipSize();
-    root[F("flashmode")] = String(ESP.getFlashChipMode());
+    root[F("flashmode")] = static_cast<uint8_t>(ESP.getFlashChipMode());
 
     if (Network.inAPMode()) {
         wifi_get_ip_info(SOFTAP_IF, &info);

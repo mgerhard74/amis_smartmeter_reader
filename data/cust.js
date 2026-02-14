@@ -477,13 +477,14 @@ function updateElements(obj) {
     }
     else if (key === 'flashmode') {
       switch (value) {
-        case '0': value = 'QIO';break;
-        case '1': value = 'QOUT';break;
-        case '2': value = 'DIO';break;
-        case '3': value = 'DOUT';break;
-        case '4': value = 'FAST-READ';break;
-        case '5': value = 'SLOW-READ';break;
-        case '0xff': value = 'unknown';break;
+        case 0: value = 'QIO';break;
+        case 1: value = 'QOUT';break;
+        case 2: value = 'DIO';break;
+        case 3: value = 'DOUT';break;
+        case 4: value = 'FAST-READ';break;
+        case 5: value = 'SLOW-READ';break;
+        case 0xff: value = 'unknown';break;
+        default: value = 'undefined ' + value;break;
       }
     }
     else if (key === 'stations') {        // WiFi-Scan
