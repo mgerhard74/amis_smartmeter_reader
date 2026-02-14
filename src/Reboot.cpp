@@ -11,6 +11,7 @@
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "RemoteOnOff.h"
+#include "ShellySmartmeterEmulation.h"
 #include "ThingSpeak.h"
 
 #include <ESP8266mDNS.h>
@@ -43,6 +44,7 @@ bool RebootClass::startUpdateFirmware()
     AmisReader.end();
     Databroker.valid = 6;
     ModbusSmartmeterEmulation.disable();
+    ShellySmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
     MDNS.end();
@@ -69,6 +71,7 @@ bool RebootClass::startUpdateLittleFS()
     AmisReader.end();
     Databroker.valid = 6;
     ModbusSmartmeterEmulation.disable();
+    ShellySmartmeterEmulation.disable();
     ThingSpeak.disable();
     Mqtt.stop();
     MDNS.end();
@@ -108,6 +111,7 @@ void RebootClass::loop()
             break;
         case 6:
             ModbusSmartmeterEmulation.disable();
+            ShellySmartmeterEmulation.disable();
             break;
         case 7:
             LOG_PRINT_IP("System is going to reboot");
