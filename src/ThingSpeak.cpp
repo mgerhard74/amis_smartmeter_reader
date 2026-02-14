@@ -1,4 +1,3 @@
-
 #include "ThingSpeak.h"
 
 #include "Log.h"
