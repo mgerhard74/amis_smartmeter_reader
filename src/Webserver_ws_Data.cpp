@@ -32,6 +32,25 @@ static bool EEPROMClear();
 
 extern bool doSerialHwTest;
 
+extern "C" {
+    extern uint32_t _iram_start;
+    extern uint32_t _iram_end;              // sample:
+    extern uint32_t _text_start;            //  &_text_start        = 0x40100000
+    extern uint32_t _text_end;              //  &_text_end          = 0x40107409
+    extern uint32_t _irom0_text_start;      //  &_irom0_text_start  = 0x40201010
+    extern uint32_t _irom0_text_end;        //  &_irom0_text_end    = 0x402871a0
+/*
+    _dport0_rodata_start = ABSOLUTE(.);
+    _dport0_rodata_end = ABSOLUTE(.);
+    _dport0_literal_start = ABSOLUTE(.);
+    _dport0_literal_end = ABSOLUTE(.);
+    _dport0_data_start = ABSOLUTE(.);
+    _dport0_data_end = ABSOLUTE(.);
+    _flash_code_end // müsste gleich _irom0_text_end sein
+    _lit4_start
+    _lit4_end
+*/
+}
 
 AsyncWebSocket *ws;
 
@@ -585,8 +604,19 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // Crashes
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         //ws->text(client->id(), String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
-        String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname;
-        ws->text(client->id(), x);
+        LOGF_IP("TEXT %p %p", &_text_start, &_text_end);
+        LOGF_IP("IROM %p %p", &_irom0_text_start, &_irom0_text_end);
+        //LOGF_IP("TEXT 0x%08x 0x%08x", _text_start, _text_end);
+        //LOGF_IP("IROM 0x%08x 0x%08x", _irom0_text_start, _irom0_text_end);
+        //LOGF_IP("IRAM 0x%08x 0x%08x", _iram_start, _iram_end);
+        LOGF_IP("Filename=%p Funcname=%p", freeHeap.filename, freeHeap.functionname);
+        //LOGF_IP("Func=%s ", freeHeap.functionname);
+        //LOGF_IP("Filename=%s ", freeHeap.filename);
+        LOGF_IP("Func=%S ", freeHeap.functionname);
+        LOGF_IP("Filename=%S ", freeHeap.filename);
+
+        //String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
+        //ws->text(client->id(), x);
     } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         const SystemMonitorClass::statInfo_t freeStack = SystemMonitor.getFreeStack();
