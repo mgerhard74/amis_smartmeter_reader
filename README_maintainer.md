@@ -1,55 +1,72 @@
-# README for project maintainers
+# Maintainer Guide
 
-## github / github workflows
+This file contains maintainer-specific operational details.
+Contributor workflow, branch model and PR rules are documented in `CONTRIBUTING.md`.
 
-### cpplint - Static Sourcecode Validation
-On pullrequests or release builds cpplint (a static code checker for C++) is involved to check and validate the source code.
-See:
-* [github/workflows/cpplint.yml](./blob/workflows/.github/workflows/cpplint.yml]
-* [cpplint](https://github.com/cpplint/cpplint)
+## Branch model (maintainer summary)
+The project uses a lightweight GitFlow model:
 
-To enable this feature you have to enable workflows in your repository by going to:
+- `main`: stable production branch, release tags are created here.
+- `develop`: integration branch for completed features.
+- `feature/*`: feature development branches (from `develop`).
+- `release/*`: release stabilization branches (from `develop`).
+- `hotfix/*`: critical production fixes (from `main`).
 
-https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-PROJECTNAME/settings/actions#:~:text=Actions%20permissions
+For exact flow and merge rules, follow `CONTRIBUTING.md`.
 
-and enable workflows.
+## GitHub workflows
 
-Usually set ```Allow all actions and reusable workflows```
+### Files
+- `.github/workflows/build.yml`
+- `.github/workflows/cpplint.yml`
 
+### Trigger behavior
+- `push` and `pull_request` trigger build and cpplint (https://github.com/cpplint/cpplint).
+- Markdown-only and `Docs/**` changes are ignored by workflow triggers.
+- Release artifacts are generated only when a tag is pushed (for example `v1.8.0`).
 
-### Automatic builds
+## Required repository settings (GitHub)
 
-On pullrequests or release builds automatic builds get triggered.
+Open:
+- `https://github.com/<ORG_OR_USER>/<REPO>/settings/actions`
 
-See:
-* [.github/workflows/build.yml](./blob/workflows/build.yml)
+Recommended:
+- Actions permissions: `Allow all actions and reusable workflows`
 
-To enable this feature you have to enable workflows in your repository by going to:
+Also open:
+- `https://github.com/<ORG_OR_USER>/<REPO>/settings/actions` (Workflow permissions section)
 
-https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-PROJECTNAME/settings/actions#:~:text=Actions%20permissions
+Recommended:
+- Workflow permissions: `Read and write permissions`
 
-and enable workflows.
+The release workflow needs write permissions to create/update GitHub releases and upload artifacts.
 
-Usually set ```Allow all actions and reusable workflows```
+## Release runbook (maintainers)
 
-
-### Release Generation
 On release generation the automatic built files get attached to the release.
 Also a summary of commit messages is set to the release informations which can be adapted after gerneration via github interface.
 
-To enable this feature you have to enable workflows and also give them write-access to your repository by:
-* Enable workflows
-* Enable write access
+1. Create `release/<version>` from `develop`.
+2. Stabilize only (bug fixes, docs, version updates).
+3. Merge `release/<version>` into `main` via PR.
+4. Create and push tag on `main`: `v<version>`.
+5. Merge `release/<version>` back into `develop`.
 
-Goto:
-https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-PROJECTNAME/settings/actions#:~:text=Actions%20permissions
+Example:
+- branch: `release/1.8.0`
+- tag: `v1.8.0`
 
-and enable workflows.
+## Hotfix runbook
 
-Usually set ```Allow all actions and reusable workflows```
+1. Create `hotfix/<version>` from `main`.
+2. Fix critical issue and merge into `main`.
+3. Tag the hotfix release on `main` (for example `v1.8.1`).
+4. Merge hotfix back into `develop`.
 
-Goto: https://github.com/YOUR-GITHUB-USERNAME/YOUR-GITHUB-PROJECTNAME/settings/actions#:~:text=Workflow%20permissions
+## Branch protection (recommended)
+Enable branch protection for `main` and `develop`:
 
-Usually set ```Read and write permissions```
-
-
+- Pull request required
+- At least one reviewer
+- Required status checks must pass
+- Direct pushes blocked
