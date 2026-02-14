@@ -542,11 +542,11 @@ static void sendWeekData(AsyncWebSocketClient *client)
     for (i=0; i<7; i++) {
         f = LittleFS.open("/hist_in"+String(i), "r");
         if (f) {
-        j = f.read(ibuffer, 10);
-        ibuffer[j] = ',';
-        ibuffer[j+1] = 0;
-        f.close();
-        s += (char*)ibuffer;
+            j = f.read(ibuffer, 10);
+            ibuffer[j] = ',';
+            ibuffer[j+1] = 0;
+            f.close();
+            s += (char*)ibuffer;
         }
         else {
             s += "0,";
