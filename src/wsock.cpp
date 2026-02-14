@@ -31,15 +31,15 @@ void sendZData() {
 
     doc["now"] = Databroker.timeCp48Hex;
     doc["time"] = static_cast<uint32_t>(time(NULL));
-    doc["1_8_0"] = Databroker.results_u32[0];
-    doc["2_8_0"] = Databroker.results_u32[1];
-    doc["3_8_1"] = Databroker.results_u32[2];
-    doc["4_8_1"] = Databroker.results_u32[3];
-    doc["1_7_0"] = Databroker.results_u32[4];
-    doc["2_7_0"] = Databroker.results_u32[5];
-    doc["3_7_0"] = Databroker.results_u32[6];
-    doc["4_7_0"] = Databroker.results_u32[7];
-    doc["1_128_0"] = Databroker.results_i32[0];
+    doc[Config_restValueKeys[1][0]] = Databroker.results_u32[0];
+    doc[Config_restValueKeys[1][1]] = Databroker.results_u32[1];
+    doc[Config_restValueKeys[1][2]] = Databroker.results_u32[2];
+    doc[Config_restValueKeys[1][3]] = Databroker.results_u32[3];
+    doc[Config_restValueKeys[1][4]] = Databroker.results_u32[4];
+    doc[Config_restValueKeys[1][5]] = Databroker.results_u32[5];
+    doc[Config_restValueKeys[1][6]] = Databroker.results_u32[6];
+    doc[Config_restValueKeys[1][7]] = Databroker.results_u32[7];
+    doc[Config_restValueKeys[1][8]] = Databroker.results_i32[0];
     doc["uptime"] = millis() / 1000;
     doc["things_up"] = ThingSpeak.getLastResult();      //  Error-/Infotext or hexstring(without 0x) of timestamp from counter last transmitted
     doc["serialnumber"] = AmisReader.getSerialNumber();

@@ -23,29 +23,18 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
     if (Config.rest_neg) {
         saldo =-saldo;
     }
-    if (Config.rest_var == 0) {
-        // Variablennamen mit Punkten (".")
-        root[F("1.8.0")] = Databroker.results_u32[0];
-        root[F("2.8.0")] = Databroker.results_u32[1];
-        root[F("3.8.1")] = Databroker.results_u32[2];
-        root[F("4.8.1")] = Databroker.results_u32[3];
-        root[F("1.7.0")] = Databroker.results_u32[4];
-        root[F("2.7.0")] = Databroker.results_u32[5];
-        root[F("3.7.0")] = Databroker.results_u32[6];
-        root[F("4.7.0")] = Databroker.results_u32[7];
-        root[F("1.128.0")] = Databroker.results_i32[0];
-    } else {
-        // Variablennamen mit Unterstrichen ("_")
-        root[F("1_8_0")] = Databroker.results_u32[0];
-        root[F("2_8_0")] = Databroker.results_u32[1];
-        root[F("3_8_1")] = Databroker.results_u32[2];
-        root[F("4_8_1")] = Databroker.results_u32[3];
-        root[F("1_7_0")] = Databroker.results_u32[4];
-        root[F("2_7_0")] = Databroker.results_u32[5];
-        root[F("3_7_0")] = Databroker.results_u32[6];
-        root[F("4_7_0")] = Databroker.results_u32[7];
-        root[F("1_128_0")] = Databroker.results_i32[0];
-    }
+
+    // Variablennamen mit Punkten (".") oder Underscore("_") aufbereiten
+    root[Config_restValueKeys[Config.rest_var][0]] = Databroker.results_u32[0];
+    root[Config_restValueKeys[Config.rest_var][1]] = Databroker.results_u32[1];
+    root[Config_restValueKeys[Config.rest_var][2]] = Databroker.results_u32[2];
+    root[Config_restValueKeys[Config.rest_var][3]] = Databroker.results_u32[3];
+    root[Config_restValueKeys[Config.rest_var][4]] = Databroker.results_u32[4];
+    root[Config_restValueKeys[Config.rest_var][5]] = Databroker.results_u32[5];
+    root[Config_restValueKeys[Config.rest_var][6]] = Databroker.results_u32[6];
+    root[Config_restValueKeys[Config.rest_var][7]] = Databroker.results_u32[7];
+    root[Config_restValueKeys[Config.rest_var][8]] = Databroker.results_i32[0];
+
     root[F("saldo")] = saldo;
     root[F("time")] = static_cast<uint32_t>(Databroker.ts); // generate valid values till 2106
     root[F("serialnumber")] = AmisReader.getSerialNumber();

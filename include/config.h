@@ -29,12 +29,17 @@
 #define CONFIG_AUTH_USERNAME_MAXLEN     32
 #define CONFIG_AUTH_PASSWORD_MAXLEN     32
 
+
+extern const char* Config_restValueKeys[2][9];
+
 class ConfigClass {
 
 public:
     void init();
     void loadConfigGeneral();
     void applySettingsConfigGeneral();
+    static inline const char* getRestValueKeys(size_t index, unsigned rest_var/*=Config.rest_var*/)
+        { return Config_restValueKeys[rest_var][index];}
 
     char DeviceName[CONFIG_DEVICENAME_MAXLEN + 1]; // maximale Länge: 32 + \0
 
