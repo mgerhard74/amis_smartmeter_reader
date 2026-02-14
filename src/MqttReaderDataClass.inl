@@ -47,7 +47,7 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
         root[F("1_128_0")] = Databroker.results_i32[0];
     }
     root[F("saldo")] = saldo;
-    root[F("time")] = Databroker.ts;
+    root[F("time")] = static_cast<uint32_t>(Databroker.ts); // generate valid values till 2106
     root[F("serialnumber")] = AmisReader.getSerialNumber();
 
     String mqttBuffer;
