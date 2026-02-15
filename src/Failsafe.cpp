@@ -45,6 +45,9 @@ FailsafeClass::FailsafeClass()
 {
 }
 
+/* 
+    Using Serial is safe in this state since it will be called right after boot and there is not other use of Serial yet.
+*/
 bool FailsafeClass::check()
 {
     
@@ -55,7 +58,8 @@ bool FailsafeClass::check()
     }
     _bootState.incrementBootCount();
     _active = (_bootState.getBootCount() >= FAILSAFE_MAX_REBOOTS);
-        Serial.printf("Failsafe check: boot_count=%u active=%s magic=0x%04X\n", _bootState.getBootCount(), _active ? "true" : "false", _bootState.getMagic());
+
+    Serial.printf("Failsafe check: boot_count=%u active=%s stateBlock=0x%08X (magic=0x%04x boot_count=0x%02x crc=0x%02x)\n", _bootState.getBootCount(), _active ? "true" : "false", _bootState.getBootState(), _bootState.getMagic(), _bootState.getBootCount(), _bootState.getCRC());
 
     if (_active) {
         _bootState.setBootCount(0); // reset counter so next reboot can try normal boot
@@ -64,7 +68,9 @@ bool FailsafeClass::check()
         scheduleStableClear(); //not enough reboots yet for failsafe, schedule clear if the device stays up under normal operation
     }
 
-    writeBootState();
+    if(!writeBootState()) {
+        Serial.println("Failsafe check: failed to write boot state to RTC memory");
+    }
 
     return _active;
 }
@@ -83,14 +89,10 @@ bool FailsafeClass::readBootState()
     return _bootState.getMagic() == FAILSAFE_BOOTSTATE_MAGIC; //check for valid magic to detect uninitialized state (or brownout)
 }
 
-void FailsafeClass::writeBootState()
+bool FailsafeClass::writeBootState()
 {
-    Serial.printf("Failsafe writeBootState: magic=0x%04X boot_count=%u\n", _bootState.getMagic(), _bootState.getBootCount());
-
     uint32_t bootState = _bootState.getBootState();
-    if(!ESP.rtcUserMemoryWrite(FAILSAFE_RTC_OFFSET, &bootState, sizeof(bootState))) {
-        Serial.println("Failsafe writeBootState: rtcUserMemoryWrite failed!");
-    }
+    return ESP.rtcUserMemoryWrite(FAILSAFE_RTC_OFFSET, &bootState, sizeof(bootState));
 }
 
 void FailsafeClass::scheduleStableClear()
