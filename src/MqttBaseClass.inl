@@ -108,7 +108,7 @@ void MqttBaseClass::doConnect()
     }
     if (!Network.isConnected()) {
         // Only try connect if we have a WIFI connection
-        _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
+        // MqttBaseClass::networkOnStationModeGotIP() arms the _reconnectTicker if we get a Wifi connection
         return;
     }
 
@@ -181,7 +181,8 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
     }
 
     if (_reloadConfigState == 0 && Network.isConnected()) {
-        _reconnectTicker.once_scheduled(2, std::bind(&MqttBaseClass::doConnect, this));
+        // We just have lost connection to our MQTT-server. So try reconnection in 3 secs ...
+        _reconnectTicker.once_scheduled(3, std::bind(&MqttBaseClass::doConnect, this));
     }
 
     if (_continuousConnectionTry > MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
@@ -226,7 +227,7 @@ void MqttBaseClass::networkOnStationModeGotIP(const WiFiEventStationModeGotIP& e
 {
     UNUSED_ARG(event);
 
-    doConnect();
+    _reconnectTicker.once_scheduled(3, std::bind(&MqttBaseClass::doConnect, this));
 }
 
 
@@ -235,7 +236,7 @@ void MqttBaseClass::networkOnStationModeDisconnected(const WiFiEventStationModeD
     UNUSED_ARG(event);
 
     _actionTicker.detach();
-    _reconnectTicker.detach(); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+    _reconnectTicker.detach(); // ensure we don't reconnect to MQTT while reconnecting to WiFi
     _mqttClient.disconnect(true);
 }
 
@@ -247,7 +248,7 @@ void MqttBaseClass::reloadConfig() {
         _mqttClient.disconnect(true);
         _actionTicker.attach_ms(500, std::bind(&MqttBaseClass::reloadConfig, this));
     } else if (_reloadConfigState == 1) {
-        // Wait till disconnect finisehd
+        // Wait till disconnecting is finished
         if (_mqttClient.connected()) {
             return;
         }
@@ -351,6 +352,7 @@ bool MqttBaseClass::isConnected()
     return _mqttClient.connected();
 }
 
+
 uint16_t MqttBaseClass::publish(const char* topic, uint8_t qos, bool retain, const char* payload)
 {
     return _mqttClient.publish(topic, qos, retain, payload);
@@ -367,6 +369,7 @@ void MqttBaseClass::stop()
     _actionTicker.detach();
     _reconnectTicker.detach();
 }
+
 
 MqttBaseClass Mqtt;
 
