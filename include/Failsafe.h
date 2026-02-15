@@ -25,7 +25,7 @@
 #define FAILSAFE_CLEAR_AFTER_SEC 90 //the time span on which reboots are counted for bootloop detection
 #define FAILSAFE_RETRY_BOOT_SEC  5*60 //retry normal boot after this time in failsafe mode
 #define FAILSAFE_HTTP_PORT 80
-//TODO: calculate offset based on sizeof(BootState) and alignment requirements, and add static_assert to check at compile time
+//TODO(anyone): calculate offset based on sizeof(BootState) and alignment requirements, and add static_assert to check at compile time
 #define FAILSAFE_RTC_OFFSET 64 //offset in RTC memory to store boot state, must be 4-byte aligned and large enough to hold BootState struct
 
 class FailsafeClass
