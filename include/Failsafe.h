@@ -109,7 +109,7 @@ class FailsafeClass
 
         void clearBootState();
         bool readBootState();
-        void writeBootState();
+        bool writeBootState();
 
         void setupWifiAp();
         void setupServer();
