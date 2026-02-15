@@ -47,49 +47,48 @@ FailsafeClass::FailsafeClass()
 
 bool FailsafeClass::check()
 {
-    BootState state = {};
-    if (!readBootState(state)) {
+    
+    if (!readBootState()) {
         Serial.println("Failsafe check: no valid boot state found, initializing");
-        state.magic = FAILSAFE_BOOTSTATE_MAGIC;
-        state.boot_count = 0;
+        _bootState.setMagic(FAILSAFE_BOOTSTATE_MAGIC);
+        _bootState.setBootCount(0);
     }
-    state.boot_count++;
-    _active = (state.boot_count >= FAILSAFE_MAX_REBOOTS);
-    Serial.printf("Failsafe check: boot_count=%u active=%s magic=0x%04X\n", state.boot_count, _active ? "true" : "false", state.magic);
+    _bootState.incrementBootCount();
+    _active = (_bootState.getBootCount() >= FAILSAFE_MAX_REBOOTS);
+        Serial.printf("Failsafe check: boot_count=%u active=%s magic=0x%04X\n", _bootState.getBootCount(), _active ? "true" : "false", _bootState.getMagic());
 
     if (_active) {
-        state.boot_count = 0; // reset counter so next reboot can try normal boot
+        _bootState.setBootCount(0); // reset counter so next reboot can try normal boot
         startFailsafeMode();
     } else {
         scheduleStableClear(); //not enough reboots yet for failsafe, schedule clear if the device stays up under normal operation
     }
 
-    writeBootState(state);
+    writeBootState();
 
     return _active;
 }
 
 void FailsafeClass::clearBootState()
 {
-    BootState state = {};
-    state.magic = FAILSAFE_BOOTSTATE_MAGIC;
-    state.boot_count = 0;
-    writeBootState(state);
+    _bootState.setBootCount(0);
+    writeBootState();
 }
 
-bool FailsafeClass::readBootState(BootState &state)
+bool FailsafeClass::readBootState()
 {
-    if (!ESP.rtcUserMemoryRead(FAILSAFE_RTC_OFFSET, (uint32_t*)&state, sizeof(state))) {
+    if (!ESP.rtcUserMemoryRead(FAILSAFE_RTC_OFFSET, (uint32_t*)&_bootState, sizeof(_bootState))) {
         return false;
     }
-    return state.magic == FAILSAFE_BOOTSTATE_MAGIC; //check for valid magic to detect uninitialized state (or brownout)
+    return _bootState.getMagic() == FAILSAFE_BOOTSTATE_MAGIC; //check for valid magic to detect uninitialized state (or brownout)
 }
 
-void FailsafeClass::writeBootState(BootState &state)
+void FailsafeClass::writeBootState()
 {
-    Serial.printf("Failsafe writeBootState: magic=0x%04X boot_count=%u\n", state.magic, state.boot_count);
+    Serial.printf("Failsafe writeBootState: magic=0x%04X boot_count=%u\n", _bootState.getMagic(), _bootState.getBootCount());
 
-    if(!ESP.rtcUserMemoryWrite(FAILSAFE_RTC_OFFSET, (uint32_t*)&state, sizeof(state))) {
+    uint32_t bootState = _bootState.getBootState();
+    if(!ESP.rtcUserMemoryWrite(FAILSAFE_RTC_OFFSET, &bootState, sizeof(bootState))) {
         Serial.println("Failsafe writeBootState: rtcUserMemoryWrite failed!");
     }
 }
