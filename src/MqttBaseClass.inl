@@ -3,12 +3,15 @@
 //    *  MqttHAClass            handling
 //    *  MqttReaderDataClass
 
+#define MQTT_LOG_MAX_CONNECTION_ATTEMPS         3
+
 void MqttBaseClass::init()
 {
     _mqttReaderData.init(this);
     _mqttHA.init(this);
     loadConfigMqtt(_config);
     _reloadConfigState = 0;
+    _continuousConnectionTry = 0;
 }
 
 
@@ -78,7 +81,14 @@ void MqttBaseClass::onConnect(bool sessionPresent)
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
-    LOGF_IP("Connected to server " PRsIP ":%" PRIu16, PRIPVal(_brokerIp), _config.mqtt_port);
+    if (_continuousConnectionTry > MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
+        LOGF_IP("Connected to server " PRsIP ":%" PRIu16 " after %u failed connection attempts.",
+            PRIPVal(_brokerIp), _config.mqtt_port, _continuousConnectionTry);
+    } else {
+        LOGF_IP("Connected to server " PRsIP ":%" PRIu16, PRIPVal(_brokerIp), _config.mqtt_port);
+    }
+    _continuousConnectionTry = 0;
+
 
     // Für HA melden wir uns mal "Online" und "verbreiten" alle unsere Sensoren
     if (_config.mqtt_ha_discovery) {
@@ -102,6 +112,10 @@ void MqttBaseClass::doConnect()
         return;
     }
 
+    _continuousConnectionTry++;
+    if (_continuousConnectionTry == MQTT_LOG_MAX_CONNECTION_ATTEMPS + 1) {
+        LOGF_WP("%u continuous connection errors. Stopping logging MQTT connection errors.", MQTT_LOG_MAX_CONNECTION_ATTEMPS);
+    }
     if (!_brokerIp.isSet()) {
         // WiFi.hostByName() is a "blocking call" with a default timeout of 10000ms (that raises watchdog!)
         // So we set timeout to 1000ms here (which should be enough for DNS lookup / also 1000ms used in HttpClient)
@@ -109,7 +123,9 @@ void MqttBaseClass::doConnect()
 
         IPAddress ip;
         if (!WiFi.hostByName(_config.mqtt_broker.c_str(), ip, 1000) || !ip.isSet()) {
-            LOGF_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
+            if (_continuousConnectionTry <= MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
+                LOGF_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
+            }
             _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
             return;
         }
@@ -136,12 +152,14 @@ void MqttBaseClass::doConnect()
         LOGF_DP("setClientId: %s", _config.mqtt_client_id.c_str());
     }
 
-    if (_brokerByIPAddr) {
-        LOGF_IP("Connecting to server %s:%" PRIu16 "...", _config.mqtt_broker.c_str(), _config.mqtt_port);
-    } else {
-        LOGF_IP("Connecting to server %s:%" PRIu16 " [" PRsIP ":%d]...",
-                _config.mqtt_broker.c_str(), _config.mqtt_port,
-                PRIPVal(_brokerIp), _config.mqtt_port);
+    if (_continuousConnectionTry <= MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
+        if (_brokerByIPAddr) {
+            LOGF_IP("Connecting to server %s:%" PRIu16 "...", _config.mqtt_broker.c_str(), _config.mqtt_port);
+        } else {
+            LOGF_IP("Connecting to server %s:%" PRIu16 " [" PRsIP ":%d]...",
+                    _config.mqtt_broker.c_str(), _config.mqtt_port,
+                    PRIPVal(_brokerIp), _config.mqtt_port);
+        }
     }
     _mqttClient.connect();
 }
@@ -164,6 +182,10 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
 
     if (_reloadConfigState == 0 && Network.isConnected()) {
         _reconnectTicker.once_scheduled(2, std::bind(&MqttBaseClass::doConnect, this));
+    }
+
+    if (_continuousConnectionTry > MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
+        return;
     }
 
     const char *reasonstr;
@@ -236,12 +258,11 @@ void MqttBaseClass::reloadConfig() {
         _reloadConfigState = 3;
         LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
-        // finished ... try reconnecting if enabled
+        // finished ... try reconnecting
         _actionTicker.detach();
         _reloadConfigState = 0;
-        if (Network.isConnected()) {
-            doConnect();
-        }
+        _continuousConnectionTry = 0;
+        doConnect();
     }
 }
 

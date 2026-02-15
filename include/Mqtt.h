@@ -91,6 +91,8 @@ private:
 
     MqttReaderDataClass _mqttReaderData;
     MqttHAClass         _mqttHA;
+
+    uint32_t _continuousConnectionTry;
 };
 
 extern MqttBaseClass Mqtt;
