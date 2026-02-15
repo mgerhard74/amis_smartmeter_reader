@@ -845,6 +845,15 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.5.9-dev6</h3>
+              Beim MQTT publish wird die Uhrzeit wieder richtig ausgegeben.<br>
+              Wifi, MQTT und ThingSpeak: Verbindungsversuche werden nach 3 Fehlschlägen nicht mehr protokolliert.<br>
+              ThingSpeak Upload prüft vor dem Senden jetzt wirklich, ob überhaupt eine Netzwerkverbindung besteht. ;-)<br>
+              Shellysimulator wird vor einem Reboot bzw während eines Updates gestoppt.<br>
+              Systemaufraufe ausgelagert, um den internen Speicher und Stack zu schonen. Das sollte mehr Stabilität bringen.<br>
+              Detailanzeige Speicher- und Stackverbrauch im Developer-Mode.<br>
+              Update ArduinoJson von 5.13.4 auf 6.21.1.<br>
+              Update AsyncMqttClient auf die aktuelle development Version.<br>
               <h3>Version 1.5.8</h3>
               Im AP-Modus (wenn Jumper gesetzt), wird nun zumindest der AMIS-Key gelesen, damit der Zähler auch einfach "nur" im AP-Modus betrieben werden kann.<br>
               Webserverdateien werden direkt aus der Firmware übertragen und nicht mehr im Filesystem abgelegt. Das sollte Probleme mit dem Bowser Cache beseitigen.<br>
