@@ -816,6 +816,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("flashsize")] = ESP.getFlashChipSize();
     root[F("flashmode")] = static_cast<uint8_t>(ESP.getFlashChipMode());
 
+    root[F("status_wifi_ap_mode")] = Network.inAPMode();
     if (Network.inAPMode()) {
         wifi_get_ip_info(SOFTAP_IF, &info);
 
@@ -841,6 +842,7 @@ static void sendStatus(AsyncWebSocketClient *client)
         root[F("status_wifi_channel")] = WiFi.channel();
         root[F("status_wifi_rssi")] = WiFi.RSSI();
         root[F("status_wifi_bssid")] = WiFi.BSSIDstr();
+        root[F("status_wifi_dhcp")] = Network.getConfigWifi().dhcp;
     }
     IPAddress ipaddr = IPAddress(info.ip.addr);
     IPAddress gwaddr = IPAddress(info.gw.addr);

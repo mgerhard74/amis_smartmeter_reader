@@ -504,6 +504,20 @@ function updateElements(obj) {
       tab += '</tbody></table>';
       value = tab;
     }
+    else if (key === 'status_wifi_dhcp') {
+      if (value === true) {
+        value = "enabled";
+      } else {
+        value = "disabled";
+      }
+    }
+    else if (key === 'status_wifi_ap_mode') {
+      if (value === true) {
+        value = "enabled";
+      } else {
+        value = "disabled";
+      }
+    }
 
     // Look for INPUTs
     let input = $("input[name='" + key + "']");
