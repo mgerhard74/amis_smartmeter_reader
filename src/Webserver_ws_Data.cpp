@@ -788,7 +788,7 @@ static void sendStatus(AsyncWebSocketClient *client)
     root[F("firmware_crc32")] = String(__crc_val, HEX);
 
     root[F("library_ArduinoJson")] = ARDUINOJSON_VERSION;
-    root[F("library_AsyncMqttClient")] = "0.9.0";
+    root[F("library_AsyncMqttClient")] = "3d93fc7f662e65366f8e2b0d88b108f874f035b9";
     root[F("library_AsyncPing_esp8266")] = "95ac7e4ce1d4b41087acc0f7d8109cfd1f553881";
     root[F("library_ESPAsyncUDP")] = "0.0.0-alpha+sha.697c75a025";
     root[F("library_ESPAsyncTCP")] = "2.0.0";
