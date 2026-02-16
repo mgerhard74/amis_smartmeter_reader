@@ -17,6 +17,7 @@ class WebserverUpdateClass
             firmware = U_FLASH,
             littlefs = U_FS,
             anyOther,
+            monate,
             none
         } uploadFileType_t;
         uploadFileType_t _uploadfiletype;
