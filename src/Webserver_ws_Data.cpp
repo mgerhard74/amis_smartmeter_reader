@@ -25,6 +25,7 @@
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
 static void sendStatus(AsyncWebSocketClient *client);
+static String getStatusJsonInfo();
 static void sendWeekData(AsyncWebSocketClient *client);
 static void wsSendRuntimeConfigAll(AsyncWebSocket *ws);
 static void clearHist();
@@ -759,9 +760,15 @@ void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
     SYSTEMMONITOR_STAT();
 }
 
+static void sendStatus(AsyncWebSocketClient *client)
+{
+    String buffer = getStatusJsonInfo();
+    client->text(buffer);
+}
+
 extern "C" uint32_t __crc_val;
 
-static void sendStatus(AsyncWebSocketClient *client)
+static String getStatusJsonInfo()
 {
     // TODO(anyone): This creates a "Reset" if running with debug-build.
     struct ip_info info;
@@ -771,7 +778,11 @@ static void sendStatus(AsyncWebSocketClient *client)
         memset(&fsinfo, 0, sizeof(fsinfo));
     }
 
-    StaticJsonDocument<1792> root;
+    DynamicJsonDocument root(1792);
+    if (root.capacity() == 0) {
+        // out of memory
+        return "";
+    }
     root[F("chipid")] = String(ESP.getChipId(), HEX);
     root[F("cpu")] = ESP.getCpuFreqMHz();
     root[F("reset_reason")] = ESP.getResetReason();
@@ -862,8 +873,8 @@ static void sendStatus(AsyncWebSocketClient *client)
 
     String buffer;
     SERIALIZE_JSON_LOG(root, buffer);
-    client->text(buffer);
     SYSTEMMONITOR_STAT();
+    return buffer;
 }
 
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
