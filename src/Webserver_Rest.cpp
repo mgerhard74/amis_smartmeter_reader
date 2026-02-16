@@ -12,7 +12,6 @@
 #define LOGMODULE LOGMODULE_WEBSERVER
 #include "Webserver.h"
 
-#include <AsyncJson.h>
 
 void WebserverRestClass::init(AsyncWebServer& server)
 {

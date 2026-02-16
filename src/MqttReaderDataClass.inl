@@ -4,8 +4,6 @@
 
 #include "config.h"
 
-#include <AsyncJson.h>
-
 
 void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
 {

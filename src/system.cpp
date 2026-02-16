@@ -3,7 +3,6 @@
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSSOCKET
 
-#include <AsyncJson.h>
 #include <LittleFS.h>
 
 #include "proj.h"

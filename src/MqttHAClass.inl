@@ -9,8 +9,6 @@
 
 #include "config.h"
 
-#include <AsyncJson.h>
-
 
 struct HASensor {
     const char *key;
