@@ -673,9 +673,13 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 static void sendWeekData(AsyncWebSocketClient *client)
 {
     File f;
-    uint8_t ibuffer[12];      //12870008
+    uint8_t ibuffer[12];      // "4294967295,\0"
     unsigned i,j;
     String s;
+
+    if (!s.reserve(300)) { // 300 should be maximum ever needed
+        return;
+    }
 
     s = "{\"weekdata\":[[";
     for (i=0; i<7; i++) {
