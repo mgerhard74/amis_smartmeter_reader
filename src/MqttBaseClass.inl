@@ -24,10 +24,27 @@ MqttBaseClass::MqttBaseClass()
     using std::placeholders::_5;
     using std::placeholders::_6;
 
-    _mqttClient.onConnect(std::bind(&MqttBaseClass::onConnect, this, _1));
-    _mqttClient.onDisconnect(std::bind(&MqttBaseClass::onDisconnect, this, _1));
+    _mqttClient.onConnect(std::bind(&MqttBaseClass::onConnectCb, this, _1));
+    _mqttClient.onDisconnect(std::bind(&MqttBaseClass::onDisconnectCb, this, _1));
     _mqttClient.onMessage(std::bind(&MqttBaseClass::onMessage, this, _1, _2, _3, _4, _5, _6));
-    _mqttClient.onPublish(std::bind(&MqttBaseClass::onPublish, this, _1));
+    //_mqttClient.onPublish(std::bind(&MqttBaseClass::onPublish, this, _1));
+}
+
+
+void MqttBaseClass::loop(void)
+{
+    if (_connectionEvents.size() == 0) {
+        return;
+    }
+
+    _connectionEvent_t event = _connectionEvents.front();
+    if (event.event & 0x1000) {
+        bool sessionPresent = (event.event & 0x1000) ?true :false;
+        onConnect(sessionPresent);
+    } else if (event.event & 0x2000) {
+        onDisconnect((AsyncMqttClientDisconnectReason)(event.event & 0xff));
+    }
+    _connectionEvents.erase(_connectionEvents.begin());
 }
 
 
@@ -69,6 +86,16 @@ void MqttBaseClass::publishTickerCb() {
     }
 }
 
+void MqttBaseClass::onConnectCb(bool sessionPresent)
+{
+    _connectionEvent_t event;
+    event.event = 0x1000;
+    if (sessionPresent) {
+        event.event |= 1;
+    }
+    _connectionEvents.push_back(event);
+    SYSTEMMONITOR_STAT();
+}
 
 void MqttBaseClass::onConnect(bool sessionPresent)
 {
@@ -165,7 +192,17 @@ void MqttBaseClass::doConnect()
 }
 
 
-void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason) {
+void MqttBaseClass::onDisconnectCb(AsyncMqttClientDisconnectReason reason)
+{
+    _connectionEvent_t event;
+    event.event = 0x2000 | (unsigned)reason;
+    _connectionEvents.push_back(event);
+    SYSTEMMONITOR_STAT();
+}
+
+
+void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason)
+{
     if (_reloadConfigState == 0) {
         _actionTicker.detach();
     }

@@ -202,6 +202,8 @@ void loop() {
         }
     }
 
+    Mqtt.loop();
+
     AmisReader.loop();  // Zähler auslesen
 
     Log.loop(); // Eine Seite des Logfiles an einen Websocket client senden
