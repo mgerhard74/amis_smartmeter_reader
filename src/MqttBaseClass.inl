@@ -26,7 +26,7 @@ MqttBaseClass::MqttBaseClass()
 
     _mqttClient.onConnect(std::bind(&MqttBaseClass::onConnectCb, this, _1));
     _mqttClient.onDisconnect(std::bind(&MqttBaseClass::onDisconnectCb, this, _1));
-    _mqttClient.onMessage(std::bind(&MqttBaseClass::onMessage, this, _1, _2, _3, _4, _5, _6));
+    //_mqttClient.onMessage(std::bind(&MqttBaseClass::onMessage, this, _1, _2, _3, _4, _5, _6));
     //_mqttClient.onPublish(std::bind(&MqttBaseClass::onPublish, this, _1));
 }
 
@@ -67,6 +67,7 @@ void MqttBaseClass::onMessage(char* topic, char* payload, AsyncMqttClientMessage
 
     LOGF_WP("Unexpected onMessage() call: %s", topic);
 }
+
 
 void MqttBaseClass::publishTickerCb() {
     _actionTicker.detach();
