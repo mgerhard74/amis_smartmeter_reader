@@ -14,7 +14,7 @@
 
 #include "config.h"
 
-#include <cstdint>
+//#include <cstdint>
 
 #if 0
 // Doku/Beispiel zu AsyncPing
