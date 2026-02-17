@@ -223,7 +223,7 @@ void loop() {
         doSerialHwTest = false;
     }
 
-    SYSTEMMONITOR_STAT();
+    // SYSTEMMONITOR_STAT();
 }
 
 
