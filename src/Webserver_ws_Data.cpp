@@ -628,22 +628,6 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 
         //String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
         //ws->text(client->id(), x);
-    } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
-        const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
-        const SystemMonitorClass::statInfo_t freeStack = SystemMonitor.getFreeStack();
-        const SystemMonitorClass::statInfo_t maxFreeBlockSize = SystemMonitor.getMaxFreeBlockSize();
-        {
-            String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-            ws->text(client->id(), x);
-        }
-        {
-            String x = String(freeStack.value) + String(freeStack.filename) + String(freeStack.lineno) + String(freeStack.functionname);
-            ws->text(client->id(), x);
-        }
-        {
-            String x = String(maxFreeBlockSize.value) + String(maxFreeBlockSize.filename) + String(maxFreeBlockSize.lineno) + String(maxFreeBlockSize.functionname);
-            ws->text(client->id(), x);
-        }
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
         if (root.containsKey(F("value"))) {
