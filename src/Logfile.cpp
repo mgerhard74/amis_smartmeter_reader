@@ -63,7 +63,7 @@ void LogfileClass::_prevFilename(unsigned int prevNo, char f[LFS_NAME_MAX])
 
     strlcpy(f, _filename, LFS_NAME_MAX);
 
-    // get extension and cut off extensinon
+    // get extension and cut off extension
     char *ext = f;
     while (strchr(ext, '.')) {
         ext = strchr(ext, '.') + 1;
@@ -361,8 +361,8 @@ void LogfileClass::printf(uint32_t type, uint32_t module, bool use_progmem, cons
         va_end(args);
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
-    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","ts":%llu,"desc":"%s"})" "\n",
-                (unsigned int) millis(), typeStr, _getModuleName(module), time(NULL), buffer);
+    _size += f.printf(R"({"c":%c, "ms":%u,"type":"%s","src":"%s","ts":%llu,"desc":"%s"})" "\n",
+                '0'+Utils::getContext(), (unsigned int) millis(), typeStr, _getModuleName(module), time(NULL), buffer);
     va_end(args);
 
     if (buffer != temp) {
