@@ -180,18 +180,28 @@ extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 
 static void clearHist() {
-    String s="";
     for (unsigned j=0; j<7;j++ ) {
         kwh_day_in[j] = 0;
         kwh_day_out[j] = 0;
         kwh_hist[j].kwh_in = 0;
         kwh_hist[j].kwh_out = 0;
         kwh_hist[j].dow = 0;
-        s = "/hist_in" + String(j);
-        LittleFS.remove(s);
-        s = "/hist_out" + String(j);
-        LittleFS.remove(s);
     }
+
+    char fname[11]; //  "/hist_in6\0" "/hist_out6\0"
+
+    strlcpy(fname, "/hist_in6", sizeof(fname));
+    for (unsigned j=0; j<7;j++ ) {
+        fname[8] = '0' + j;
+        LittleFS.remove(fname);
+    }
+
+    strlcpy(fname, "/hist_out6", sizeof(fname));
+    for (unsigned j=0; j<7;j++ ) {
+        fname[9] = '0' + j;
+        LittleFS.remove(fname);
+    }
+
     first_frame = 0;
 }
 
