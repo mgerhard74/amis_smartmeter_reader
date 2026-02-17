@@ -1,9 +1,7 @@
 #include "Utils.h"
 
+#include <cont.h>
 #include <LittleFS.h>
-
-
-extern cont_t* g_pcont;
 
 
 /* Handle LittlSFS creation/modification timestamps */
@@ -60,15 +58,73 @@ String Utils::escapeJson(const char *str, size_t strlen, size_t maxlen) {
 }
 
 
+
+extern "C" {
+    extern uint32_t stack_thunk_get_stack_top();
+    extern uint32_t stack_thunk_get_stack_bot();
+}
+/*
+Use of ESP.getFreeContStack() depends on ESP.resetFreeContStack()
+So to get available Stacksize, we just calculate it!
+Details: See
+    cont_t* g_pcont __attribute__((section(".noinit")));
+*/
+void Utils::ESP8266getStackInfo(int& context, uintptr_t& stack_bot, uintptr_t& stack_top, uintptr_t& stack_current)
+{
+    static_assert(sizeof(g_pcont->stack[0]) == sizeof(uint32_t), "Stack element size mismatch!");
+
+    __asm__ __volatile__ ("mov %0, a1\n" : "=r"(stack_current));
+
+    // Stack moves from top to down (0xyyyyyyyy to 0 )
+    // Stack on 8266: "Pre-Decrement" // sp is the last used address
+    // And: "Empty Stack Top" ... g_pcont->stack[1024] seems never get set
+
+    uintptr_t bottom, top;
+
+    // BEARSSL
+    bottom = stack_thunk_get_stack_bot();
+    top = stack_thunk_get_stack_top();
+    if (stack_current > bottom && stack_current <= top) {
+        stack_bot = bottom;
+        stack_top = top;
+        context = 2; // seems we're in the wifi/ssl stack ... aka "bearssl" - Seems has a size of 6200 bytes and allocated using malloc() (see define _stackSize )
+        return;
+    }
+
+    // CONT/USER
+    bottom = reinterpret_cast<uintptr_t>(&g_pcont->stack[0]);
+    top = bottom + sizeof(g_pcont->stack);
+    if (stack_current >= bottom && stack_current <= top) {
+        stack_bot = bottom;
+        stack_top = top;
+        context = 1; // normal(user) context ... aka  "cont" // seems to be 4096 bytes (see define CONT_STACKSIZE)
+        return;
+    }
+
+    // SYS
+    // Hm ... we're probaly in system stack (interrupts/ISR) or special SDK-callbacks ... aka "sys" - (unknown size)
+    // Interrupts (HW-Timer, WiFi-Events(callbacks), GPIO-ISRs).
+    // Seems I have to guess as  ..../framework-arduinoespressif8266/tools/sdk/ld/eagle.app.v6.common.ld.h disabled symbol _stack_sentry
+    // Expecting 2kB stack in sys context
+    // TODO(anyone): find out bottom, top and length of sys-stack
+    stack_top = bottom;
+    stack_bot = stack_top - 2048;
+#if 0
+    stack_top = 0x3FFFFFE0
+    stack_top = 0x3FFFFFFF; // End of RAM  // 0x3ffc8000
+    stack_bot = stack_top - 2048;
+#endif
+    context = 0;
+}
+
+
 /* getcontext: system or user determined based on stackpointer value */
 int Utils::getContext(void)
 {
-    register uint32_t* sp asm("a1");
-
-    if (sp >= &g_pcont->stack[0] && sp < &g_pcont->stack[std::size(g_pcont->stack)]) {
-        return 1;
-    }
-    return 0;
+    int context;
+    uintptr_t stack_bot, stack_top, stack_current;
+    ESP8266getStackInfo(context, stack_bot, stack_top, stack_current);
+    return context;
 }
 
 bool Utils::fileExists(const char *fname)
