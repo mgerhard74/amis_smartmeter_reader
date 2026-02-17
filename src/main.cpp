@@ -193,6 +193,8 @@ void setup() {
 void loop() {
     Reboot.loop();
 
+    Network.loop();
+
     if (ws->count()) {      // ws-connections
         if (new_data_for_websocket) {
             new_data_for_websocket=false;

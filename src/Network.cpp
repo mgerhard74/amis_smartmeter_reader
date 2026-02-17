@@ -29,8 +29,8 @@ void NetworkClass::init(bool apMode)
     _isConnected = false;
 
     using std::placeholders::_1;
-    _onStationModeGotIP = WiFi.onStationModeGotIP(std::bind(&NetworkClass::onStationModeGotIP, this, _1));
-    _onStationModeDisconnected = WiFi.onStationModeDisconnected(std::bind(&NetworkClass::onStationModeDisconnected, this, _1));
+    _onStationModeGotIP = WiFi.onStationModeGotIP(std::bind(&NetworkClass::onStationModeGotIPCb, this, _1));
+    _onStationModeDisconnected = WiFi.onStationModeDisconnected(std::bind(&NetworkClass::onStationModeDisconnectedCb, this, _1));
 
     _apMode = apMode;
     if (!loadConfigWifi(_configWifi)) {
@@ -38,26 +38,26 @@ void NetworkClass::init(bool apMode)
     }
 }
 
-void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
+
+void NetworkClass::loop(void)
 {
-    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
-    _isConnected = true;
-    _tickerReconnect.detach();
+    if (_networkEvents.size() == 0) {
+        return;
+    }
 
-    LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
-    LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
-
-    restartMDNSIfNeeded();
-
-    Mqtt.networkOnStationModeGotIP(event);
-
-    LedBlue.turnBlink(4000, 10);
-    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
-    SYSTEMMONITOR_STAT();
+    _networkEvent_t nwevent = _networkEvents.front();
+    if (nwevent.event == 1) {
+        onStationModeGotIP(nwevent);
+    } else if (nwevent.event == 2) {
+        onStationModeDisconnected(nwevent);
+    }
+    _networkEvents.erase(_networkEvents.begin());
 }
 
-void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
+
+void NetworkClass::onStationModeDisconnected(_networkEvent_t& nwevent)
 {
+    WiFiEventStationModeDisconnected &event = nwevent.eventDisconnected;
     LOG_DP("WiFi NetworkClass::onStationModeDisconnected() start");
     if (!_isConnected) {
         // seems this gets called even we were not connected ..,. skip it
@@ -78,6 +78,44 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
 #endif
     LedBlue.turnBlink(150, 150);
     LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
+    SYSTEMMONITOR_STAT();
+}
+
+
+void NetworkClass::onStationModeGotIP(_networkEvent_t& nwevent)
+{
+    WiFiEventStationModeGotIP &event = nwevent.eventGotIP;
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
+    _isConnected = true;
+    _tickerReconnect.detach();
+
+    LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
+
+    restartMDNSIfNeeded();
+
+    Mqtt.networkOnStationModeGotIP(event);
+
+    LedBlue.turnBlink(4000, 10);
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
+    SYSTEMMONITOR_STAT();
+}
+
+
+void NetworkClass::onStationModeGotIPCb(const WiFiEventStationModeGotIP& event)
+{
+    _networkEvent_t nwEvent;
+    nwEvent.event = 1;
+    nwEvent.eventGotIP = event;
+    _networkEvents.push_back(nwEvent);
+    SYSTEMMONITOR_STAT();
+}
+void NetworkClass::onStationModeDisconnectedCb(const WiFiEventStationModeDisconnected& event)
+{
+    _networkEvent_t nwEvent;
+    nwEvent.event = 2;
+    nwEvent.eventDisconnected = event;
+    _networkEvents.push_back(nwEvent);
     SYSTEMMONITOR_STAT();
 }
 
