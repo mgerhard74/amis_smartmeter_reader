@@ -303,18 +303,22 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         error = DeserializationError::InvalidInput;
     }
     if (tempObjectLength >= 15 && tempObjectLength <= root.capacity()) { // '{"command":"x"}'
-        error = deserializeJson(root, client->_tempObject, tempObjectLength);
+        // Do not change 'client->_tempObject'
+        // error = deserializeJson(root, (const void*) client->_tempObject, tempObjectLength);
+
+        // Following line changes 'client->_tempObject' !
+        error = deserializeJson(root,client->_tempObject, tempObjectLength);
     }
     if (error) {
         /*
         TODO(anyone): sending
+        >>>
         {"comm
 
         and":"set-loglevel", "module":10, "level":5}
+        <<<
 
         raises an exception
-
-        if (root == JsonObject::invalid()) { ... does not help as JsonObject::invalid().sucess() returns false
         */
         LOGF_EP("Parsing failed: message[%u]='%s'",
                             tempObjectLength,
@@ -380,6 +384,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         File f = LittleFS.open(command, "w");
         if (f) {
             serializeJsonPretty(root, f);
+            //f.write((const uint8_t *)client->_tempObject, tempObjectLength);
             f.close();
             LOGF_DP("%s saved on LittleFS.", command);
             if (strcmp(command, "/config_general")==0) {
@@ -954,7 +959,6 @@ static String getStatusJsonInfoFilesystem()
         return "";
     }
 
-    // TODO(anyone): This creates a "Reset" if running with debug-build.
     FSInfo fsinfo;
     if (!LittleFS.info(fsinfo)) {
         LOGF_EP("Error getting info on LittleFS");
