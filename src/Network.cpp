@@ -108,6 +108,7 @@ void NetworkClass::onStationModeGotIPCb(const WiFiEventStationModeGotIP& event)
     nwEvent.event = 1;
     nwEvent.eventGotIP = event;
     _networkEvents.push_back(nwEvent);
+    //Utils::captureStack();
     SYSTEMMONITOR_STAT();
 }
 void NetworkClass::onStationModeDisconnectedCb(const WiFiEventStationModeDisconnected& event)
