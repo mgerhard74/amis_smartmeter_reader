@@ -783,13 +783,14 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         _state = readReaderCounters;
 
         // TODO(anyone): Refactor - Create events on changed data
-        ModbusSmartmeterEmulation.setCurrentValues((bool)(Databroker.valid == 5),
+        bool isValid = (Databroker.valid == 5) ?true :false;
+        ModbusSmartmeterEmulation.setCurrentValues(isValid,
                                                    Databroker.results_u32[4], Databroker.results_u32[5],
                                                    Databroker.results_u32[0], Databroker.results_u32[1]);
-        ShellySmartmeterEmulation.setCurrentValues((bool)(Databroker.valid == 5),
+        ShellySmartmeterEmulation.setCurrentValues(isValid,
                                                    Databroker.results_u32[4], Databroker.results_u32[5],
                                                    Databroker.results_u32[0], Databroker.results_u32[1]);
-        ThingSpeak.onNewData((bool)(Databroker.valid == 5), &Databroker.results_u32[0], Databroker.ts);
+        ThingSpeak.onNewData(isValid, &Databroker.results_u32[0], Databroker.ts);
         SYSTEMMONITOR_STAT();
      }
 }
