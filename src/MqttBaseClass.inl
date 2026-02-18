@@ -381,6 +381,8 @@ bool MqttBaseClass::loadConfigMqtt(MqttConfig_t &config)
     _brokerIp[3] = ip[3];
     _brokerByIPAddr = ip.isSet();
 
+    SYSTEMMONITOR_STAT();
+
     return true;
 }
 
