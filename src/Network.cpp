@@ -444,7 +444,7 @@ String NetworkClass::getValidHostname(const char *hostname)
     }
 
     if (!rHostname[0]) {
-        // Do now allow an empty hostname
+        // Do not allow an empty hostname
         snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%08" PRIx32), APP_NAME, ESP.getChipId());
     }
     return rHostname;
