@@ -140,7 +140,7 @@ jobs:
           echo -en "File 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' is just needed from devlopers to analyse errors!\r\n" >> README.txt
           echo -en "\r\n" >> README.txt
           echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin' fuer das Updaten des AMIS-Lesers verwenden!\r\n" >> README.txt
-          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' wird nur zur Fehleranalyse für Entwickler benoetig!\r\n" >> README.txt
+          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' wird nur zur Fehleranalyse fuer Entwickler benoetig!\r\n" >> README.txt
           echo -en "\r\n" >> README.txt
           echo -en "Firmware checksum 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin': " >> README.txt
           cat firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin.crc32 >> README.txt
