@@ -111,11 +111,10 @@ void LogfileClass::loop()
     */
 
 #if 1
-    if (requestedLogPageClients.size() == 0) {
+    _requestedLogPageClient_t request;
+    if (!_requestedLogPageClients.peek(request)) {
         return;
     }
-
-    _requestedLogPageClient_t request = requestedLogPageClients.front();
     // Adapt pagno to be in valid range
     if (request.pageNo == 0) {
         request.pageNo = 1;
@@ -166,7 +165,7 @@ void LogfileClass::loop()
         LOG_EP("Could not send logfile via websocket.");
     }
 
-    requestedLogPageClients.erase(requestedLogPageClients.begin());
+    _requestedLogPageClients.pop(request);
 #else
     if (_requestedLogPageClientIdx == 0) {
         return;
@@ -240,7 +239,7 @@ void LogfileClass::remove(bool allPrevious)
 
 void LogfileClass::_reset()
 {
-    requestedLogPageClients.clear();
+    _requestedLogPageClients.clear();
     for (size_t i = 0; i < std::size(_logLevelBits); i++) {
         _logLevelBits[i] = CONFIG_LOG_DEFAULT_LEVEL;
     }
@@ -458,32 +457,17 @@ uint32_t LogfileClass::noOfEntries()
 
 bool LogfileClass::websocketRequestPage(AsyncWebSocket *webSocket, uint32_t clientId, uint32_t pageNo)
 {
-#if 1
-    if (requestedLogPageClients.size() >= _requestedLogPageClientsMax) {
-        LOGF_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
-        return false;
-    }
     LOGF_DP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
     _requestedLogPageClient_t newRequest;
     newRequest.webSocket = webSocket;
     newRequest.clientId = clientId;
     newRequest.pageNo = pageNo;
 
-    requestedLogPageClients.push_back(newRequest);
-
-    return true;
-#else
-    if (_requestedLogPageClientIdx >= std::size(_requestedLogPageClients)) {
+    if (!_requestedLogPageClients.push(newRequest)) {
+        LOGF_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClients.size());
         return false;
     }
-    _requestedLogPageClient_t *request = &_requestedLogPageClients[_requestedLogPageClientIdx++];
-
-    request->webSocket = webSocket;
-    request->clientId = clientId;
-    request->pageNo = pageNo;
-
     return true;
-#endif
 }
 
 
