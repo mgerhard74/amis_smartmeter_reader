@@ -139,6 +139,7 @@ void ThingSpeakClass::sendData()
         _lastSentMs = millis() - _intervalMs + 10000;
         // Fühestens in 10 Sekunden wieder probieren
         _ticker.once_ms_scheduled(10000, std::bind(&ThingSpeakClass::sendData, this));
+        return;
     }
 
 #if (THINGSPEAK_USE_SSL)
