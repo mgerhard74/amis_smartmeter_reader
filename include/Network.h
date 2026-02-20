@@ -74,6 +74,7 @@ private:
 
     bool _isConnected;
     bool _apMode;
+    size_t _continuousConnectionErrors;
 
     NetworkConfigWifi_t _configWifi;
 

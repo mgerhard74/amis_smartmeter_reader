@@ -21,12 +21,14 @@
 
 extern const char *__COMPILED_GIT_HASH__;
 
+#define NETWORK_LOG_MAX_CONNECTION_ATTEMPS   3
 
 void NetworkClass::init(bool apMode)
 {
     WiFi.persistent(false);
     WiFi.disconnect(true, true);
     _isConnected = false;
+    _continuousConnectionErrors = 0;
 
     using std::placeholders::_1;
     _onStationModeGotIP = WiFi.onStationModeGotIP(std::bind(&NetworkClass::onStationModeGotIPCb, this, _1));
@@ -88,8 +90,13 @@ void NetworkClass::onStationModeGotIP(_networkEvent_t& nwevent)
     _isConnected = true;
     _tickerReconnect.detach();
 
-    LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    if (_continuousConnectionErrors > NETWORK_LOG_MAX_CONNECTION_ATTEMPS) {
+        LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP " after %u failed connection attempts.", WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()), _continuousConnectionErrors);
+    } else {
+        LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    }
     LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
+    _continuousConnectionErrors = 0;
 
     restartMDNSIfNeeded();
 
@@ -263,7 +270,13 @@ void NetworkClass::connect(void)
 
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
-    LOGF_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+
+    _continuousConnectionErrors++;
+    if (_continuousConnectionErrors <= NETWORK_LOG_MAX_CONNECTION_ATTEMPS) {
+        LOGF_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+    } else if (_continuousConnectionErrors == NETWORK_LOG_MAX_CONNECTION_ATTEMPS + 1){
+        LOGF_WP("%u continuous connecting errors. Stopping logging WiFi connecting errors.", NETWORK_LOG_MAX_CONNECTION_ATTEMPS);
+    }
 
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword, _configWifi.channel);
     LedBlue.turnBlink(150, 150);
