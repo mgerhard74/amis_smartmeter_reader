@@ -41,17 +41,16 @@ void NetworkClass::init(bool apMode)
 
 void NetworkClass::loop(void)
 {
-    if (_networkEvents.size() == 0) {
+    _networkEvent_t nwevent;
+    if (!_networkEvents.peek(nwevent)) {
         return;
     }
-
-    _networkEvent_t nwevent = _networkEvents.front();
     if (nwevent.event == 1) {
         onStationModeGotIP(nwevent);
     } else if (nwevent.event == 2) {
         onStationModeDisconnected(nwevent);
     }
-    _networkEvents.erase(_networkEvents.begin());
+    _networkEvents.pop(nwevent);
 }
 
 
@@ -107,7 +106,9 @@ void NetworkClass::onStationModeGotIPCb(const WiFiEventStationModeGotIP& event)
     _networkEvent_t nwEvent;
     nwEvent.event = 1;
     nwEvent.eventGotIP = event;
-    _networkEvents.push_back(nwEvent);
+    if (!_networkEvents.push(nwEvent)) {
+        LOG_EP("Event queue full - (onStationModeGotIPCb)!");
+    }
     //Utils::captureStack();
     SYSTEMMONITOR_STAT();
 }
@@ -116,7 +117,9 @@ void NetworkClass::onStationModeDisconnectedCb(const WiFiEventStationModeDisconn
     _networkEvent_t nwEvent;
     nwEvent.event = 2;
     nwEvent.eventDisconnected = event;
-    _networkEvents.push_back(nwEvent);
+    if (!_networkEvents.push(nwEvent)) {
+        LOG_EP("Event queue full - (onStationModeDisconnectedCb)!");
+    }
     SYSTEMMONITOR_STAT();
 }
 

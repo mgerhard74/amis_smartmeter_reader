@@ -1,9 +1,9 @@
 #pragma once
 
+#include "RingBuffer.h"
+
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
-
-#include <list>
 
 // Maximum of elements in /config_wifi (incl "command" and all other values)
 #define NETWORK_JSON_CONFIG_WIFI_DOCUMENT_SIZE      JSON_OBJECT_SIZE(16) + 768
@@ -77,7 +77,7 @@ private:
 
     NetworkConfigWifi_t _configWifi;
 
-    std::list<_networkEvent_t> _networkEvents;
+    RingBuffer<_networkEvent_t, 4, true> _networkEvents;
 };
 
 extern NetworkClass Network;
