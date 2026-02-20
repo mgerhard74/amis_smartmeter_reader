@@ -121,20 +121,6 @@ void WebserverWsDataClass::sendDataTaskCb()
 
     _clientRequest_t request;
 
-    if (_ws.count() == 0) {
-        // clear all _clientRequests
-        while (count--) {
-            if (_clientRequests.peek(request)) {
-                if (request.requestData) {
-                    free(request.requestData);
-                    request.requestData = nullptr;
-                }
-            }
-            _clientRequests.pop(request);
-        }
-        return;
-    }
-
     // max handle 3 request per call of this function
     if (count > 3) {
         count = 3;
@@ -143,9 +129,7 @@ void WebserverWsDataClass::sendDataTaskCb()
         if (_clientRequests.peek(request)) {
             if (request.requestData) {
                 AsyncWebSocketClient *client = _ws.client(request.clientId);
-                if (client) {
-                    wsClientRequest(client, request.requestData, request.requestLen);
-                }
+                wsClientRequest(client, request.requestData, request.requestLen);
                 free(request.requestData);
                 request.requestData = nullptr;
             }
@@ -260,8 +244,14 @@ static void clearHist() {
 }
 
 void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* requestData, size_t requestLength) {
-    //LOGF_VP("wsClientRequest() client=" PRsIP ":%d, len=%u", PRIPVal(client->remoteIP()), client->remotePort(), tempObjectLength);
-    //LOGF_VP("wsClientRequest() strlen= %d", strlen((char *)(client->_tempObject)));
+    // *client can be nullptr as request is processed async and client can be already disconnected!
+
+    /*
+    if (client) {
+        LOGF_VP("wsClientRequest() client=" PRsIP ":%d, len=%u", PRIPVal(client->remoteIP()), client->remotePort(), requestLength);
+    }
+    LOGF_VP("wsClientRequest() strlen= %d", strlen(requestData));
+    */
 
     /*
     {"command":"ping"}
@@ -382,7 +372,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
 
     if (!strcmp(command, "ping")) {
         // handle "ping" explicit here as it's the most used command
-        ws->text(client->id(),F("{\"pong\":\"\"}"));
+        if (client) {
+            ws->text(client->id(), F("{\"pong\":\"\"}"));
+        }
         return;
     }
 
@@ -447,11 +439,16 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             }
         }
     } else if (strcmp(command, "status") == 0) {
-        sendStatus(client);
+        if (client) {
+            sendStatus(client);
+        }
     } else if (strcmp(command, "restart") == 0) {
         Reboot.startReboot();
     } else if (strcmp(command, "geteventlog") == 0) {
         //Logausgabe in main.loop() bzw Log.loop() bearbeiten, Timeout!!!
+        if (!client) {
+            return;
+        }
         uint32_t page = root["page"].as<uint32_t>();
         if (Log.websocketRequestPage(ws, client->id(), page)) {
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
@@ -467,16 +464,20 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
         }
     } else if (strcmp(command, "getconf") == 0) {
-        wsSendFile("/config_general", client);
-        wsSendFile("/config_wifi", client);
-        wsSendFile("/config_mqtt", client);
+        if (client) {
+            wsSendFile("/config_general", client);
+            wsSendFile("/config_wifi", client);
+            wsSendFile("/config_mqtt", client);
+        }
         wsSendRuntimeConfigAll(ws);
     } else if (strcmp(command, "energieWeek") == 0) {
-        energieWeekUpdate();         // Wochentagfiles an Webclient senden
+        energieWeekUpdate();        // Wochentagfiles an Webclient senden
     } else if (strcmp(command, "energieMonth") == 0) {
-        energieMonthUpdate();         // Monatstabelle an Webclient senden
+        energieMonthUpdate();       // Monatstabelle an Webclient senden
     } else if (strcmp(command, "weekdata") == 0) {
-        sendWeekData(client);                   // die hist_inx + hist_outx Fileinhalte für save konfig
+        if (client) {
+            sendWeekData(client); // die hist_inx + hist_outx Fileinhalte für save konfig
+        }
     } else if (strcmp(command, "clearhist") == 0) {
         clearHist();
     } else if (strcmp(command, "clearhist2") == 0) {
@@ -485,12 +486,14 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         // Im AP Modus wird die Config nicht reloaded.
         // Danmit aber zumindest der Key auch im AP Modus upgedatet werden kann,
         // sendet der WebClient einen extra 'set-amisreader'-Request dafür
-        const char *key = root[F("key")].as<const char*>();
+        const char *key = root[F("key")];
         if (key) {
             AmisReader.setKey(key);
-            ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
     } else if (strcmp(command, "ls") == 0) {
+        if (!client) {
+            return;
+        }
         String path;
         if (root.containsKey(F("path"))) {
             path = root[F("path")].as<String>();
@@ -563,6 +566,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     } else if (strcmp(command, "test") == 0) {
         doSerialHwTest = !doSerialHwTest;
     } else if (strcmp(command, "print") == 0) {
+        if (!client) {
+            return;
+        }
         const char *uid = root["file"];
         ws->text(client->id(), uid); // ws.text
         uint8_t ibuffer[65];
@@ -589,7 +595,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
             ApplicationRuntime.webUseFilesFromFirmware(strcmp(onOff, "on") == 0);
-            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+            if (client) {
+                ws->text(client->id(), R"({"r":0,"m":"OK"})");
+            }
         }
     } else if (!strcmp(command, "set-loglevel")) {
         // {"command":"set-loglevel", "module":5, "level":5} // THINGSPEAK
@@ -607,7 +615,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             module = root[F("module")].as<uint32_t>();
         }
         Log.setLoglevel(level, module);
-        ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        if (client) {
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        }
     } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
         // Remove use self uploaded and old/unused files from filesystem
         const char *filenamesToDelete[] = {
@@ -627,6 +637,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             LittleFS.remove(filename);
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
+        if (!client) {
+            return;
+        }
 #if (AMIS_DEVELOPER_MODE)
         DynamicJsonBuffer jsonBuffer;
         JsonObject doc = jsonBuffer.createObject();
@@ -703,13 +716,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             }
             ret_msg = R"({"r":0,"m":"OK"})";
         }
-        ws->text(client->id(), ret_msg);
+        if (client) {
+            ws->text(client->id(), ret_msg);
+        }
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();
         Exception_Raise(no);
     } else if (!strcmp(command, "dev-remove-exceptiondumpsall")) {
         Exception_RemoveAllDumps();
     } else if (!strcmp(command, "dev-getHostByName")) {
+        if (!client) {
+            return;
+        }
         const char* value = root[F("value")].as<const char*>();
         if (value && value[0]) {
             IPAddress ipAddr;
