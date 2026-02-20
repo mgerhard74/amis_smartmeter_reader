@@ -76,7 +76,7 @@ void WebserverWsDataClass::init(AsyncWebServer& server)
     _ws.onEvent(std::bind(&WebserverWsDataClass::onWebsocketEvent, this, _1, _2, _3, _4, _5, _6));
 
     _wsCleanupTicker.attach_scheduled(1, std::bind(&WebserverWsDataClass::wsCleanupTaskCb, this));
-    _sendDataTicker.attach_ms_scheduled(100, std::bind(&WebserverWsDataClass::sendDataTaskCb, this));
+    _sendDataTicker.attach_ms_scheduled(10, std::bind(&WebserverWsDataClass::sendDataTaskCb, this));
 
     _simpleDigestAuth.setRealm("data websocket");
 
@@ -108,11 +108,50 @@ void WebserverWsDataClass::wsCleanupTaskCb()
 
 void WebserverWsDataClass::sendDataTaskCb()
 {
-    // do nothing if no WS client is connected
-    if (_ws.count() == 0) {
+    // 1.) Do some periodic sending stuff here
+    //
+    // till now: nothing periodic to do
+
+
+    // 2.) Handle our _clientRequests queue
+    size_t count = _clientRequests.count();
+    if (count == 0) {
         return;
     }
-    // Do some periodic sending stuff here
+
+    _clientRequest_t request;
+
+    if (_ws.count() == 0) {
+        // clear all _clientRequests
+        while (count--) {
+            if (_clientRequests.peek(request)) {
+                if (request.requestData) {
+                    free(request.requestData);
+                    request.requestData = nullptr;
+                }
+            }
+            _clientRequests.pop(request);
+        }
+        return;
+    }
+
+    // max handle 3 request per call of this function
+    if (count > 3) {
+        count = 3;
+    }
+    while (count--) {
+        if (_clientRequests.peek(request)) {
+            if (request.requestData) {
+                AsyncWebSocketClient *client = _ws.client(request.clientId);
+                if (client) {
+                    wsClientRequest(client, request.requestData, request.requestLen);
+                }
+                free(request.requestData);
+                request.requestData = nullptr;
+            }
+        }
+        _clientRequests.pop(request);
+    }
 }
 
 
@@ -128,37 +167,52 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
         uint64_t index = info->index;
         uint64_t infolen = info->len;
 
+        if (!infolen) {
+            return;
+        }
+
         if (info->final && info->index == 0 && infolen == len) {
             //the whole message is in a single frame and we got all of it's data
-            client->_tempObject = malloc(infolen + 1);
-            if (client->_tempObject) {
-                memcpy((uint8_t *)(client->_tempObject), data, len);
-                ((uint8_t *)client->_tempObject)[len] = 0;
-                wsClientRequest(client, infolen);
+            _clientRequest_t request;
+            request.requestData = (char *) malloc(infolen + 1);
+            if (request.requestData && infolen) {
+                request.clientId = client->id();
+                memcpy(request.requestData, data, len);
+                request.requestData[len] = 0;
+                request.requestLen = infolen;
+                if (!_clientRequests.push(request)) {
+                    LOG_EP("Request queue full!");
+                }
             }
+            SYSTEMMONITOR_STAT();
+            return;
+        }
 
-        } else {
-            //message is comprised of multiple frames or the frame is split into multiple packets
-            if (index == 0) {
-                if (info->num == 0 && client->_tempObject == NULL) {
-                    client->_tempObject = malloc(infolen + 1);
-                }
-            }
-            if (client->_tempObject) {
-                memcpy((uint8_t *)(client->_tempObject) + index, data, len);
-                if ((index + len) == infolen) {
-                    if (info->final) {
-                        ((uint8_t *)client->_tempObject)[infolen] = 0;
-                        wsClientRequest(client, infolen);
-                    }
-                }
+        //message is comprised of multiple frames or the frame is split into multiple packets
+        if (index == 0) {
+            if (info->num == 0 && client->_tempObject == nullptr) {
+                client->_tempObject = malloc(infolen + 1);
+            } else {
+                client->_tempObject = nullptr;
             }
         }
 
-        if (info->final && client->_tempObject) {
-            free(client->_tempObject);
-            client->_tempObject = NULL;
+        if (client->_tempObject) {
+            memcpy((uint8_t *)(client->_tempObject) + index, data, len);
+
+            if (info->final) {
+                _clientRequest_t request;
+                request.requestData = (char *) client->_tempObject;
+                request.requestData[infolen] = 0;
+                client->_tempObject = nullptr;
+                request.clientId = client->id();
+                request.requestLen = infolen;
+                if (!_clientRequests.push(request)) {
+                    LOG_EP("Request queue full!");
+                }
+            }
         }
+        SYSTEMMONITOR_STAT();
     } // type == WS_EVT_DATA
 }
 
@@ -205,11 +259,7 @@ static void clearHist() {
     first_frame = 0;
 }
 
-void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength) {
-    if (!tempObjectLength) {
-        return;
-    }
-
+void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* requestData, size_t requestLength) {
     //LOGF_VP("wsClientRequest() client=" PRsIP ":%d, len=%u", PRIPVal(client->remoteIP()), client->remotePort(), tempObjectLength);
     //LOGF_VP("wsClientRequest() strlen= %d", strlen((char *)(client->_tempObject)));
 
@@ -239,7 +289,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         "pingrestart_max": "5",
         "channel": "0"
     }
-    { // 33 Objects
+    { // 32 Objects
         "command": "/config_general",
         "devicetype": "AMIS-Reader",
         "devicename": "Amis-1",
@@ -290,20 +340,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
     }
     */
 
-    DynamicJsonDocument root(2048);
-    DeserializationError error;
-    if (root.capacity() == 0) {
-        error = DeserializationError::NoMemory;
-    } else  {
-        error = DeserializationError::InvalidInput;
-    }
-    if (tempObjectLength >= 15 && tempObjectLength <= root.capacity()) { // '{"command":"x"}'
-        // Do not change 'client->_tempObject'
-        // error = deserializeJson(root, (const void*) client->_tempObject, tempObjectLength);
+    // add space for 5 "additional" objects and some extra bytes
+    DynamicJsonDocument root(JSON_OBJECT_SIZE(32) + JSON_OBJECT_SIZE(5) + 32); // ~624 bytes
 
-        // Following line changes 'client->_tempObject' !
-        error = deserializeJson(root,client->_tempObject, tempObjectLength);
-    }
+    // Do not change 'requestData' ... but then we need more memory!
+    // error = deserializeJson(root, (const char*) requestData, requestLength);
+
+    // Following line changes 'requestData'! But thats ok for us here since we've allocated the buffer.
+    DeserializationError error = deserializeJson(root, requestData, requestLength);
+
     if (error) {
         /*
         TODO(anyone): sending
@@ -315,13 +360,25 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 
         raises an exception
         */
-        LOGF_EP("Parsing failed: message[%u]='%s'",
-                            tempObjectLength,
-                            Utils::escapeJson((char *)(client->_tempObject), tempObjectLength, 64).c_str());
+        LOGF_EP("Parsing failed: message[%u]='%s' jsonError='%s'",
+                            requestLength,
+                            Utils::escapeJson(requestData, requestLength, 64).c_str(),
+                            error.c_str());
+        /*
+        File f_request = LittleFS.open("/jsonRequest.json", "w");
+        if (f_request) {
+            f_request.write((uint8_t*)requestData, requestLength);
+            f_request.close();
+        }
+        */
         return;
     }
+
     // Web Browser sends some commands, check which command is given
     const char *command = root["command"];
+    if (command == nullptr) {
+        return;
+    }
 
     if (!strcmp(command, "ping")) {
         // handle "ping" explicit here as it's the most used command
@@ -453,7 +510,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         }
         DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+5+path.length()+1 +                 // "path":path
                                 JSON_OBJECT_SIZE(1)+3 +                                 // "ls":fileCnt
-                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(86*fileCnt));    // "1": "fileinfo1"
+                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(86*fileCnt) +    // "1": "fileinfo1"
+                                32);                                                    // silence our low-memory check!
         if (!doc.capacity()) {
             return; // Out of memory
         }
