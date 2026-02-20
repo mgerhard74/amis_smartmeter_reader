@@ -72,11 +72,8 @@ void NetworkClass::onStationModeDisconnected(_networkEvent_t& nwevent)
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
-#if 1
-    _tickerReconnect.once(2, std::bind(&NetworkClass::connect, this));
-#else
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
-#endif
+
     LedBlue.turnBlink(150, 150);
     LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
     SYSTEMMONITOR_STAT();
