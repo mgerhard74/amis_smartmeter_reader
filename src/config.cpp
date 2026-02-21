@@ -167,7 +167,10 @@ void ConfigClass::loadConfigGeneral()
     shelly_smart_mtr_udp = json[F("shelly_smart_mtr_udp")].as<bool>();
     shelly_smart_mtr_udp_device_index = json[F("shelly_smart_mtr_udp_device_index")].as<unsigned>();
     shelly_smart_mtr_udp_offset = json[F("shelly_smart_mtr_udp_offset")].as<int>();
-    shelly_smart_mtr_udp_hardware_id_appendix = json[F("shelly_smart_mtr_udp_hardware_id_appendix")].as<String>();
+
+    strlcpy(shelly_smart_mtr_udp_hardware_id_appendix,
+                json[F("shelly_smart_mtr_udp_hardware_id_appendix")] | "",
+                sizeof(shelly_smart_mtr_udp_hardware_id_appendix));
 
     strlcpy(amis_key, json[F("amis_key")] | "", sizeof(amis_key));
 

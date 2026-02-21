@@ -9,6 +9,24 @@
 
 #include <functional>
 
+typedef struct {
+    uint16_t port;
+    const char *pstr_id;
+} _devicesAvailable_t;
+
+//NOTE: be careful, index of array must match the selected dropbox value of index.html
+const char ID_EM50[] PROGMEM = "shellyproem50";
+const char ID_EMG3[] PROGMEM = "shellyemg3";
+const char ID_P3EM[] PROGMEM = "shellypro3em";
+
+static const _devicesAvailable_t _DEVICES[4] = {
+    { 2223, ID_EM50 },  //Shelly Pro EM-50
+    { 2222, ID_EMG3 },  //Shelly EM Gen3
+    { 2220, ID_P3EM },  //Shelly Pro 3EM (Firmware >=224)
+    { 1010, ID_P3EM }   //Shelly Pro 3EM (Firmware <224)
+};
+
+
 /*
   Shelly Smartmeter Emulator für B2500 Batteriespeicher.
   Es ist nur das RPC over UDP implementiert, da dies diese Geräte nutzen.
@@ -22,25 +40,23 @@ ShellySmartmeterEmulationClass::ShellySmartmeterEmulationClass()
     _currentValues.dataAreValid = false;
 }
 
-bool ShellySmartmeterEmulationClass::init(unsigned selectedDeviceIndex, String customDeviceIDAppendix, int offset)
+bool ShellySmartmeterEmulationClass::init(unsigned selectedDeviceIndex, const char *customDeviceIDAppendix, int offset)
 {
-    if (selectedDeviceIndex >= std::size(DEVICES)) {
+    if (selectedDeviceIndex >= std::size(_DEVICES)) {
         LOGF_EP("selectedDeviceIndex out of range (%u)", selectedDeviceIndex);
         return false;
     }
 
-    _device = DEVICES[selectedDeviceIndex];
-    _offset = offset;
-
-    //device ID not set yet
-    if (customDeviceIDAppendix.isEmpty()) {
-        _device.id += "-" + String(ESP.getChipId(), HEX);
+    if (customDeviceIDAppendix[0]) {
+        snprintf_P(_device.id, sizeof(_device.id), PSTR("%S-%s"), _DEVICES[selectedDeviceIndex].pstr_id, customDeviceIDAppendix);
+        for (char *c = _device.id; *c; c++) {
+            *c = tolower(*c);
+        }
     } else {
-        _device.id += "-" + customDeviceIDAppendix;
+        snprintf_P(_device.id, sizeof(_device.id), PSTR("%S-%x"), _DEVICES[selectedDeviceIndex].pstr_id, ESP.getChipId());
     }
-
-    _device.id.remove(26);  //known as safe lenght for the B2500
-    _device.id.toLowerCase();
+    _device.port = _DEVICES[selectedDeviceIndex].port;
+    _offset = offset;
 
     return true;
 }
@@ -159,7 +175,7 @@ bool ShellySmartmeterEmulationClass::enable(void)
         return false;
     }
 
-    LOGF_IP("Starting listening on port %d, id '%s' offset %d W", _device.port, _device.id.c_str(), _offset);
+    LOGF_IP("Starting listening on port %d, id '%s' offset %d W", _device.port, _device.id, _offset);
     _enabled = listen();
 
     return _enabled;

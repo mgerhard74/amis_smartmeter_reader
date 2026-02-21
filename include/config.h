@@ -52,7 +52,7 @@ public:
     bool shelly_smart_mtr_udp;
     unsigned shelly_smart_mtr_udp_device_index;
     int shelly_smart_mtr_udp_offset;
-    String shelly_smart_mtr_udp_hardware_id_appendix;
+    char shelly_smart_mtr_udp_hardware_id_appendix[17];
 
     bool use_auth;
     char auth_passwd[CONFIG_AUTH_PASSWORD_MAXLEN + 1];
