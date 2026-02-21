@@ -21,6 +21,7 @@ public:
         return true;
     }
 
+#if 0
     // Get current item (item is not removed)
     // Returns: true = success, false = buffer was empty
     bool peek(T& item) const {
@@ -34,6 +35,7 @@ public:
         if (NEED_LOCK) { interrupts(); }
         return true;
     }
+#endif
 
     // Get current item and remove it
     // Returns: true = success, false = buffer was empty

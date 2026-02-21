@@ -114,28 +114,20 @@ void WebserverWsDataClass::sendDataTaskCb()
 
 
     // 2.) Handle our _clientRequests queue
-    size_t count = _clientRequests.count();
-    if (count == 0) {
-        return;
-    }
-
     _clientRequest_t request;
 
-    // max handle 3 request per call of this function
-    if (count > 3) {
-        count = 3;
-    }
-    while (count--) {
-        if (_clientRequests.peek(request)) {
-            if (request.requestData) {
-                AsyncWebSocketClient *client = _ws.client(request.clientId);
-                wsClientRequest(client, request.requestData, request.requestLen);
-                free(request.requestData);
-                request.requestData = nullptr;
-            }
+    // max waste 70ms request per call of this function
+    uint32_t start = millis();
+    do {
+        if (!_clientRequests.pop(request)) {
+            return;
         }
-        _clientRequests.pop(request);
-    }
+        if (request.requestData) {
+            AsyncWebSocketClient *client = _ws.client(request.clientId);
+            wsClientRequest(client, request.requestData, request.requestLen);
+            free(request.requestData);
+        }
+    } while (millis() - start < 70);
 }
 
 

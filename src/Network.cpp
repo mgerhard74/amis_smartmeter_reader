@@ -44,7 +44,7 @@ void NetworkClass::init(bool apMode)
 void NetworkClass::loop(void)
 {
     _networkEvent_t nwevent;
-    if (!_networkEvents.peek(nwevent)) {
+    if (!_networkEvents.pop(nwevent)) {
         return;
     }
     if (nwevent.event == 1) {
@@ -52,7 +52,6 @@ void NetworkClass::loop(void)
     } else if (nwevent.event == 2) {
         onStationModeDisconnected(nwevent);
     }
-    _networkEvents.pop(nwevent);
 }
 
 

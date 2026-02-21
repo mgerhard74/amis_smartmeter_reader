@@ -112,7 +112,7 @@ void LogfileClass::loop()
 
 #if 1
     _requestedLogPageClient_t request;
-    if (!_requestedLogPageClients.peek(request)) {
+    if (!_requestedLogPageClients.pop(request)) {
         return;
     }
     // Adapt pagno to be in valid range
@@ -165,7 +165,6 @@ void LogfileClass::loop()
         LOG_EP("Could not send logfile via websocket.");
     }
 
-    _requestedLogPageClients.pop(request);
 #else
     if (_requestedLogPageClientIdx == 0) {
         return;
