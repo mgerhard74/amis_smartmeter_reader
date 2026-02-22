@@ -257,12 +257,12 @@ static void writeHistFileOut(int x, uint32_t val) {
 static String appendToMonthFile(uint8_t yy, uint8_t mm, uint32_t v_1_8_0, uint32_t v_2_8_0)
 {
 // Hängt die ersten in Monat verfügbaren Zählerstände (1.8.0 und 2.8.0)
-// einfach an die Datei an.
+// einfach an die Datei "/monate" an und gibt den String für YYMM zurück
 #if 1
     size_t len;
     char dataLine[28];
-    //     4  1   10   1  10   1 1   = 28
-    //   "yymm  NUMBER1 NUMBER2\n\0"
+    //     4  1   10  1  10   1 1   = 28
+    //   "yymm NUMBER1 NUMBER2\n\0"
     len = snprintf(dataLine, sizeof(dataLine), "%02u%02u %u %u\n", yy, mm, v_1_8_0, v_2_8_0); // 1.8.0, 2.8.0 = Zählerstände Verbrauch(Energie+) Lieferung(Energie-)*/
 
     File f = LittleFS.open("/monate", "a");
@@ -297,8 +297,8 @@ static void secTick() {
         }
     }
 
-    if (Databroker.valid==5) {
-        if (first_frame==3) { // 1. Zählerdatensatz nach reset
+    if (Databroker.valid == 5) {
+        if (first_frame == 3) { // 1. Zählerdatensatz nach reset
             first_frame=2;      // nächste action beim nächsten secTick
             int x=dow-2;        // gestern
             if (x < 0) x=6;
@@ -349,11 +349,11 @@ static void secTick() {
                     x = 6;
                 }
             }
-            updates = 3;                      // Trigger WebClients Update
-            first_frame = 1;                  // Tabelle erzeugt, initialisierung abgeschlossen
+            updates = 3;                    // Trigger WebClients Update
+            first_frame = 1;                // Tabelle erzeugt, initialisierung abgeschlossen
         }
 
-        if (dow_local != dow) {           // Tageswechsel, dow 1..7
+        if (dow_local != dow) {             // Tageswechsel, dow 1..7
             int x=dow-2;                    // gestern, idx ab 0
             if (x < 0) x=6;                 // x zeigt auf gestern
             kwh_day_in[x] = Databroker.results_u32[0];      // 1.8.0
@@ -361,22 +361,22 @@ static void secTick() {
             kwh_day_out[x] = Databroker.results_u32[1];     // 2.8.0
             writeHistFileOut(x, Databroker.results_u32[1]);
             dow_local=dow;
-            if (mon_local != mon) {         // Monatswechsel
+            if (mon_local != mon) { // Monatswechsel
                 latestYYMMInHistfile = appendToMonthFile(myyear, mon, Databroker.results_u32[0], Databroker.results_u32[1]);
                 mon_local=mon;
             }
-            first_frame=2;                  // Wochen- + Monatstabelle Energie neu erzeugen
+            first_frame=2;          // Wochen- + Monatstabelle Energie neu erzeugen
         }
     }
 
 
-    if (updates){
+    if (updates) {
         switch (updates) {
         case 2:
-            energieWeekUpdate();                   // Wochentabelle Energie senden
+            energieWeekUpdate();    // Wochentabelle Energie senden
             break;
         case 1:
-            energieMonthUpdate();                   // Wochentabelle Energie senden
+            energieMonthUpdate();   // Monatstabelle Energie senden
             break;
         }
         updates--;
