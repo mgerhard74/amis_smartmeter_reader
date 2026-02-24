@@ -9,6 +9,7 @@
 #include "Application.h"
 #include "config.h"
 #include "Exception.h"
+#include "Json.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSSOCKET
 #include "Mqtt.h"
@@ -19,12 +20,12 @@
 #include "Utils.h"
 #include "__compiled_constants.h"
 
-#include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 #include <LittleFS.h>
 
+#include "Webserver_ws_Data_cmd_status.inl"
+
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
-static void sendStatus(AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
 static void wsSendRuntimeConfigAll(AsyncWebSocket *ws);
 static void clearHist();
@@ -32,6 +33,25 @@ static bool EEPROMClear();
 
 extern bool doSerialHwTest;
 
+extern "C" {
+    extern uint32_t _iram_start;
+    extern uint32_t _iram_end;              // sample:
+    extern uint32_t _text_start;            //  &_text_start        = 0x40100000
+    extern uint32_t _text_end;              //  &_text_end          = 0x40107409
+    extern uint32_t _irom0_text_start;      //  &_irom0_text_start  = 0x40201010
+    extern uint32_t _irom0_text_end;        //  &_irom0_text_end    = 0x402871a0
+/*
+    _dport0_rodata_start = ABSOLUTE(.);
+    _dport0_rodata_end = ABSOLUTE(.);
+    _dport0_literal_start = ABSOLUTE(.);
+    _dport0_literal_end = ABSOLUTE(.);
+    _dport0_data_start = ABSOLUTE(.);
+    _dport0_data_end = ABSOLUTE(.);
+    _flash_code_end // müsste gleich _irom0_text_end sein
+    _lit4_start
+    _lit4_end
+*/
+}
 
 AsyncWebSocket *ws;
 
@@ -56,7 +76,7 @@ void WebserverWsDataClass::init(AsyncWebServer& server)
     _ws.onEvent(std::bind(&WebserverWsDataClass::onWebsocketEvent, this, _1, _2, _3, _4, _5, _6));
 
     _wsCleanupTicker.attach_scheduled(1, std::bind(&WebserverWsDataClass::wsCleanupTaskCb, this));
-    _sendDataTicker.attach_ms_scheduled(100, std::bind(&WebserverWsDataClass::sendDataTaskCb, this));
+    _sendDataTicker.attach_ms_scheduled(10, std::bind(&WebserverWsDataClass::sendDataTaskCb, this));
 
     _simpleDigestAuth.setRealm("data websocket");
 
@@ -88,17 +108,32 @@ void WebserverWsDataClass::wsCleanupTaskCb()
 
 void WebserverWsDataClass::sendDataTaskCb()
 {
-    // do nothing if no WS client is connected
-    if (_ws.count() == 0) {
-        return;
-    }
-    // Do some periodic sending stuff here
+    // 1.) Do some periodic sending stuff here
+    //
+    // till now: nothing periodic to do
+
+
+    // 2.) Handle our _clientRequests queue
+    _clientRequest_t request;
+
+    // max waste 70ms request per call of this function
+    uint32_t start = millis();
+    do {
+        if (!_clientRequests.pop(request)) {
+            return;
+        }
+        if (request.requestData) {
+            AsyncWebSocketClient *client = _ws.client(request.clientId);
+            wsClientRequest(client, request.requestData, request.requestLen);
+            free(request.requestData);
+        }
+    } while (millis() - start < 70);
 }
 
 
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
-    if(type == WS_EVT_ERROR) {
+    if (type == WS_EVT_ERROR) {
         LOGF_VP("Error: WebSocket[%s][%u] error(%u): %s", server->url(), client->id(), *((uint16_t *) arg), (char *) data);
         return;
     }
@@ -108,37 +143,52 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
         uint64_t index = info->index;
         uint64_t infolen = info->len;
 
-        if(info->final && info->index == 0 && infolen == len) {
+        if (!infolen) {
+            return;
+        }
+
+        if (info->final && info->index == 0 && infolen == len) {
             //the whole message is in a single frame and we got all of it's data
-            client->_tempObject = malloc(infolen + 1);
-            if (client->_tempObject) {
-                memcpy((uint8_t *)(client->_tempObject), data, len);
-                ((uint8_t *)client->_tempObject)[len] = 0;
-                wsClientRequest(client, infolen);
+            _clientRequest_t request;
+            request.requestData = (char *) malloc(infolen + 1);
+            if (request.requestData && infolen) {
+                request.clientId = client->id();
+                memcpy(request.requestData, data, len);
+                request.requestData[len] = 0;
+                request.requestLen = infolen;
+                if (!_clientRequests.push(request)) {
+                    LOG_EP("Request queue full!");
+                }
             }
+            SYSTEMMONITOR_STAT();
+            return;
+        }
 
-        } else {
-            //message is comprised of multiple frames or the frame is split into multiple packets
-            if (index == 0) {
-                if (info->num == 0 && client->_tempObject == NULL) {
-                    client->_tempObject = malloc(infolen + 1);
-                }
-            }
-            if (client->_tempObject) {
-                memcpy((uint8_t *)(client->_tempObject) + index, data, len);
-                if ((index + len) == infolen) {
-                    if (info->final) {
-                        ((uint8_t *)client->_tempObject)[infolen] = 0;
-                        wsClientRequest(client, infolen);
-                    }
-                }
+        //message is comprised of multiple frames or the frame is split into multiple packets
+        if (index == 0) {
+            if (info->num == 0 && client->_tempObject == nullptr) {
+                client->_tempObject = malloc(infolen + 1);
+            } else {
+                client->_tempObject = nullptr;
             }
         }
 
-        if (info->final && client->_tempObject) {
-            free(client->_tempObject);
-            client->_tempObject = NULL;
+        if (client->_tempObject) {
+            memcpy((uint8_t *)(client->_tempObject) + index, data, len);
+
+            if (info->final) {
+                _clientRequest_t request;
+                request.requestData = (char *) client->_tempObject;
+                request.requestData[infolen] = 0;
+                client->_tempObject = nullptr;
+                request.clientId = client->id();
+                request.requestLen = infolen;
+                if (!_clientRequests.push(request)) {
+                    LOG_EP("Request queue full!");
+                }
+            }
         }
+        SYSTEMMONITOR_STAT();
     } // type == WS_EVT_DATA
 }
 
@@ -160,86 +210,199 @@ extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 
 static void clearHist() {
-    String s="";
     for (unsigned j=0; j<7;j++ ) {
         kwh_day_in[j] = 0;
         kwh_day_out[j] = 0;
         kwh_hist[j].kwh_in = 0;
         kwh_hist[j].kwh_out = 0;
         kwh_hist[j].dow = 0;
-        s = "/hist_in" + String(j);
-        LittleFS.remove(s);
-        s = "/hist_out" + String(j);
-        LittleFS.remove(s);
     }
+
+    char fname[11]; //  "/hist_in6\0" "/hist_out6\0"
+
+    strlcpy(fname, "/hist_in6", sizeof(fname));
+    for (unsigned j=0; j<7;j++ ) {
+        fname[8] = '0' + j;
+        LittleFS.remove(fname);
+    }
+
+    strlcpy(fname, "/hist_out6", sizeof(fname));
+    for (unsigned j=0; j<7;j++ ) {
+        fname[9] = '0' + j;
+        LittleFS.remove(fname);
+    }
+
     first_frame = 0;
 }
 
-void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t tempObjectLength) {
-    if (!tempObjectLength) {
-        return;
+void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* requestData, size_t requestLength) {
+    // *client can be nullptr as request is processed async and client can be already disconnected!
+
+    /*
+    if (client) {
+        LOGF_VP("wsClientRequest() client=" PRsIP ":%d, len=%u", PRIPVal(client->remoteIP()), client->remotePort(), requestLength);
     }
-    //LOGF_EP("Websock %d", (int)tempObjectLength);
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject((char *)(client->_tempObject));
-    if (!root.success()) {
+    LOGF_VP("wsClientRequest() strlen= %d", strlen(requestData));
+    */
+
+    /*
+    {"command":"ping"}
+    {"command":"getconf"}
+    {"command":"energieWeek"}
+    {"command":"energieMonth","jahr":22}
+    {"command":"geteventlog","page":1}
+    {"command":"status"}
+    {"command":"scan_wifi"}
+    {  // 16 Objects
+        "command": "/config_wifi",
+        "ssid": "xxxxx-ssid",
+        "wifipassword": "password",
+        "dhcp": false,
+        "ip_static": "192.168.xx.yy",
+        "ip_netmask": "255.255.255.0",
+        "ip_gateway": "192.168.xx.aa",
+        "ip_nameserver": "192.168.11.1",
+        "rfpower": "21",
+        "mdns": true,
+        "allow_sleep_mode": false,
+        "pingrestart_do": false,
+        "pingrestart_ip": "192.168.xx.cc",
+        "pingrestart_interval": "60",
+        "pingrestart_max": "5",
+        "channel": "0"
+    }
+    { // 32 Objects
+        "command": "/config_general",
+        "devicetype": "AMIS-Reader",
+        "devicename": "Amis-1",
+        "auth_passwd": "password",
+        "auth_user": "user",
+        "use_auth": true,
+        "log_sys": true,
+        "amis_key": "1234567890abcdef1234567890abcdef",
+        "thingspeak_aktiv": true,
+        "channel_id": "1234567",
+        "write_api_key": "writePASSWORD",
+        "read_api_key": "readPASSWORD",
+        "thingspeak_iv": "30",
+        "channel_id2": "",
+        "read_api_key2": "",
+        "rest_var": "0",
+        "rest_ofs": "0",
+        "rest_neg": false,
+        "smart_mtr": true,
+        "developerModeEnabled": true,
+        "switch_on": "0",
+        "switch_off": "0",
+        "switch_url_on": "http://url.on",
+        "switch_url_off": "http://url.off",
+        "switch_intervall": "60",
+        "reboot0": true,
+        "shelly_smart_mtr_udp": false,
+        "shelly_smart_mtr_udp_device": "shellypro3em",
+        "shelly_smart_mtr_udp_offset": "0",
+        "shelly_smart_mtr_udp_hardwareID": "",
+        "shelly_smart_mtr_udp_device_index": "0",
+        "shelly_smart_mtr_udp_hardware_id_appendix": ""
+    }
+    {   // 13 Objects
+        "command": "/config_mqtt",
+        "mqtt_enabled": true,
+        "mqtt_broker": "192.168.aa.dd",
+        "mqtt_port": "1883",
+        "mqtt_user": "",
+        "mqtt_password": "",
+        "mqtt_clientid": "mqclientID1",
+        "mqtt_qos": "0",
+        "mqtt_retain": true,
+        "mqtt_keep": "8",
+        "mqtt_pub": "amis/out/",
+        "mqtt_will": "lastwill1",
+        "mqtt_ha_discovery": true
+    }
+    */
+
+    // add space for 5 "additional" objects and some extra bytes
+    DynamicJsonDocument root(JSON_OBJECT_SIZE(32) + JSON_OBJECT_SIZE(5) + 32); // ~624 bytes
+
+    // Do not change 'requestData' ... but then we need more memory!
+    // error = deserializeJson(root, (const char*) requestData, requestLength);
+
+    // Following line changes 'requestData'! But thats ok for us here since we've allocated the buffer.
+    DeserializationError error = deserializeJson(root, requestData, requestLength);
+
+    if (error) {
         /*
         TODO(anyone): sending
+        >>>
         {"comm
 
         and":"set-loglevel", "module":10, "level":5}
+        <<<
 
         raises an exception
-
-        if (root == JsonObject::invalid()) { ... does not help as JsonObject::invalid().sucess() returns false
         */
-        LOGF_EP("Parsing failed: message[%u]='%s'",
-                            tempObjectLength,
-                            Utils::escapeJson((char *)(client->_tempObject), tempObjectLength, 64).c_str());
+        LOGF_EP("Parsing failed: message[%u]='%s' jsonError='%s'",
+                            requestLength,
+                            Utils::escapeJson(requestData, requestLength, 64).c_str(),
+                            error.c_str());
+        /*
+        File f_request = LittleFS.open("/jsonRequest.json", "w");
+        if (f_request) {
+            f_request.write((uint8_t*)requestData, requestLength);
+            f_request.close();
+        }
+        */
         return;
     }
+
     // Web Browser sends some commands, check which command is given
     const char *command = root["command"];
+    if (command == nullptr) {
+        return;
+    }
 
-    if(!strcmp(command, "ping")) {
+    if (!strcmp(command, "ping")) {
         // handle "ping" explicit here as it's the most used command
-        ws->text(client->id(),F("{\"pong\":\"\"}"));
+        if (client) {
+            ws->text(client->id(), F("{\"pong\":\"\"}"));
+        }
         return;
     }
 
     // Check whatever the command is and act accordingly
     LOGF_DP("websocket command: '%s'", command);
 
-    if(strcmp(command, "remove") == 0) {
+    if (strcmp(command, "remove") == 0) {
         const char *filename = root["file"];
         if (filename && filename[0]) {
             LittleFS.remove(filename);
         }
-    } else if(strcmp(command,"weekfiles")==0) {
+    } else if (strcmp(command,"weekfiles")==0) {
         uint32_t zstand;
         AmisReader.disable();
         clearHist();
         for (unsigned i=0; i<7; i++){
             zstand = root["week"][0][i].as<uint32_t>();
             if (zstand) {
-            File f = LittleFS.open("/hist_in"+String(i), "w");
-            if(f) {
-                f.print(zstand);
-                f.close();
-            }
+                File f = LittleFS.open("/hist_in"+String(i), "w");
+                if (f) {
+                    f.print(zstand);
+                    f.close();
+                }
             }
             zstand = root["week"][1][i].as<uint32_t>();
             if (zstand) {
-            File f = LittleFS.open("/hist_out"+String(i), "w");
-            if(f) {
-                f.print(zstand);
-                f.close();
-            }
+                File f = LittleFS.open("/hist_out"+String(i), "w");
+                if (f) {
+                    f.print(zstand);
+                    f.close();
+                }
             }
         }
         historyInit();
         AmisReader.enable();
-    } else if(strcmp(command,"monthlist")==0) {
+    } else if (strcmp(command,"monthlist")==0) {
         AmisReader.disable();
         LittleFS.remove("/monate");
         File f = LittleFS.open("/monate", "w");
@@ -253,10 +416,11 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             historyInit();
         }
         AmisReader.enable();
-    } else if((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
+    } else if ((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
-        if(f) {
-            root.prettyPrintTo(f);
+        if (f) {
+            serializeJsonPretty(root, f);
+            //f.write((const uint8_t *)client->_tempObject, tempObjectLength);
             f.close();
             LOGF_DP("%s saved on LittleFS.", command);
             if (strcmp(command, "/config_general")==0) {
@@ -266,59 +430,88 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                 Mqtt.reloadConfig();
             }
         }
-    } else if(strcmp(command, "status") == 0) {
-        sendStatus(client);
-    } else if(strcmp(command, "restart") == 0) {
+    } else if (strcmp(command, "status") == 0) {
+        if (client) {
+            sendStatus(client);
+        }
+    } else if (strcmp(command, "restart") == 0) {
         Reboot.startReboot();
-    } else if(strcmp(command, "geteventlog") == 0) {
+    } else if (strcmp(command, "geteventlog") == 0) {
         //Logausgabe in main.loop() bzw Log.loop() bearbeiten, Timeout!!!
+        if (!client) {
+            return;
+        }
         uint32_t page = root["page"].as<uint32_t>();
         if (Log.websocketRequestPage(ws, client->id(), page)) {
             ws->text(client->id(), R"({"r":0,"m":"OK"})");
         } else {
             ws->text(client->id(), R"({"r":1,"m":"Error: No slot available"})");
         }
-    } else if(strcmp(command, "clearevent") == 0) {
+    } else if (strcmp(command, "clearevent") == 0) {
         Log.clear();
-    } else if(strcmp(command, "scan_wifi") == 0) {
+    } else if (strcmp(command, "scan_wifi") == 0) {
         if (!_wifiScanInProgress) {
             _wifiScanInProgress = true;
             using std::placeholders::_1;
             WiFi.scanNetworksAsync(std::bind(&WebserverWsDataClass::onWifiScanCompletedCb, this, _1), true);
         }
-    } else if(strcmp(command, "getconf") == 0) {
-        wsSendFile("/config_general", client);
-        wsSendFile("/config_wifi", client);
-        wsSendFile("/config_mqtt", client);
+    } else if (strcmp(command, "getconf") == 0) {
+        if (client) {
+            wsSendFile("/config_general", client);
+            wsSendFile("/config_wifi", client);
+            wsSendFile("/config_mqtt", client);
+        }
         wsSendRuntimeConfigAll(ws);
-    } else if(strcmp(command, "energieWeek") == 0) {
-        energieWeekUpdate();         // Wochentagfiles an Webclient senden
-    } else if(strcmp(command, "energieMonth") == 0) {
-        energieMonthUpdate();         // Monatstabelle an Webclient senden
-    } else if(strcmp(command, "weekdata") == 0) {
-        sendWeekData(client);                   // die hist_inx + hist_outx Fileinhalte für save konfig
-    } else if(strcmp(command, "clearhist") == 0) {
+    } else if (strcmp(command, "energieWeek") == 0) {
+        energieWeekUpdate();        // Wochentagfiles an Webclient senden
+    } else if (strcmp(command, "energieMonth") == 0) {
+        energieMonthUpdate();       // Monatstabelle an Webclient senden
+    } else if (strcmp(command, "weekdata") == 0) {
+        if (client) {
+            sendWeekData(client); // die hist_inx + hist_outx Fileinhalte für save konfig
+        }
+    } else if (strcmp(command, "clearhist") == 0) {
         clearHist();
-    } else if(strcmp(command, "clearhist2") == 0) {
+    } else if (strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
     } else if (!strcmp(command, "set-amisreader")) {
         // Im AP Modus wird die Config nicht reloaded.
         // Danmit aber zumindest der Key auch im AP Modus upgedatet werden kann,
         // sendet der WebClient einen extra 'set-amisreader'-Request dafür
-        const char *key = root[F("key")].as<const char*>();
+        const char *key = root[F("key")];
         if (key) {
             AmisReader.setKey(key);
-            ws->text(client->id(), R"({"r":0,"m":"OK"})");
         }
-    } else if(strcmp(command, "ls") == 0) {
-        String path = root["path"].as<String>();
+    } else if (strcmp(command, "ls") == 0) {
+        if (!client) {
+            return;
+        }
+        String path;
+        if (root.containsKey(F("path"))) {
+            path = root[F("path")].as<String>();
+        }
         if (path.isEmpty()) {
             path = "/";
         }
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &doc = jsonBuffer.createObject();
-        unsigned i=0;
+
+        unsigned fileCnt=0;
         if (Utils::dirExists(path.c_str())) {
+            Dir dir = LittleFS.openDir(path);
+
+            while (dir.next()) {
+                fileCnt++;
+                ESP.wdtFeed();
+            }
+        }
+        DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+5+path.length()+1 +                 // "path":path
+                                JSON_OBJECT_SIZE(1)+3 +                                 // "ls":fileCnt
+                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(86*fileCnt) +    // "1": "fileinfo1"
+                                32);                                                    // silence our low-memory check!
+        if (!doc.capacity()) {
+            return; // Out of memory
+        }
+        if (fileCnt) {
+            fileCnt = 0;
             Dir dir = LittleFS.openDir(path);
             while (dir.next()) {
                 File f = dir.openFile("r");
@@ -331,19 +524,20 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
                                     f.getCreationTime(),
                                     f.getLastWrite());
                     f.close();
-                    doc[String(i)] = puffer;
+                    doc[String(fileCnt)] = puffer;
                 } else {
-                    doc[String(i)] = dir.fileName();
+                    doc[String(fileCnt)] = dir.fileName();
                 }
-                i++;
+                fileCnt++;
                 ESP.wdtFeed();
             }
         }
-        doc["ls"] = i;
+        doc["ls"] = fileCnt;
+        doc["path"] = path;
         String buffer;
-        doc.printTo(buffer);
+        SERIALIZE_JSON_LOG(doc, buffer);
         ws->text(client->id(), buffer);
-    } else if(strcmp(command, "rm") == 0) {
+    } else if (strcmp(command, "rm") == 0) {
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
             return;
@@ -363,18 +557,21 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         //    LittleFS.remove(F("/.idea"));
     } else if (strcmp(command, "test") == 0) {
         doSerialHwTest = !doSerialHwTest;
-    } else if(strcmp(command, "print") == 0) {
+    } else if (strcmp(command, "print") == 0) {
+        if (!client) {
+            return;
+        }
         const char *uid = root["file"];
         ws->text(client->id(), uid); // ws.text
-        int i;
         uint8_t ibuffer[65];
         File f = LittleFS.open(uid, "r");
-        if(f) {
+        if (f) {
+            int i;
             do {
-            i=f.read(ibuffer, 64);
-            ibuffer[i]=0;
-            ws->text(client->id(), (char *)ibuffer); // ws.text
-            } while (i);
+                i = f.read(ibuffer, 64);
+                ibuffer[i] = 0;
+                ws->text(client->id(), (char *)ibuffer); // ws.text
+                } while (i);
             f.close();
         } else {
             ws->text(client->id(), "no file\0");
@@ -390,13 +587,17 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         const char *onOff = root[F("value")].as<const char*>();
         if (onOff) {
             ApplicationRuntime.webUseFilesFromFirmware(strcmp(onOff, "on") == 0);
-            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+            if (client) {
+                ws->text(client->id(), R"({"r":0,"m":"OK"})");
+            }
         }
     } else if (!strcmp(command, "set-loglevel")) {
         // {"command":"set-loglevel", "module":5, "level":5} // THINGSPEAK
         // {"command":"set-loglevel", "module":6, "level":5} // MQTT
         // {"command":"set-loglevel", "module":11, "level":5} // WATCHDOGPING
         // {"command":"set-loglevel", "module":10, "level":5} // WEBSOCKET
+        // {"command":"set-loglevel", "level":5} // ALL
+        // {"command":"set-loglevel", "module":2, "level":0} // READER
         uint32_t level = CONFIG_LOG_DEFAULT_LEVEL;
         uint32_t module = LOGMODULE_ALL;
         if (root.containsKey(F("level"))) {
@@ -406,7 +607,9 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             module = root[F("module")].as<uint32_t>();
         }
         Log.setLoglevel(level, module);
-        ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        if (client) {
+            ws->text(client->id(), R"({"r":0,"m":"OK"})");
+        }
     } else if (!strcmp(command, "dev-remove-webdeveloper-files")) {
         // Remove use self uploaded and old/unused files from filesystem
         const char *filenamesToDelete[] = {
@@ -426,9 +629,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             LittleFS.remove(filename);
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
+        if (!client) {
+            return;
+        }
 #if (AMIS_DEVELOPER_MODE)
         DynamicJsonBuffer jsonBuffer;
-        JsonObject &doc = jsonBuffer.createObject();
+        JsonObject doc = jsonBuffer.createObject();
         doc["AAAA"]="ABCDEF";
         String buffer;
         String buffer1;
@@ -477,24 +683,19 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
         // Crashes
         const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
         //ws->text(client->id(), String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname);
-        String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + freeHeap.functionname;
-        ws->text(client->id(), x);
-    } else if (!strcmp(command, "dev-get-systemmonitor-stat")) {
-        const SystemMonitorClass::statInfo_t freeHeap = SystemMonitor.getFreeHeap();
-        const SystemMonitorClass::statInfo_t freeStack = SystemMonitor.getFreeStack();
-        const SystemMonitorClass::statInfo_t maxFreeBlockSize = SystemMonitor.getMaxFreeBlockSize();
-        {
-            String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
-            ws->text(client->id(), x);
-        }
-        {
-            String x = String(freeStack.value) + String(freeStack.filename) + String(freeStack.lineno) + String(freeStack.functionname);
-            ws->text(client->id(), x);
-        }
-        {
-            String x = String(maxFreeBlockSize.value) + String(maxFreeBlockSize.filename) + String(maxFreeBlockSize.lineno) + String(maxFreeBlockSize.functionname);
-            ws->text(client->id(), x);
-        }
+        LOGF_IP("TEXT %p %p", &_text_start, &_text_end);
+        LOGF_IP("IROM %p %p", &_irom0_text_start, &_irom0_text_end);
+        //LOGF_IP("TEXT 0x%08x 0x%08x", _text_start, _text_end);
+        //LOGF_IP("IROM 0x%08x 0x%08x", _irom0_text_start, _irom0_text_end);
+        //LOGF_IP("IRAM 0x%08x 0x%08x", _iram_start, _iram_end);
+        LOGF_IP("Filename=%p Funcname=%p", freeHeap.filename, freeHeap.functionname);
+        //LOGF_IP("Func=%s ", freeHeap.functionname);
+        //LOGF_IP("Filename=%s ", freeHeap.filename);
+        LOGF_IP("Func=%S ", freeHeap.functionname);
+        LOGF_IP("Filename=%S ", freeHeap.filename);
+
+        //String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
+        //ws->text(client->id(), x);
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
         if (root.containsKey(F("value"))) {
@@ -507,13 +708,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
             }
             ret_msg = R"({"r":0,"m":"OK"})";
         }
-        ws->text(client->id(), ret_msg);
+        if (client) {
+            ws->text(client->id(), ret_msg);
+        }
     } else if (!strcmp(command, "dev-raise-exception")) {
         const uint32_t no = root[F("value")].as<unsigned>();
         Exception_Raise(no);
     } else if (!strcmp(command, "dev-remove-exceptiondumpsall")) {
         Exception_RemoveAllDumps();
     } else if (!strcmp(command, "dev-getHostByName")) {
+        if (!client) {
+            return;
+        }
         const char* value = root[F("value")].as<const char*>();
         if (value && value[0]) {
             IPAddress ipAddr;
@@ -534,19 +740,23 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, size_t 
 static void sendWeekData(AsyncWebSocketClient *client)
 {
     File f;
-    uint8_t ibuffer[12];      //12870008
+    uint8_t ibuffer[12];      // "4294967295,\0"
     unsigned i,j;
     String s;
+
+    if (!s.reserve(300)) { // 300 should be maximum ever needed
+        return;
+    }
 
     s = "{\"weekdata\":[[";
     for (i=0; i<7; i++) {
         f = LittleFS.open("/hist_in"+String(i), "r");
         if (f) {
-        j = f.read(ibuffer, 10);
-        ibuffer[j] = ',';
-        ibuffer[j+1] = 0;
-        f.close();
-        s += (char*)ibuffer;
+            j = f.read(ibuffer, 10);
+            ibuffer[j] = ',';
+            ibuffer[j+1] = 0;
+            f.close();
+            s += (char*)ibuffer;
         }
         else {
             s += "0,";
@@ -574,140 +784,50 @@ static void sendWeekData(AsyncWebSocketClient *client)
 void WebserverWsDataClass::onWifiScanCompletedCb(int nFound)
 {
 
-    if(!_wifiScanInProgress || nFound == 0) {
+    if (!_wifiScanInProgress) {
         WiFi.scanDelete();
         _wifiScanInProgress = false;
         return;
     }
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    JsonArray &array = jsonBuffer.createArray();
-    String buffer;
+    /*
+    {
+        "stations": [
+            "{\"ssid\":\"meine-ssid1234567890123456789012\",\"rssi\":-2147483647,\"channel\":-2147483647,\"encrpt\":\"255\",\"bssid\":\"aa:bb:cc:dd:ee:ff\"}",
+            "{\"ssid\":\"meiNE-ssid1234567890123456789012\",\"rssi\":-2147483647,\"channel\":-2147483647,\"encrpt\":\"255\",\"bssid\":\"11:bb:cc:dd:ee:ff\"}",
+            "{\"ssid\":\"meine-ssID1234567890123456789012\",\"rssi\":-2147483647,\"channel\":-2147483647,\"encrpt\":\"255\",\"bssid\":\"aa:22:cc:dd:ee:ff\"}"
+        ]
+    }
+    */
+    DynamicJsonDocument root(JSON_OBJECT_SIZE(1)+10 + JSON_ARRAY_SIZE(nFound)+(148*nFound));
+    if (root.capacity() == 0) {
+        // out of memory
+        WiFi.scanDelete();
+        _wifiScanInProgress = false;
+        return ;
+    }
+
+    JsonArray stations = root.createNestedArray("stations");
     for (int i = 0; i < nFound; ++i) {           // esp_event_legacy.h
-        root[F("ssid")]    = WiFi.SSID(i);
-        root[F("rssi")]    = WiFi.RSSI(i);
-        root[F("channel")] = WiFi.channel(i);
-        root[F("encrpt")]  = String(WiFi.encryptionType(i));     // 0...5
-        root[F("bssid")]  = WiFi.BSSIDstr(i);
-        buffer = "";
-        root.printTo(buffer);
-        array.add(buffer);
+        StaticJsonDocument<JSON_OBJECT_SIZE(5) + 148> singleStation;
+        String singleStationStr = "";
+
+        singleStation[F("ssid")]    = WiFi.SSID(i);
+        singleStation[F("rssi")]    = WiFi.RSSI(i);
+        singleStation[F("channel")] = WiFi.channel(i);
+        singleStation[F("encrpt")]  = String(WiFi.encryptionType(i));
+        singleStation[F("bssid")]  = WiFi.BSSIDstr(i);
+
+        SERIALIZE_JSON_LOG(singleStation, singleStationStr);                 // als string
+        stations.add(singleStationStr);
     }
     WiFi.scanDelete();
     _wifiScanInProgress = false;
 
-    buffer = "";
-    array.printTo(buffer);
-    jsonBuffer.clear();
-    buffer = "{\"stations\":" + buffer + "}";
-
     // If we have a new Wifi-Scan-Result: Publish to *ALL* clients
-    ws->textAll(buffer);
-    SYSTEMMONITOR_STAT();
-}
-
-static void sendStatus(AsyncWebSocketClient *client)
-{
-    // TODO(anyone): This creates a "Reset" if running with debug-build.
-    struct ip_info info;
-    FSInfo fsinfo;
-    if (!LittleFS.info(fsinfo)) {
-        LOGF_EP("Error getting info on LittleFS");
-        memset(&fsinfo, 0, sizeof(fsinfo));
-    }
-
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    root[F("chipid")] = String(ESP.getChipId(), HEX);
-    root[F("cpu")] = ESP.getCpuFreqMHz();
-    root[F("reset_reason")] = ESP.getResetReason();
-
-    root[F("core")] = ESP.getCoreVersion();
-    root[F("sdk")] = ESP.getSdkVersion();
-    root[F("version")] = APP_VERSION_STR;
-    root[F("app_name")] = APP_NAME;
-    root[F("app_compiled_time_utc")] = __COMPILED_DATE_TIME_UTC_STR__;
-    root[F("app_compiled_git_branch")] = __COMPILED_GIT_BRANCH__;
-    root[F("app_compiled_git_hash")] = __COMPILED_GIT_HASH__;
-    root[F("app_compiled_build_environment")] = PIOENV; // PIOENV wird in platform.ini beim Compilieren gesetzt
-
-    root[F("library_ArduinoJson")] = ARDUINOJSON_VERSION;
-    root[F("library_AsyncMqttClient")] = "0.9.0";
-    root[F("library_AsyncPing_esp8266")] = "95ac7e4ce1d4b41087acc0f7d8109cfd1f553881";
-    root[F("library_ESPAsyncUDP")] = "0.0.0-alpha+sha.697c75a025";
-    root[F("library_ESPAsyncTCP")] = "2.0.0";
-    root[F("library_ESPAsyncWebServer")] = ASYNCWEBSERVER_VERSION;
-
-#if 0
-    root[F("flashchipid")] = String(ESP.getFlashChipId());
-    // ESP.getHeapStats()
-    root["heap_total"] = ESP.getHeapSize();
-    root["heap_used"] = ESP.getHeapSize() - ESP.getFreeHeap();
-    root["heap_max_block"] = ESP.getMaxAllocHeap();
-    root["heap_min_free"] = ESP.getMinFreeHeap();
-    root["psram_total"] = ESP.getPsramSize();
-    root["psram_used"] = ESP.getPsramSize() - ESP.getFreePsram();
-#endif
-
-    root[F("sketchsize")] = ESP.getSketchSize();
-    root[F("freesize")] = ESP.getFreeSketchSpace();
-
-    root[F("littlefs_size")] = fsinfo.totalBytes;
-    root[F("littlefs_used")] = fsinfo.usedBytes;
-
-    root[F("max_free_blocksz")] = ESP.getMaxFreeBlockSize();
-    root[F("heap_free")] = ESP.getFreeHeap();
-    root[F("heap_fragment")] = ESP.getHeapFragmentation();
-
-    //  root[F("heap_alloc_max")] = ESP.getMaxAllocHeap();
-    root[F("flashspeed")] = ESP.getFlashChipSpeed();
-    root[F("flashsize")] = ESP.getFlashChipSize();
-    root[F("flashmode")] = String(ESP.getFlashChipMode());
-
-    if (Network.inAPMode()) {
-        wifi_get_ip_info(SOFTAP_IF, &info);
-
-        struct softap_config conf;
-        memset(&conf, 0, sizeof(conf));
-        wifi_softap_get_config(&conf);
-
-        root[F("status_wifi_mac")] = WiFi.softAPmacAddress();
-    } else {
-        wifi_get_ip_info(STATION_IF, &info);
-
-        struct station_config conf;
-        memset(&conf, 0, sizeof(conf));
-        wifi_station_get_config(&conf);
-
-        char ssid_str[sizeof(conf.ssid)+1];
-        memcpy(ssid_str, conf.ssid, sizeof(conf.ssid));
-        ssid_str[sizeof(ssid_str) - 1] = 0;
-
-        root[F("status_wifi_ssid")] = ssid_str;
-        root[F("status_wifi_dns")] = WiFi.dnsIP().toString();
-        root[F("status_wifi_mac")] = WiFi.macAddress();
-        root[F("status_wifi_channel")] = WiFi.channel();
-        root[F("status_wifi_rssi")] = WiFi.RSSI();
-        root[F("status_wifi_bssid")] = WiFi.BSSIDstr();
-    }
-    IPAddress ipaddr = IPAddress(info.ip.addr);
-    IPAddress gwaddr = IPAddress(info.gw.addr);
-    IPAddress nmaddr = IPAddress(info.netmask.addr);
-    root[F("status_wifi_ip")] = ipaddr.toString();
-    root[F("status_wifi_gateway")] = gwaddr.toString();
-    root[F("status_wifi_netmask")] = nmaddr.toString();
-    //root["loadaverage"] = systemLoadAverage();
-    //if (ADC_MODE_VALUE == ADC_VCC) {
-    root[F("vcc")] = ESP.getVcc();
-    //root["vcc"] = "N/A (TOUT) ";
-    root[F("mqttStatus")] = Mqtt.isConnected() ?"connected" :"N/A";
-    root[F("ntpSynced")] = "N/A";
-
     String buffer;
-    root.printTo(buffer);
-    jsonBuffer.clear();
-    client->text(buffer);
+    SERIALIZE_JSON_LOG(root, buffer);
+    ws->textAll(buffer);
     SYSTEMMONITOR_STAT();
 }
 
@@ -725,13 +845,17 @@ static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
 static void wsSendRuntimeConfigAll(AsyncWebSocket *ws)
 {
     // send the runtime-config to all clients
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &doc = jsonBuffer.createObject();
+    /*
+    {
+        "command": "config_runtime",
+        "webUseFilesFromFirmware": true
+    }
+    */
+    StaticJsonDocument<JSON_OBJECT_SIZE(2)+96> doc;
     doc[F("command")] = F("config_runtime");
     doc[F("webUseFilesFromFirmware")] = ApplicationRuntime.webUseFilesFromFirmware();
     String buffer;
-    doc.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(doc, buffer);
     ws->textAll(buffer);
 }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define SYSTEMMONITOR_STAT_WithFunctionName     1
@@ -22,12 +23,12 @@ class SystemMonitorClass
         } statInfo_t;
 
         const statInfo_t &getFreeHeap();
-        const statInfo_t &getFreeStack();
+        const statInfo_t &getFreeStack(size_t context);
         const statInfo_t &getMaxFreeBlockSize();
 
     private:
         statInfo_t _freeHeapInfo;
-        statInfo_t _freeStackInfo;
+        statInfo_t _freeStackInfo[3];
         statInfo_t _maxFreeBlockSizeInfo;
 };
 

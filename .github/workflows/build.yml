@@ -90,8 +90,9 @@ jobs:
 
       - name: Rename Firmware
         run: |
-          mv .pio/build/${{ matrix.environment }}/firmware.bin .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin
-          mv .pio/build/${{ matrix.environment }}/firmware.elf .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.elf
+          mv .pio/build/${{ matrix.environment }}/firmware.bin       .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin
+          mv .pio/build/${{ matrix.environment }}/firmware.elf       .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.elf
+          mv .pio/build/${{ matrix.environment }}/firmware.bin.crc32 .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin.crc32
 
       - uses: actions/upload-artifact@v6
         with:
@@ -99,8 +100,8 @@ jobs:
           path: |
             .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin
             .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.elf
+            .pio/build/${{ matrix.environment }}/firmware-amis-${{ matrix.environment }}.bin.crc32
             # .pio/build/${{ matrix.environment }}/README.txt
-
 
   release:
     name: Create Release
@@ -130,6 +131,7 @@ jobs:
           cd artifacts
           for i in */; do mv -i ${i}firmware-amis-*.bin ./; done
           for i in */; do mv -i ${i}firmware-amis-*.elf ./; done
+          for i in */; do mv -i ${i}firmware-amis-*.bin.crc32 ./; done
 
       - name: Create README.txt
         run: |
@@ -137,8 +139,11 @@ jobs:
           echo -en "Use 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin' for updating your AMIS-Leser system!  \r\n" > README.txt
           echo -en "File 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' is just needed from devlopers to analyse errors!\r\n" >> README.txt
           echo -en "\r\n" >> README.txt
-          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin' für das Updaten des AMIS-Lesers verwenden!\r\n" >> README.txt
-          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' wird nur zur Fehleranalyse für Entwickler benötig!\r\n" >> README.txt
+          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin' fuer das Updaten des AMIS-Lesers verwenden!\r\n" >> README.txt
+          echo -en "'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.elf' wird nur zur Fehleranalyse fuer Entwickler benoetig!\r\n" >> README.txt
+          echo -en "\r\n" >> README.txt
+          echo -en "Firmware checksum 'firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin': " >> README.txt
+          cat firmware-amis-${{ needs.get_default_envs.outputs.default_environment }}.bin.crc32 >> README.txt
           ls -la
 
       - name: Create release

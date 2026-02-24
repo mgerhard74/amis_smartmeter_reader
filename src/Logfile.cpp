@@ -1,14 +1,13 @@
+#include "Json.h"
 #include "Log.h"
+#define LOGMODULE   LOGMODULE_SYSTEM
 #include "unused.h"
 #include "Utils.h"
 
-#include <AsyncJson.h>
 #include <LittleFS.h>
 
 #include <stdarg.h>
 
-
-#define LOGMODULE   LOGMODULE_SYSTEM
 
 #define LOGFILE_LINE_LEN_MAX    768
 
@@ -64,7 +63,7 @@ void LogfileClass::_prevFilename(unsigned int prevNo, char f[LFS_NAME_MAX])
 
     strlcpy(f, _filename, LFS_NAME_MAX);
 
-    // get extension and cut off extensinon
+    // get extension and cut off extension
     char *ext = f;
     while (strchr(ext, '.')) {
         ext = strchr(ext, '.') + 1;
@@ -95,58 +94,86 @@ void LogfileClass::loop()
 {
     // Send requested pages of the log file to a client
     // Just handle one request per loop() call to keep system running
+
+    /* Example JSON:
+    {
+    "entries": 177,
+    "pages": 9,
+    "size": 18709,
+    "page": 9,
+    "loglines": [
+        "{\"ms\":123260,\"type\":\"INFO\",\"src\":\"system\",\"ts\":1770762978,\"desc\":\"Event log cleared!\"}",
+        "{\"ms\":1550200,\"type\":\"INFO\",\"src\":\"rebootAtMidnight\",\"ts\":1770764405,\"desc\":\"Starting scheduled reboot...\"}",
+        "{\"ms\":1550308,\"type\":\"WARN\",\"src\":\"mqtt\",\"ts\":1770764405,\"desc\":\"Disconnected from server 192.168.xx.yy:1883 reason=TCP_DISCONNECTED\"}",
+        "{\"ms\":1550428,\"type\":\"INFO\",\"src\":\"system\",\"ts\":1770764405,\"desc\":\"System is going to reboot\"}"
+      ]
+    }
+    */
+
 #if 1
-    if (requestedLogPageClients.size() == 0) {
+    _requestedLogPageClient_t request;
+    if (!_requestedLogPageClients.pop(request)) {
         return;
     }
-
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-    root["entries"] = noOfEntries();
-    root["pages"] = noOfPages();
-    root["size"] = _size;
-    _requestedLogPageClient_t request = requestedLogPageClients.front();
     // Adapt pagno to be in valid range
     if (request.pageNo == 0) {
         request.pageNo = 1;
     } else if (request.pageNo > noOfPages()) {
         request.pageNo = noOfPages();
     }
-    root["page"] = request.pageNo;
-    JsonArray &loglines = root.createNestedArray("loglines");
 
+    uint32_t firstEntry, lastEntry;
+    _pageToEntries(request.pageNo, firstEntry, lastEntry);
+
+    File f;
+    size_t jsonBytesNeed = JSON_OBJECT_SIZE(5) + 64;  // Keystrings and 5 objects
+    size_t pos = 0xffffffff;
     if (_noOfEntriesInFile) {
-        File f = LittleFS.open(_filename, "r");
+        f = LittleFS.open(_filename, "r");
         if (f) {
-            uint32_t firstEntry, lastEntry;
-
-            _pageToEntries(request.pageNo, firstEntry, lastEntry);
             if (fileSkipLines(f, firstEntry-1) ) {
-                for(uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
-                    loglines.add(f.readStringUntil('\n'));
+                pos = f.position();
+                for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
+                    String s = f.readStringUntil('\n');
+                    jsonBytesNeed += JSON_ARRAY_SIZE(1) + s.length();
                 }
             }
-            f.close();
         }
     }
 
+    DynamicJsonDocument doc(jsonBytesNeed);
+    doc["entries"] = noOfEntries();
+    doc["pages"] = noOfPages();
+    doc["size"] = _size;
+    doc["page"] = request.pageNo;
+    JsonArray loglines = doc.createNestedArray("loglines");
+
+    if (_noOfEntriesInFile && pos != 0xffffffff) {
+        f.seek(pos, SeekSet);
+        for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
+            loglines.add(f.readStringUntil('\n'));
+        }
+    }
+
+    if (_noOfEntriesInFile && f) {
+        f.close();
+    }
+
     String buffer;
-    root.printTo(buffer);
-    jsonBuffer.clear();
+    SERIALIZE_JSON_LOG(doc, buffer);
     if (!request.webSocket->text(request.clientId, buffer)) {
         LOG_EP("Could not send logfile via websocket.");
     }
 
-    requestedLogPageClients.erase(requestedLogPageClients.begin());
 #else
-    if(_requestedLogPageClientIdx == 0) {
+    if (_requestedLogPageClientIdx == 0) {
         return;
     }
 
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
     root["pages"] = noOfPages();
-    for(size_t i=0; i < _requestedLogPageClientIdx; i++) {
+    for (size_t i=0; i < _requestedLogPageClientIdx; i++) {
         _requestedLogPageClient_t *request = &_requestedLogPageClients[i];
         if (request->webSocket == nullptr) {
             // skip an already processed request
@@ -170,7 +197,7 @@ void LogfileClass::loop()
 
                 _pageToEntries(request->pageNo, firstEntry, lastEntry);
                 if (fileSkipLines(f, firstEntry-1) ) {
-                    for(uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
+                    for (uint32_t currentEntry = firstEntry; currentEntry < lastEntry && f.available(); currentEntry++) {
                         String entry = String();
                         entry = f.readStringUntil('\n');
                         items.add(entry);
@@ -211,7 +238,7 @@ void LogfileClass::remove(bool allPrevious)
 
 void LogfileClass::_reset()
 {
-    requestedLogPageClients.clear();
+    _requestedLogPageClients.clear();
     for (size_t i = 0; i < std::size(_logLevelBits); i++) {
         _logLevelBits[i] = CONFIG_LOG_DEFAULT_LEVEL;
     }
@@ -332,8 +359,8 @@ void LogfileClass::printf(uint32_t type, uint32_t module, bool use_progmem, cons
         va_end(args);
     }
     // R"({"type":"%s","src":"%s","time":"","desc":"%s","data":""})"
-    _size += f.printf(R"({"ms":%u,"type":"%s","src":"%s","ts":%llu,"desc":"%s"})" "\n",
-                (unsigned int) millis(), typeStr, _getModuleName(module), time(NULL), buffer);
+    _size += f.printf(R"({"c":%c, "ms":%u,"type":"%s","src":"%s","ts":%llu,"desc":"%s"})" "\n",
+                '0'+Utils::getContext(), (unsigned int) millis(), typeStr, _getModuleName(module), time(NULL), buffer);
     va_end(args);
 
     if (buffer != temp) {
@@ -357,7 +384,7 @@ void LogfileClass::_startNewFile()
 
     char filename_new[LFS_NAME_MAX];
     char filename_old[LFS_NAME_MAX];
-    for(uint32_t i=_keepPreviousFiles; i > 1; i--) {
+    for (uint32_t i=_keepPreviousFiles; i > 1; i--) {
         _prevFilename(i-1, filename_old);
         if (!Utils::fileExists(filename_old)) {
             continue;
@@ -401,7 +428,7 @@ uint32_t LogfileClass::noOfEntries()
     // Count number of entries
     size_t rlen, linelen = 0;
     char buffer[128];
-    for(;;) {
+    for (;;) {
         rlen = f.readBytes(buffer, std::size(buffer));
         if (rlen == 0) {
             break;
@@ -429,32 +456,17 @@ uint32_t LogfileClass::noOfEntries()
 
 bool LogfileClass::websocketRequestPage(AsyncWebSocket *webSocket, uint32_t clientId, uint32_t pageNo)
 {
-#if 1
-    if (requestedLogPageClients.size() >= _requestedLogPageClientsMax) {
-        LOGF_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClientsMax);
-        return false;
-    }
     LOGF_DP("websocketRequestPage(): Client %u requested page %u.", clientId, pageNo);
     _requestedLogPageClient_t newRequest;
     newRequest.webSocket = webSocket;
     newRequest.clientId = clientId;
     newRequest.pageNo = pageNo;
 
-    requestedLogPageClients.push_back(newRequest);
-
-    return true;
-#else
-    if (_requestedLogPageClientIdx >= std::size(_requestedLogPageClients)) {
+    if (!_requestedLogPageClients.push(newRequest)) {
+        LOGF_WP("websocketRequestPage(): Maximum requests reached (%u)", _requestedLogPageClients.size());
         return false;
     }
-    _requestedLogPageClient_t *request = &_requestedLogPageClients[_requestedLogPageClientIdx++];
-
-    request->webSocket = webSocket;
-    request->clientId = clientId;
-    request->pageNo = pageNo;
-
     return true;
-#endif
 }
 
 
@@ -491,7 +503,7 @@ void LogfileClass::setLogLevelBits(uint32_t loglevelbits, uint32_t module)
     } else {
         return;
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         _logLevelBits[i] = loglevelbits;
     }
 }
@@ -509,7 +521,7 @@ void LogfileClass::enableLogLevelBits(uint32_t loglevelbits, uint32_t module)
     } else {
         return;
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         _logLevelBits[i] |= loglevelbits;
     }
 }
@@ -525,7 +537,7 @@ void LogfileClass::disableLogLevelBits(uint32_t loglevelbits, uint32_t module)
     } else {
         return;
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         _logLevelBits[i] &= (~loglevelbits);
     }
 }
@@ -566,7 +578,7 @@ uint32_t LogfileClass::getLoglevel(uint32_t module)
         return loglevel;
 
     }
-    for(; i < m; i++) {
+    for (; i < m; i++) {
         if (_logLevelBits[module] & LOGTYPE_BIT_VERBOSE) {
             loglevel = LOGLEVEL_VERBOSE;
             return loglevel;

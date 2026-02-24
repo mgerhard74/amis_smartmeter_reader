@@ -17,8 +17,14 @@ class Utils {
         static bool MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata);
         static uint8_t hexchar2Num(const char v);
         static int getContext(void);
+        static void ESP8266getStackInfo(int& context, uintptr_t& stack_bot, uintptr_t& stack_top, uintptr_t& stack_current);
 
         static String escapeJson(const char *str, size_t strlen/*=0xffffffff*/, size_t maxlen/*=0xffffffff*/);
+
+#if 0
+        static void captureStack(void);
+        static void dumpStack(void);
+#endif
 };
 
 /* vim:set ts=4 et: */

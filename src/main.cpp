@@ -193,12 +193,16 @@ void setup() {
 void loop() {
     Reboot.loop();
 
+    Network.loop();
+
     if (ws->count()) {      // ws-connections
         if (new_data_for_websocket) {
             new_data_for_websocket=false;
             sendZData();
         }
     }
+
+    Mqtt.loop();
 
     AmisReader.loop();  // Zähler auslesen
 
@@ -219,7 +223,7 @@ void loop() {
         doSerialHwTest = false;
     }
 
-    SYSTEMMONITOR_STAT();
+    // SYSTEMMONITOR_STAT();
 }
 
 

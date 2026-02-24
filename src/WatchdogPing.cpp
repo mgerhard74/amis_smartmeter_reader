@@ -11,10 +11,11 @@
 #define LOGMODULE   LOGMODULE_WATCHDOGPING
 #include "Network.h"
 #include "Reboot.h"
+#include "SystemMonitor.h"
 
 #include "config.h"
 
-#include <cstdint>
+//#include <cstdint>
 
 #if 0
 // Doku/Beispiel zu AsyncPing
@@ -122,6 +123,7 @@ bool WatchdogPingClass::onPingEndOfPing(const AsyncPingResponse& response)
         }
     }
     _isWaitingForPingResult = false;
+    SYSTEMMONITOR_STAT();
     return false; /* returning value does not matter in EndOfPing event */
 }
 

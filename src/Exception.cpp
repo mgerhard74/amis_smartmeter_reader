@@ -35,6 +35,8 @@ extern "C" {
     extern uint32_t _irom0_text_end;
 }
 
+extern "C" uint32_t __crc_val;
+
 #define EXCEPTIONS_MAX_SAVED_ON_DISC        10  //  "/crashes/0.dump" ... "/crashes/9.dump"
 #define EXCEPTIONS_MAX_EEPROM_STR_LEN       32  //  max length of saved strings
 #define EXCEPTIONS_MAX_EEPROM_STACK_VALUES  32  //  max stack values
@@ -135,7 +137,7 @@ static inline size_t fetchStackValues(uint32_t start, uint32_t end, uint32_t *st
             }
         }
         */
-        if(!onlyInterresting || (stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd)) {
+        if (!onlyInterresting || (stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd)) {
 
             // Check if we have "stackValue" already in our list
             bool isNewAddress = true;
@@ -497,6 +499,7 @@ void Exception_DumpLastCrashToFile()
     f.printf_P(PSTR("This gitHash = %s\n"), __COMPILED_GIT_HASH__);
     f.printf_P(PSTR("This compiled[UTC] = %s\n"), __COMPILED_DATE_TIME_UTC_STR__);
     f.printf_P(PSTR("This pio environment = %s\n"), PIOENV);
+    f.printf_P(PSTR("Firmware crc32 checksum = 0x%08x\n"), __crc_val);
     f.write('\n');
 
     /* now build a block match exception like postmortem (but without a real stack trace) */
@@ -636,7 +639,7 @@ void Exception_Raise(unsigned int no) {
     } else if (no == 6) {
         LOG_EP("Hardware WDT ... wait");
         ESP.wdtDisable();
-        for(;;)
+        for (;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed
@@ -648,7 +651,7 @@ void Exception_Raise(unsigned int no) {
         LOG_EP("Hardware WDT done.");
     } else if (no == 7) {
         LOG_EP("Software WDT ... wait");
-        for(;;)
+        for (;;)
         {
           // stay in an infinite loop doing nothing
           // this way other process can not be executed

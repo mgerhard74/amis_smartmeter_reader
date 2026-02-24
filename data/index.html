@@ -159,13 +159,15 @@
         </div>
         <div class="pure-u-1 pure-u-lg-1-2 state">
             <div class="pure-u-1-2">Chip ID</div>
-            <div class="pure-u-11-24"><span class="right" name="chipid"></span></div>
+            <div class="pure-u-11-24"><span class="right" name="chipid" pre="0x"></span></div>
             <div class="pure-u-1-2">Wifi MAC</div>
             <div class="pure-u-11-24"><span class="right" name="status_wifi_mac"></span></div>
             <div class="pure-u-1-2">App name</div>
             <div class="pure-u-11-24"><span class="right" name="app_name"></span></div>
             <div class="pure-u-1-2">Firmware size</div>
             <div class="pure-u-11-24"><span class="right" name="sketchsize" post=" bytes"></span></div>
+            <div class="pure-u-1-2">Firmware checksum</div>
+            <div class="pure-u-11-24"><span class="right" name="firmware_crc32" pre="0x"></span></div>
             <div class="pure-u-1-2">Free space</div>
             <div class="pure-u-11-24"><span class="right" name="freesize" post=" bytes"></span></div>
             <div class="pure-u-1-2">LITTLE-FS size</div>
@@ -187,7 +189,7 @@
             <div class="pure-u-1-2">CPU Frequ.</div>
             <div class="pure-u-11-24"><span class="right" name="cpu" post=" MHz"></span></div>
             <div class="pure-u-1-2">VCC</div>
-            <div class="pure-u-11-24"><span class="right" name="vcc">? </span><span>mV</span></div>
+            <div class="pure-u-11-24"><span class="right" name="vcc"></span><span>mV</span></div>
             <div class="pure-u-1-2">Reset Grund</div>
             <div class="pure-u-11-24"><span class="right" name="reset_reason" post=""></span></div>
         </div>
@@ -213,8 +215,8 @@
           <!-- https://github.com/bblanchon/ArduinoJson -->
           <div class="pure-u-11-24"><span class="right" name="library_ArduinoJson"></span></div>
 
-          <div class="pure-u-1-2">Library <a href="https://registry.platformio.org/libraries/marvinroger/AsyncMqttClient">AsyncMqttClient</a></div>
-          <!-- https://github.com/marvinroger/async-mqtt-client -->
+          <div class="pure-u-1-2">Library <a href="https://github.com/marvinroger/async-mqtt-client">AsyncMqttClient</a></div>
+          <!-- https://registry.platformio.org/libraries/marvinroger/AsyncMqttClient -->
           <div class="pure-u-11-24"><span class="right" name="library_AsyncMqttClient"></span></div>
 
           <div class="pure-u-1-2">Library <a href="https://github.com/akaJes/AsyncPing">AsyncPing(esp8266)</a></div>
@@ -233,6 +235,8 @@
           <div class="pure-u-11-24"><span class="right" name="library_ESPAsyncWebServer"></span></div>
         </div>
         <div class="pure-u-1 pure-u-lg-11-24 state">
+            <div class="pure-u-1-2">AP-Mode</div>
+            <div class="pure-u-11-24"><span name="status_wifi_ap_mode"></span></div>
             <div class="pure-u-1-2">Network</div>
             <div class="pure-u-11-24"><span name="status_wifi_ssid"></span></div>
             <div class="pure-u-1-2">Kanal</div>
@@ -241,6 +245,8 @@
             <div class="pure-u-11-24"><span name="status_wifi_rssi" post=" dB"></span></div>
             <div class="pure-u-1-2">BSSID</div>
             <div class="pure-u-11-24"><span name="status_wifi_bssid"></span></div>
+            <div class="pure-u-1-2">DHCP</div>
+            <div class="pure-u-11-24"><span name="status_wifi_dhcp"></span></div>
             <div class="pure-u-1-2">IP</div>
             <div class="pure-u-11-24"><span name="status_wifi_ip"></span></div>
             <div class="pure-u-1-2">DNS</div>
@@ -257,6 +263,73 @@
             <div class="pure-u-11-24"><span name="now"></span></div>
             <div class="pure-u-1-2">Laufzeit</div>
             <div class="pure-u-11-24"><span name="uptime"></span></div>
+        </div>
+
+        <!-- Memory / Stack / -->
+        <div class="pure-u-1 pure-u-lg-11-24 state menu-developer">
+            <!-- Heap free min -->
+            <div class="pure-u-1-2">HeapFree-Minimum</div>
+            <div class="pure-u-11-24"><span></span></div>
+            <div class="pure-u-1-2">Value</div>
+            <div class="pure-u-11-24"><span name="heap_value" post=" Bytes"></span></div>
+            <div class="pure-u-1-2">File</div>
+            <div class="pure-u-11-24"><span name="heap_file"></span></div>
+            <div class="pure-u-1-2">Line</div>
+            <div class="pure-u-11-24"><span  name="heap_line"></span></div>
+            <div class="pure-u-1-2">Func</div>
+            <div class="pure-u-11-24"><span  name="heap_func"></span></div>
+         </div>
+         <div class="pure-u-1 pure-u-lg-11-24 state menu-developer">
+            <!-- Max free block min -->
+            <div class="pure-u-1-2">Max. free block size-Minimum</div>
+            <div class="pure-u-11-24"><span></span></div>
+            <div class="pure-u-1-2">Value</div>
+            <div class="pure-u-11-24"><span name="maxfreeblock_value" post=" Bytes"></span></div>
+            <div class="pure-u-1-2">File</div>
+            <div class="pure-u-11-24"><span name="maxfreeblock_file"></span></div>
+            <div class="pure-u-1-2">Line</div>
+            <div class="pure-u-11-24"><span  name="maxfreeblock_line"></span></div>
+            <div class="pure-u-1-2">Func</div>
+            <div class="pure-u-11-24"><span  name="maxfreeblock_func"></span></div>
+          </div>
+          <div class="pure-u-1 pure-u-lg-11-24 state menu-developer">
+            <!-- System Stack min -->
+            <div class="pure-u-1-2">Stack (System)-Minimum</div>
+            <div class="pure-u-11-24"><span></span></div>
+            <div class="pure-u-1-2">Free</div>
+            <div class="pure-u-11-24"><span name="stack0_value" post=" Bytes"></span></div>
+            <div class="pure-u-1-2">File</div>
+            <div class="pure-u-11-24"><span name="stack0_file"></span></div>
+            <div class="pure-u-1-2">Line</div>
+            <div class="pure-u-11-24"><span  name="stack0_line"></span></div>
+            <div class="pure-u-1-2">Func</div>
+            <div class="pure-u-11-24"><span  name="stack0_func"></span></div>
+          </div>
+          <div class="pure-u-1 pure-u-lg-11-24 state menu-developer">
+            <!-- User Stack min -->
+            <div class="pure-u-1-2">Stack (Cont/User)-Minimum</div>
+            <div class="pure-u-11-24"><span></span></div>
+            <div class="pure-u-1-2">Free</div>
+            <div class="pure-u-11-24"><span name="stack1_value" post=" Bytes"></span></div>
+            <div class="pure-u-1-2">File</div>
+            <div class="pure-u-11-24"><span name="stack1_file"></span></div>
+            <div class="pure-u-1-2">Line</div>
+            <div class="pure-u-11-24"><span  name="stack1_line"></span></div>
+            <div class="pure-u-1-2">Func</div>
+            <div class="pure-u-11-24"><span  name="stack1_func"></span></div>
+          </div>
+          <div class="pure-u-1 pure-u-lg-11-24 state menu-developer">
+            <!-- Stack (BearSSL) min -->
+            <div class="pure-u-1-2">Stack (BearSSL)-Minimum</div>
+            <div class="pure-u-11-24"><span></span></div>
+            <div class="pure-u-1-2">Free</div>
+            <div class="pure-u-11-24"><span name="stack2_value" post=" Bytes"></span></div>
+            <div class="pure-u-1-2">File</div>
+            <div class="pure-u-11-24"><span name="stack2_file"></span></div>
+            <div class="pure-u-1-2">Line</div>
+            <div class="pure-u-11-24"><span  name="stack2_line"></span></div>
+            <div class="pure-u-1-2">Func</div>
+            <div class="pure-u-11-24"><span  name="stack2_func"></span></div>
         </div>
       </div>
 
@@ -577,7 +650,7 @@
         </div>
         <div class="pure-g">
             <label class="pure-u-1-2">Shelly Hardware ID (optional)</label>
-            <input class="pure-u-1-2 general" name="shelly_smart_mtr_udp_hardware_id_appendix" type="text" id="shelly_smart_mtr_udp_hardware_id_appendix"/>
+            <input class="pure-u-1-2 general" name="shelly_smart_mtr_udp_hardware_id_appendix" type="text" id="shelly_smart_mtr_udp_hardware_id_appendix" maxlength="16"/>
             <div class="pure-u-1 pure-u-sm-2-5 hint">
                 Wenn nicht definiert, wird automatisch eine ID auf Basis der ESP-ID generiert.
             </div>
@@ -772,6 +845,15 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.5.9</h3>
+              Beim MQTT publish wird die Uhrzeit wieder richtig ausgegeben.<br>
+              Wifi, MQTT und ThingSpeak: Verbindungsversuche werden nach 3 Fehlschlägen nicht mehr protokolliert.<br>
+              ThingSpeak Upload prüft vor dem Senden jetzt wirklich, ob überhaupt eine Netzwerkverbindung besteht. ;-)<br>
+              Shellysimulator wird vor einem Reboot bzw während eines Updates gestoppt.<br>
+              Systemaufraufe ausgelagert, um den internen Speicher und Stack zu schonen. Das sollte mehr Stabilität bringen.<br>
+              Detailanzeige Speicher- und Stackverbrauch im Developer-Mode.<br>
+              Update ArduinoJson von 5.13.4 auf 6.21.1.<br>
+              Update AsyncMqttClient auf die aktuelle development Version.<br>
               <h3>Version 1.5.8</h3>
               Im AP-Modus (wenn Jumper gesetzt), wird nun zumindest der AMIS-Key gelesen, damit der Zähler auch einfach "nur" im AP-Modus betrieben werden kann.<br>
               Webserverdateien werden direkt aus der Firmware übertragen und nicht mehr im Filesystem abgelegt. Das sollte Probleme mit dem Bowser Cache beseitigen.<br>

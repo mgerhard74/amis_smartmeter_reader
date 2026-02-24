@@ -4,6 +4,11 @@
 #include <ESP8266WiFi.h>
 #include <Ticker.h>
 
+#include <list>
+
+
+// Maximum of elements in /config_mqtt (incl "command" and all other values)
+#define MQTT_JSON_CONFIG_MQTT_DOCUMENT_SIZE    JSON_OBJECT_SIZE(13) + 768
 
 // Contains all the settings saved in file '/config_mqtt'
 typedef struct {
@@ -53,6 +58,7 @@ class MqttBaseClass
 public:
     MqttBaseClass();
     void init();
+    void loop();
     void stop();
     bool isConnected();
 
@@ -66,6 +72,14 @@ public:
     const MqttConfig_t &getConfigMqtt();
 
 private:
+    typedef struct _connectionEvent {
+        unsigned event;
+        _connectionEvent()
+            : event(0)
+            {}
+    } _connectionEvent_t;
+
+
     AsyncMqttClient _mqttClient;
     Ticker _reconnectTicker;
     Ticker _actionTicker;
@@ -73,6 +87,8 @@ private:
     void onMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total);
     void onConnect(bool sessionPresent);
     void onDisconnect(AsyncMqttClientDisconnectReason reason);
+    void onConnectCb(bool sessionPresent);
+    void onDisconnectCb(AsyncMqttClientDisconnectReason reason);
     void onPublish(uint16_t packetId);
 
     void publishTickerCb();
@@ -88,6 +104,10 @@ private:
 
     MqttReaderDataClass _mqttReaderData;
     MqttHAClass         _mqttHA;
+
+    uint32_t _continuousConnectionTry;
+
+    std::list<_connectionEvent_t> _connectionEvents;
 };
 
 extern MqttBaseClass Mqtt;

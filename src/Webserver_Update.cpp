@@ -16,6 +16,10 @@
 
 #include <LittleFS.h>
 
+
+extern void historyInit(void);
+
+
 void WebserverUpdateClass::init(AsyncWebServer& server)
 {
      _uploadfiletype = none;
@@ -75,6 +79,10 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             if (!_uploadFilename.startsWith("/")) {
                 _uploadFilename = "/" + _uploadFilename;
             }
+            if (_uploadFilename.equals(F("/monate"))) {
+                _uploadfiletype = monate;
+                AmisReader.disable();
+            }
             _uploadFile = LittleFS.open(_uploadFilename, "w");// Open the file for writing in LittleFS (create if it doesn't exist)
             if (!_uploadFile) {
                 LOGF_EP("Error creating file: %s", _uploadFilename.c_str());
@@ -91,7 +99,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
                 Update.printError(Serial);
             }
         }
-    } else if (_uploadfiletype == anyOther) { // write "any other file" content
+    } else if (_uploadfiletype == anyOther || _uploadfiletype == monate) { // write "any other file" content
         if (_uploadFile) {
             if (_uploadFile.write(data, len) != len) {
                 LOGF_EP("Error writing file: %s", _uploadFilename.c_str());
@@ -117,6 +125,10 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
         } else {                          // File write
             if (_uploadFile) {
                 _uploadFile.close();
+            }
+            if (_uploadfiletype == monate) {
+                historyInit();
+                AmisReader.enable();
             }
         }
         _uploadfiletype = none;

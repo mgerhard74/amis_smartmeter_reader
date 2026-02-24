@@ -177,7 +177,7 @@ void RemoteOnOffClass::loop() // Wird vom _ticker jede Sekunde aufgerufen falls 
         newState = _lastSentState;
     }
 
-    if(_saldoHistoryLen == std::size(_saldoHistory)) { // History muss vollständig gefüllt sein um den Mittelwert zu verwenden
+    if (_saldoHistoryLen == std::size(_saldoHistory)) { // History muss vollständig gefüllt sein um den Mittelwert zu verwenden
         int saldo_mw = _saldoHistorySum / (int) std::size(_saldoHistory);
         //                     -200                X                200
         //  [state on]     _switchOnSaldoW  >=  saldo_mw  >=  _switchOffSaldoW      [state off]

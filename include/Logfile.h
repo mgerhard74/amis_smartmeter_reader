@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RingBuffer.h"
+
 #include <LittleFS.h>
 
 #include <ESPAsyncWebServer.h>
@@ -129,9 +131,7 @@ private:
     } _requestedLogPageClient_t;
 
 
-    const size_t _requestedLogPageClientsMax = 3;
-    std::list<_requestedLogPageClient_t> requestedLogPageClients;
-    //std::vector<_requestedLogPageClient_t> requestedLogPageClients; // <list> is better as we always handle just one request
+    RingBuffer<_requestedLogPageClient_t, 3, true> _requestedLogPageClients;
 };
 
 extern LogfileClass Log;

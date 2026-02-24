@@ -29,12 +29,19 @@
 #define CONFIG_AUTH_USERNAME_MAXLEN     32
 #define CONFIG_AUTH_PASSWORD_MAXLEN     32
 
+#define CONFIG_JSON_CONFIG_GENERAL_DOCUMENT_SIZE    JSON_OBJECT_SIZE(33) + 1024
+
+
+extern const char* Config_restValueKeys[2][9];
+
 class ConfigClass {
 
 public:
     void init();
     void loadConfigGeneral();
     void applySettingsConfigGeneral();
+    static inline const char* getRestValueKeys(size_t index, unsigned rest_var/*=Config.rest_var*/)
+        { return Config_restValueKeys[rest_var][index];}
 
     char DeviceName[CONFIG_DEVICENAME_MAXLEN + 1]; // maximale Länge: 32 + \0
 
@@ -45,7 +52,7 @@ public:
     bool shelly_smart_mtr_udp;
     unsigned shelly_smart_mtr_udp_device_index;
     int shelly_smart_mtr_udp_offset;
-    String shelly_smart_mtr_udp_hardware_id_appendix;
+    char shelly_smart_mtr_udp_hardware_id_appendix[17];
 
     bool use_auth;
     char auth_passwd[CONFIG_AUTH_PASSWORD_MAXLEN + 1];

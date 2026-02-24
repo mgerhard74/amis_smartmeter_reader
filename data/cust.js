@@ -248,8 +248,14 @@ function updateElements(obj) {
           config_general=obj;
           if (config_general.thingspeak_aktiv) $(".menu-graf").show();
           else                                 $(".menu-graf").hide();
-          if (config_general.developerModeEnabled) $(".menu-developer").show();
-          else                                     $(".menu-developer").hide();
+          if (config_general.developerModeEnabled) {
+            $(".menu-developer").show();
+            $(".loglines-context").show();
+          }
+          else {
+            $(".menu-developer").hide();
+            $(".loglines-context").show();
+          }
           if (config_general.devicename) {
             config_general.devicename = config_general.devicename.trim();
           }
@@ -299,6 +305,19 @@ function updateElements(obj) {
       // nothing to do as 'key' matches the 'name' of the div element
     }
     */
+    else if (key==='heap' || key==='maxfreeblock' || key==='stack0' || key==='stack1' || key==='stack2') {
+      let prefix = key;
+      let data = obj[key];
+      for (let [key, value] of Object.entries(data)) {
+        if (data.value == 0xffffffff) {
+          // This was never set
+          updateHTMLPageContent(prefix + "_" + key, "");
+        } else {
+          updateHTMLPageContent(prefix + "_" + key, "" + value);
+        }
+      }
+      continue;
+    }
     else if (key==='today_in') {   // Nur 1x nach dem Start
       let secsDayStart = secsSinceMidnight(g_lastDT);
       yestd_in=obj.yestd_in;
@@ -398,9 +417,18 @@ function updateElements(obj) {
       //     time entfernt dafür wird jetzt ts(= timestamp UTC des systems) verwendet
       // {"ms":12345,"type":"INFO","src":"wifi","ts":1768780204,"desc":"WiFi is connected. XXX.ssid 192.168.AAA.BBB"}
 
-      let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th>Information</th></tr></thead><Tbody>';
+      let tab='<table class="pure-table pure-table-striped" width="100%"><thead><tr><th>Zeit</th><th>Typ</th><th>Src</th><th class="loglines-context">Context</th><th>Information</th></tr></thead><Tbody>';
       for (let i=0;i<value.length;i++ ) {
         let line=JSON.parse(value[i]);
+
+        let context = "";
+        if (line.c === 0) {
+          context = "sys";
+        } else if (line.c === 1) {
+          context = "cont";
+        } else if (line.c === 2) {
+          context = "bearssl";
+        }
 
         let t='- - -';
         if (line.ts && Number(line.ts) > (2024-1970)*365*24*3600) {
@@ -422,10 +450,17 @@ function updateElements(obj) {
           }
           desc += line.data;
         }
-        tab += '<tr><td>'+t+'</td><td>'+line.type+'</td><td>'+line.src+'</td><td>'+desc+'</td></tr>';
+        tab += '<tr><td>'+t+'</td><td>'+line.type+'</td><td>'+line.src+'</td><td class="loglines-context">'+context+'</td><td>'+desc+'</td></tr>';
       }
       tab+='</tbody></table>';
       value=tab;
+      updateHTMLPageContent(key, value);
+      if (config_general.developerModeEnabled) {
+        $(".loglines-context").show();
+      } else {
+        $(".loglines-context").hide();
+      }
+      continue;
     }
     else if (key==='monthlist') {
       monthlist={command:"monthlist",month:value};
@@ -477,13 +512,14 @@ function updateElements(obj) {
     }
     else if (key === 'flashmode') {
       switch (value) {
-        case '0': value = 'QIO';break;
-        case '1': value = 'QOUT';break;
-        case '2': value = 'DIO';break;
-        case '3': value = 'DOUT';break;
-        case '4': value = 'FAST-READ';break;
-        case '5': value = 'SLOW-READ';break;
-        case '0xff': value = 'unknown';break;
+        case 0: value = 'QIO';break;
+        case 1: value = 'QOUT';break;
+        case 2: value = 'DIO';break;
+        case 3: value = 'DOUT';break;
+        case 4: value = 'FAST-READ';break;
+        case 5: value = 'SLOW-READ';break;
+        case 0xff: value = 'unknown';break;
+        default: value = 'undefined ' + value;break;
       }
     }
     else if (key === 'stations') {        // WiFi-Scan
@@ -503,49 +539,68 @@ function updateElements(obj) {
       tab += '</tbody></table>';
       value = tab;
     }
-
-    // Look for INPUTs
-    let input = $("input[name='" + key + "']");
-    if (input.length > 0) {
-      //console.log(input)
-      if (input.attr("type") === "checkbox") {
-        input.prop("checked", value);
-      }
-      else if (input.attr("type") === "radio")
-        input.val([value]);
-      else {
-        pre = input.attr("pre") || "";
-        post = input.attr("post") || "";
-        input.val(pre + value + post);
+    else if (key === 'status_wifi_dhcp') {
+      if (value === true) {
+        value = "enabled";
+      } else {
+        value = "disabled";
       }
     }
-    // Look for SPANs
-    let span = $("span[name='" + key + "']");
-    pre = span.attr("pre") || "";
-    post = span.attr("post") || "";
-    div = span.attr("div") || 0;
-    if (div) {
-      value = value / div;
-      value=value.toFixed(3).replace('.',',');
+    else if (key === 'status_wifi_ap_mode') {
+      if (value === true) {
+        value = "enabled";
+      } else {
+        value = "disabled";
+      }
     }
-    span.html(pre + value + post);
 
-    // Look for DIVs
-    let divt = $("div[name='" + key + "']");
-    pre = divt.attr("pre") || "";
-    post = divt.attr("post") || "";
-    div = divt.attr("div") || 0;
-    if (div) {
-      value = value / div;
-      value=value.toFixed(3).replace('.',',');
+    updateHTMLPageContent(key, value);
+  }
+}
+
+function updateHTMLPageContent(key, value) {
+  // Look for INPUTs
+  let input = $("input[name='" + key + "']");
+  if (input.length > 0) {
+    //console.log(input)
+    if (input.attr("type") === "checkbox") {
+      input.prop("checked", value);
     }
-    divt.html(pre + value + post);
+    else if (input.attr("type") === "radio")
+      input.val([value]);
+    else {
+      pre = input.attr("pre") || "";
+      post = input.attr("post") || "";
+      input.val(pre + value + post);
+    }
+  }
+  // Look for SPANs
+  let span = $("span[name='" + key + "']");
+  pre = span.attr("pre") || "";
+  post = span.attr("post") || "";
+  div = span.attr("div") || 0;
+  if (div) {
+    value = value / div;
+    value=value.toFixed(3).replace('.',',');
+  }
+  span.html(pre + value + post);
 
-    // Look for SELECTs
-    let select = $("select[name='" + key + "']");
-    if (select.length > 0)
+  // Look for DIVs
+  let divt = $("div[name='" + key + "']");
+  pre = divt.attr("pre") || "";
+  post = divt.attr("post") || "";
+  div = divt.attr("div") || 0;
+  if (div) {
+    value = value / div;
+    value=value.toFixed(3).replace('.',',');
+  }
+  divt.html(pre + value + post);
+
+  // Look for SELECTs
+  let select = $("select[name='" + key + "']");
+  if (select.length > 0) {
 //      console.log(select)
-      select.val(value);
+    select.val(value);
   }
 }
 
@@ -730,8 +785,10 @@ function doUpdateGeneral() {                 // button save config
   else $(".menu-graf").hide();
   if (config_general.developerModeEnabled) {
     $(".menu-developer").show();
+    $(".loglines-context").show();
   } else {
     $(".menu-developer").hide();
+    $(".loglines-context").hide();
   }
   websock.send(JSON.stringify(config_general));
   websock.send('{"command":"set-amisreader","key":"' + config_general.amis_key + '"}');
@@ -850,9 +907,11 @@ function authDetails() {  // display settings only if auth active
 function developerModeEnabled() {  // display settings only if auth active
   if ($(this).prop('checked')) {
     $(".menu-developer").show();
+    config_general.developerModeEnabled = true;
     //websock.send('{"command":"set-developer-mode", "value":"on"}');
   } else {
     $(".menu-developer").hide();
+    config_general.developerModeEnabled = false;
     //websock.send('{"command":"set-developer-mode", "value":"off"}');
   }
 }

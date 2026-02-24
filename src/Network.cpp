@@ -9,12 +9,11 @@
 #include "LedSingle.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_NETWORK
+#include "Json.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
 #include "SystemMonitor.h"
 
-
-#include <ArduinoJson.h>
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
 #include <LittleFS.h>
@@ -22,16 +21,18 @@
 
 extern const char *__COMPILED_GIT_HASH__;
 
+#define NETWORK_LOG_MAX_CONNECTION_ATTEMPS   3
 
 void NetworkClass::init(bool apMode)
 {
     WiFi.persistent(false);
     WiFi.disconnect(true, true);
     _isConnected = false;
+    _continuousConnectionErrors = 0;
 
     using std::placeholders::_1;
-    _onStationModeGotIP = WiFi.onStationModeGotIP(std::bind(&NetworkClass::onStationModeGotIP, this, _1));
-    _onStationModeDisconnected = WiFi.onStationModeDisconnected(std::bind(&NetworkClass::onStationModeDisconnected, this, _1));
+    _onStationModeGotIP = WiFi.onStationModeGotIP(std::bind(&NetworkClass::onStationModeGotIPCb, this, _1));
+    _onStationModeDisconnected = WiFi.onStationModeDisconnected(std::bind(&NetworkClass::onStationModeDisconnectedCb, this, _1));
 
     _apMode = apMode;
     if (!loadConfigWifi(_configWifi)) {
@@ -39,26 +40,24 @@ void NetworkClass::init(bool apMode)
     }
 }
 
-void NetworkClass::onStationModeGotIP(const WiFiEventStationModeGotIP& event)
+
+void NetworkClass::loop(void)
 {
-    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
-    _isConnected = true;
-    _tickerReconnect.detach();
-
-    LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
-    LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
-
-    restartMDNSIfNeeded();
-
-    Mqtt.networkOnStationModeGotIP(event);
-
-    LedBlue.turnBlink(4000, 10);
-    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
-    SYSTEMMONITOR_STAT();
+    _networkEvent_t nwevent;
+    if (!_networkEvents.pop(nwevent)) {
+        return;
+    }
+    if (nwevent.event == 1) {
+        onStationModeGotIP(nwevent);
+    } else if (nwevent.event == 2) {
+        onStationModeDisconnected(nwevent);
+    }
 }
 
-void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnected& event)
+
+void NetworkClass::onStationModeDisconnected(_networkEvent_t& nwevent)
 {
+    WiFiEventStationModeDisconnected &event = nwevent.eventDisconnected;
     LOG_DP("WiFi NetworkClass::onStationModeDisconnected() start");
     if (!_isConnected) {
         // seems this gets called even we were not connected ..,. skip it
@@ -72,13 +71,58 @@ void NetworkClass::onStationModeDisconnected(const WiFiEventStationModeDisconnec
 
     // in 2 Sekunden Versuch sich wieder verzubinden
     _tickerReconnect.detach();
-#if 1
-    _tickerReconnect.once(2, std::bind(&NetworkClass::connect, this));
-#else
     _tickerReconnect.once_scheduled(2, std::bind(&NetworkClass::connect, this));
-#endif
+
     LedBlue.turnBlink(150, 150);
     LOG_DP("WiFi NetworkClass::onStationModeDisconnected() end");
+    SYSTEMMONITOR_STAT();
+}
+
+
+void NetworkClass::onStationModeGotIP(_networkEvent_t& nwevent)
+{
+    WiFiEventStationModeGotIP &event = nwevent.eventGotIP;
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() start");
+    _isConnected = true;
+    _tickerReconnect.detach();
+
+    if (_continuousConnectionErrors > NETWORK_LOG_MAX_CONNECTION_ATTEMPS) {
+        LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP " after %u failed connection attempts.", WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()), _continuousConnectionErrors);
+    } else {
+        LOGF_IP("WiFi connected to %s channel %" PRId8 " with local IP " PRsIP, WiFi.SSID().c_str(), WiFi.channel(), PRIPVal(WiFi.localIP()));
+    }
+    LOGF_VP("mask=" PRsIP ", gateway=" PRsIP, PRIPVal(event.mask), PRIPVal(event.gw));
+    _continuousConnectionErrors = 0;
+
+    restartMDNSIfNeeded();
+
+    Mqtt.networkOnStationModeGotIP(event);
+
+    LedBlue.turnBlink(4000, 10);
+    LOG_DP("WiFi NetworkClass::onStationModeGotIP() end");
+    SYSTEMMONITOR_STAT();
+}
+
+
+void NetworkClass::onStationModeGotIPCb(const WiFiEventStationModeGotIP& event)
+{
+    _networkEvent_t nwEvent;
+    nwEvent.event = 1;
+    nwEvent.eventGotIP = event;
+    if (!_networkEvents.push(nwEvent)) {
+        LOG_EP("Event queue full - (onStationModeGotIPCb)!");
+    }
+    //Utils::captureStack();
+    SYSTEMMONITOR_STAT();
+}
+void NetworkClass::onStationModeDisconnectedCb(const WiFiEventStationModeDisconnected& event)
+{
+    _networkEvent_t nwEvent;
+    nwEvent.event = 2;
+    nwEvent.eventDisconnected = event;
+    if (!_networkEvents.push(nwEvent)) {
+        LOG_EP("Event queue full - (onStationModeDisconnectedCb)!");
+    }
     SYSTEMMONITOR_STAT();
 }
 
@@ -102,76 +146,80 @@ bool NetworkClass::loadConfigWifi(NetworkConfigWifi_t &config)
 #endif
     }
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject *json = nullptr;
+    DynamicJsonDocument json(NETWORK_JSON_CONFIG_WIFI_DOCUMENT_SIZE);
+    if (!json.capacity()) {
+        LOGF_EP("Json /config_wifi: Out of memory");
+        return false;
+    }
+    DeserializationError error = DeserializationError::EmptyInput;
     if (configFile) {
-        json = &jsonBuffer.parseObject(configFile);
+        error = deserializeJson(json, configFile);
         configFile.close();
     } else {
 #ifdef DEFAULT_CONFIG_WIFI_JSON
-        json = &jsonBuffer.parseObject(DEFAULT_CONFIG_WIFI_JSON);
+        error = deserializeJson(json, DEFAULT_CONFIG_WIFI_JSON);
 #endif
     }
-    if (json == nullptr || !json->success()) {
-        LOGF_EP("Failed parsing %s", "/config_wifi");
+    if (error) {
+        LOGF_EP("Failed parsing %s. Error:'%s'", "/config_wifi", error.c_str());
         return false;
     }
 
-    config.pingrestart_do = (*json)[F("pingrestart_do")].as<bool>();
+    config.pingrestart_do = json[F("pingrestart_do")].as<bool>();
     IPAddress pingrestart_ip;
-    pingrestart_ip.fromString((*json)[F("pingrestart_ip")] | "");
+    pingrestart_ip.fromString(json[F("pingrestart_ip")] | "");
     config.pingrestart_ip[0] = pingrestart_ip[0];
     config.pingrestart_ip[1] = pingrestart_ip[1];
     config.pingrestart_ip[2] = pingrestart_ip[2];
     config.pingrestart_ip[3] = pingrestart_ip[3];
-    config.pingrestart_interval = (*json)[F("pingrestart_interval")].as<unsigned int>();
-    config.pingrestart_max = (*json)[F("pingrestart_max")].as<unsigned int>();
+    config.pingrestart_interval = json[F("pingrestart_interval")].as<unsigned int>();
+    config.pingrestart_max = json[F("pingrestart_max")].as<unsigned int>();
 
-    config.allow_sleep_mode = (*json)[F("allow_sleep_mode")].as<bool>();
+    config.allow_sleep_mode = json[F("allow_sleep_mode")].as<bool>();
 
-    strlcpy(config.ssid, (*json)[F("ssid")] | "", sizeof(config.ssid));
-    strlcpy(config.wifipassword, (*json)[F("wifipassword")] | "", sizeof(config.wifipassword));
+    strlcpy(config.ssid, json[F("ssid")] | "", sizeof(config.ssid));
+    strlcpy(config.wifipassword, json[F("wifipassword")] | "", sizeof(config.wifipassword));
 
-    config.channel = (*json)[F("channel")].as<int32_t>();
+    config.channel = json[F("channel")].as<int32_t>();
     if (config.channel < 0 || config.channel > 13) {
         config.channel = 0;
     }
 
-    config.dhcp = (*json)[F("dhcp")].as<bool>();
+    config.dhcp = json[F("dhcp")].as<bool>();
 
-    config.mdns = (*json)[F("mdns")].as<bool>();
+    config.mdns = json[F("mdns")].as<bool>();
 
     config.rfpower = 20;
-    if ((*json)[F("rfpower")] != "") {
-        config.rfpower = (*json)[F("rfpower")].as<int>();
+    if (json.containsKey(F("rfpower"))) {
+        config.rfpower = json[F("rfpower")].as<unsigned int>();
         if (config.rfpower > 21) {
             config.rfpower = 21;
         }
     }
 
     IPAddress ip_static;
-    ip_static.fromString((*json)[F("ip_static")] | "");
+    ip_static.fromString(json[F("ip_static")] | "");
     config.ip_static[0] = ip_static[0];
     config.ip_static[1] = ip_static[1];
     config.ip_static[2] = ip_static[2];
     config.ip_static[3] = ip_static[3];
 
     IPAddress ip_netmask;
-    ip_netmask.fromString((*json)[F("ip_netmask")] | "");
+    ip_netmask.fromString(json[F("ip_netmask")] | "");
     config.ip_netmask[0] = ip_netmask[0];
     config.ip_netmask[1] = ip_netmask[1];
     config.ip_netmask[2] = ip_netmask[2];
     config.ip_netmask[3] = ip_netmask[3];
 
     IPAddress ip_nameserver;
-    ip_nameserver.fromString((*json)[F("ip_nameserver")] | "");
+    ip_nameserver.fromString(json[F("ip_nameserver")] | "");
     config.ip_nameserver[0] = ip_nameserver[0];
     config.ip_nameserver[1] = ip_nameserver[1];
     config.ip_nameserver[2] = ip_nameserver[2];
     config.ip_nameserver[3] = ip_nameserver[3];
 
     IPAddress ip_gateway;
-    ip_gateway.fromString((*json)[F("ip_gateway")] | "");
+    ip_gateway.fromString(json[F("ip_gateway")] | "");
     config.ip_gateway[0] = ip_gateway[0];
     config.ip_gateway[1] = ip_gateway[1];
     config.ip_gateway[2] = ip_gateway[2];
@@ -218,7 +266,13 @@ void NetworkClass::connect(void)
 
     _tickerReconnect.once_scheduled(60, std::bind(&NetworkClass::connect, this));
     WiFi.setAutoReconnect(false);
-    LOGF_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+
+    _continuousConnectionErrors++;
+    if (_continuousConnectionErrors <= NETWORK_LOG_MAX_CONNECTION_ATTEMPS) {
+        LOGF_IP("Connecting to ssid: %s, channel: %d", _configWifi.ssid, _configWifi.channel);
+    } else if (_continuousConnectionErrors == NETWORK_LOG_MAX_CONNECTION_ATTEMPS + 1){
+        LOGF_WP("%u continuous connecting errors. Stopping logging WiFi connecting errors.", NETWORK_LOG_MAX_CONNECTION_ATTEMPS);
+    }
 
     WiFi.begin(_configWifi.ssid, _configWifi.wifipassword, _configWifi.channel);
     LedBlue.turnBlink(150, 150);
@@ -246,7 +300,7 @@ static void readStringFromEEPROM(int beginaddress, size_t size, char *buffer, si
         return;
     }
 
-    for(size_t cnt = 0; cnt < size && cnt < bufferlen-1; cnt++) {
+    for (size_t cnt = 0; cnt < size && cnt < bufferlen-1; cnt++) {
         char ch;
         ch = EEPROM.read(beginaddress + cnt);
         *buffer++ = ch;
@@ -268,7 +322,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
     // TODO(anyone): Brauchen wir das wirklich noch?
 
     EEPROM.begin(256);
-    if(EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {
+    if (EEPROM.read(0) != 'C' || EEPROM.read(1) != 'F'  || EEPROM.read(2) != 'G') {
         EEPROM.end();
         return false;
     }
@@ -306,8 +360,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
 
     File f = LittleFS.open("/config_wifi", "w");
     if (f) {
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject &root = jsonBuffer.createObject();
+        StaticJsonDocument<JSON_OBJECT_SIZE(9) + 768> root;
         root["dhcp"] = config.dhcp;
         root["ip_gateway"] = config.ip_gateway.toString();
         root["ip_nameserver"] = config.ip_nameserver.toString();
@@ -317,7 +370,7 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
         root["ssid"] = config.ssid;
         root["wifipassword"] = config.wifipassword;
         root["command"] = "/config_wifi";
-        root.printTo(f);
+        SERIALIZE_JSON_LOG(root, f);
         f.close();
     }
     return true;
@@ -404,7 +457,7 @@ String NetworkClass::getValidHostname(const char *hostname)
     }
 
     if (!rHostname[0]) {
-        // Do now allow an empty hostname
+        // Do not allow an empty hostname
         snprintf_P(rHostname, sizeof(rHostname), PSTR("%s-%08" PRIx32), APP_NAME, ESP.getChipId());
     }
     return rHostname;

@@ -36,6 +36,7 @@ class ThingSpeakClass {
         void armTimerFirstRun();
 
         THINGSPEAK_WIFICLIENT _client;
+        uint32_t _continuousConnectionErrors;
         bool _enabled;
         uint32_t _lastSentMs;
         uint32_t _intervalMs;

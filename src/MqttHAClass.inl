@@ -9,8 +9,6 @@
 
 #include "config.h"
 
-#include <AsyncJson.h>
-
 
 struct HASensor {
     const char *key;
@@ -91,8 +89,27 @@ void MqttHAClass::getTopicPayloadSingleSensor(String &topic, String &payload, co
     }
 
     // Build the discovery JSON
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    /*
+    {
+        "name": "Amis-1 Bezug",
+        "state_topic": "amis/out/",
+        "availability_topic": "amis/out/status",
+        "unit_of_measurement": "kWh",
+        "value_template": "{{ (value_json[\"1.8.0\"] / 1000) }}",
+        "unique_id": "amis_1_448932_1_8_0",
+        "device": {
+            "identifiers": [
+                "Amis-1"
+            ],
+            "name": "Amis-1",
+            "model": "Amis",
+            "sw_version": "1.5.8"
+        },
+        "device_class": "energy",
+        "state_class": "total_increasing"
+    }
+    */
+    DynamicJsonDocument root(768);
     String name = String(Config.DeviceName) + " " + e.name;
     root[F("name")] = name;
     root[F("state_topic")] = state_topic;
@@ -110,12 +127,11 @@ void MqttHAClass::getTopicPayloadSingleSensor(String &topic, String &payload, co
     String uid = dev + String("_") + obj;
     root[F("unique_id")] = uid;
     // attach device object
-    JsonObject &devn = root.createNestedObject("device");
-    JsonArray &ids = devn.createNestedArray("identifiers");
-    ids.add(Config.DeviceName);
-    devn[F("name")] = Config.DeviceName;
-    devn[F("model")] = APP_NAME;
-    devn[F("sw_version")] = APP_VERSION_STR;
+    JsonObject device = root.createNestedObject("device");
+    device[F("identifiers")][0] = Config.DeviceName;
+    device[F("name")] = Config.DeviceName;
+    device[F("model")] = APP_NAME;
+    device[F("sw_version")] = APP_VERSION_STR;
     if (e.device_class && e.device_class[0]) {
         root[F("device_class")] = e.device_class;
     }
@@ -123,7 +139,7 @@ void MqttHAClass::getTopicPayloadSingleSensor(String &topic, String &payload, co
         root[F("state_class")] = e.state_class;
     }
 
-    root.printTo(payload);
+    SERIALIZE_JSON_LOG(root, payload);
     topic = "homeassistant/sensor/" + dev + "/" + obj + "/config";
 };
 
