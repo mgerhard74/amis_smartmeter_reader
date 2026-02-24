@@ -113,7 +113,9 @@ void setup() {
         Log.setLoglevel(LOGLEVEL_NONE, LOGMODULE_ALL);
     }
 
-    // im Mqtt.init() wird die mqtt-config geladen
+    // im Mqtt.init() wird die mqtt-config geladen und gleich ggf enabled()
+    // Das Connecting wird getriggert, sobald eine Wifi-Netzwerk-Verbindung
+    // besteht ( siehe MqttBaseClass::networkOnStationModeGotIP() )
     Mqtt.init();
 
     // Starten wir mal den AMIS-Reader

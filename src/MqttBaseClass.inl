@@ -10,8 +10,37 @@ void MqttBaseClass::init()
     _mqttReaderData.init(this);
     _mqttHA.init(this);
     loadConfigMqtt(_config);
+    _enabled = _config.mqtt_enabled;
     _reloadConfigState = 0;
     _continuousConnectionTry = 0;
+}
+
+
+#if 0
+void MqttBaseClass::enable()
+{
+    if (_enabled) {
+        return;
+    }
+    _enabled = true;
+    if (Network.isConnected()) {
+        // Only try doConnect() if we have already a WIFI connection
+        // Otherwise: MqttBaseClass::networkOnStationModeGotIP() arms the _reconnectTicker if we get a Wifi connection
+        doConnect();
+    }
+    return;
+}
+#endif
+
+void MqttBaseClass::disable()
+{
+    if (!_enabled) {
+        return;
+    }
+    _enabled = false;
+    LOG_IP("disabled");
+    stop();
+    return;
 }
 
 
@@ -104,8 +133,9 @@ void MqttBaseClass::onConnect(bool sessionPresent)
 
     _reconnectTicker.detach();
     _actionTicker.detach();
-    if (!_config.mqtt_enabled) {
-        return; // hierher sollten wir eigentlich nie kommen
+    if (!_enabled) {
+        stop();
+        return; // hierher kommen wir nur, wenn genau während des Verbinden disabled() wurde
     }
     _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
 
@@ -128,7 +158,7 @@ void MqttBaseClass::onConnect(bool sessionPresent)
 
 void MqttBaseClass::doConnect()
 {
-    if (!_config.mqtt_enabled) {
+    if (!_enabled) {
         return;
     }
     if (Network.inAPMode()) {
@@ -209,7 +239,7 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason)
     }
     _reconnectTicker.detach();
 
-    if (!_config.mqtt_enabled) {
+    if (!_enabled) {
         return;
     }
 
@@ -294,6 +324,7 @@ void MqttBaseClass::reloadConfig() {
     } else if (_reloadConfigState == 2) {
         // disconnection finished --> reload configuration
         loadConfigMqtt(_config);
+        _enabled = _config.mqtt_enabled;
         _reloadConfigState = 3;
         LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
