@@ -87,6 +87,13 @@ void RebootClass::endUpdateLittleFS()
 }
 
 
+// Immediate reset&restart (no services gets stopped, no data gets written, ...)
+void RebootClass::softreset()
+{
+    _state = 11;
+}
+
+
 void RebootClass::loop()
 {
     if (_state <= 0) {

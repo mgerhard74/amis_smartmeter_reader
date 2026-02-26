@@ -436,6 +436,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
     } else if (strcmp(command, "restart") == 0) {
         Reboot.startReboot();
+    } else if (strcmp(command, "softreset") == 0) {
+        // Immediate reset&restart (no services gets stopped, no log or data gets written, ...)
+        // Is executed later in the RebootClass.loop() function
+        Reboot.softreset();
     } else if (strcmp(command, "geteventlog") == 0) {
         //Logausgabe in main.loop() bzw Log.loop() bearbeiten, Timeout!!!
         if (!client) {
