@@ -39,7 +39,7 @@ void MqttBaseClass::loop(void)
 
     _connectionEvent_t event = _connectionEvents.front();
     if (event.event & 0x1000) {
-        bool sessionPresent = (event.event & 0x1000) ?true :false;
+        bool sessionPresent = (event.event & 0x0001) ?true :false;
         onConnect(sessionPresent);
     } else if (event.event & 0x2000) {
         onDisconnect((AsyncMqttClientDisconnectReason)(event.event & 0xff));
@@ -92,7 +92,7 @@ void MqttBaseClass::onConnectCb(bool sessionPresent)
     _connectionEvent_t event;
     event.event = 0x1000;
     if (sessionPresent) {
-        event.event |= 1;
+        event.event |= 0x0001;
     }
     _connectionEvents.push_back(event);
     SYSTEMMONITOR_STAT();
