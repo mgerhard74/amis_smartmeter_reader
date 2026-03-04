@@ -99,9 +99,8 @@ class FailsafeClass
                 setBootCount(getBootCount()+1);
             }
 
-        } __attribute__((packed)) _bootState;
-
-        static_assert((sizeof(BootState) % 4) == 0, "_bootState must be 4-byte aligned");
+        } __attribute__((packed, aligned(4))) _bootState;  // must be aligned(4)
+        static_assert((sizeof(BootState) % 4) == 0, "sizeof(BootState) must be a multiple of 4");
 
         void startFailsafeMode();
 
