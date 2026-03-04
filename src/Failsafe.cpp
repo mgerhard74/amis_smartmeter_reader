@@ -20,6 +20,7 @@ R"(
 <body>
 <h1>Failsafe Modus</h1>
 <p>Firmware Update ist möglich. Bitte die passende Datei auswählen und "Update" drücken.</p>
+<p>Hinweis: Der Dateiname muss mit "firmware" beginnen und ".bin" enden.</p>
 <form method='POST' action='/update' enctype='multipart/form-data'>
     <input type='file' name='update' required>
     <input type='submit' value='Update'>
@@ -184,6 +185,8 @@ void FailsafeClass::handleRoot(AsyncWebServerRequest *request)
 
 void FailsafeClass::handleUpdate(AsyncWebServerRequest *request)
 {
+    // This is called after the whole file (all chunks) are transferred
+    // This function is responsible returning the response to the client(brwoser)
     if (!checkAuth(request)) {
         return;
     }
@@ -211,6 +214,10 @@ void FailsafeClass::handleUpdateUpload(AsyncWebServerRequest *request, const Str
     }
 
     if (!index) {
+        if (!filename.startsWith(F("firmware")) || !filename.endsWith(F(".bin"))) {
+            return;
+        }
+
         _uploadSeen = true;
         _updateOk = true;
         if (filename.isEmpty()) {
