@@ -52,14 +52,14 @@ bool FailsafeClass::check()
 {
 
     if (!readBootState()) {
-        Serial.println("Failsafe check: no valid boot state found, initializing");
+        Serial.print(F("Failsafe check: no valid boot state found, initializing\n"));
         _bootState.setMagic(FAILSAFE_BOOTSTATE_MAGIC);
         _bootState.setBootCount(0);
     }
     _bootState.incrementBootCount();
     _active = (_bootState.getBootCount() >= FAILSAFE_MAX_REBOOTS);
 
-    Serial.printf("Failsafe check: boot_count=%u active=%s stateBlock=0x%08X (magic=0x%04x boot_count=0x%02x crc=0x%02x)\n", _bootState.getBootCount(), _active ? "true" : "false", _bootState.getBootState(), _bootState.getMagic(), _bootState.getBootCount(), _bootState.getCRC());
+    Serial.printf_P(PSTR("Failsafe check: boot_count=%u active=%s stateBlock=0x%08X (magic=0x%04x boot_count=0x%02x crc=0x%02x)\n"), _bootState.getBootCount(), _active ? "true" : "false", _bootState.getBootState(), _bootState.getMagic(), _bootState.getBootCount(), _bootState.getCRC());
 
     if (_active) {
         _bootState.setBootCount(0); // reset counter so next reboot can try normal boot
@@ -69,7 +69,7 @@ bool FailsafeClass::check()
     }
 
     if(!writeBootState()) {
-        Serial.println("Failsafe check: failed to write boot state to RTC memory");
+        Serial.print(F("Failsafe check: failed to write boot state to RTC memory\n"));
     }
 
     return _active;
@@ -189,16 +189,16 @@ void FailsafeClass::handleUpdate(AsyncWebServerRequest *request)
     }
 
     if (!_uploadSeen) {
-        request->send(400, "text/plain", "no file uploaded");
+        request->send_P(400, "text/plain", PSTR("no file uploaded"));
         return;
     }
 
     const bool ok = _updateOk && !Update.hasError();
     if (ok) {
-        request->send(200, "text/html", "<html><body>Update OK, rebooting...</body></html>");
+        request->send_P(200, "text/html", PSTR("<html><body>Update OK, rebooting...</body></html>"));
         scheduleRestart(500);
     } else {
-        request->send(500, "text/html", "<html><body>Update failed.</body></html>");
+        request->send_P(500, "text/html", PSTR("<html><body>Update failed.</body></html>"));
     }
     _uploadSeen = false;
     _updateOk = true;
@@ -245,13 +245,13 @@ void FailsafeClass::handleReset(AsyncWebServerRequest *request)
     if (!checkAuth(request)) {
         return;
     }
-    request->send(200, "text/html", "<html><body>Rebooting...</body></html>");
+    request->send_P(200, "text/html", PSTR("<html><body>Rebooting...</body></html>"));
     scheduleRestart(200);
 }
 
 void FailsafeClass::handleNotFound(AsyncWebServerRequest *request)
 {
-    request->send(404, "text/plain", "404 not found");
+    request->send_P(404, "text/plain", PSTR("404 not found"));
 }
 
 bool FailsafeClass::loop()
