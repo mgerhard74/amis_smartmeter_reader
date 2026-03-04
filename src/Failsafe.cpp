@@ -1,5 +1,5 @@
 #include "Failsafe.h"
-//DO NOT include project-specific headers here, as this should be as standalone as possible 
+//DO NOT include project-specific headers here, as this should be as standalone as possible
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESPAsyncWebServer.h>
@@ -45,12 +45,12 @@ FailsafeClass::FailsafeClass()
 {
 }
 
-/* 
+/*
     Using Serial is safe in this state since it will be called right after boot and there is not other use of Serial yet.
 */
 bool FailsafeClass::check()
 {
-    
+
     if (!readBootState()) {
         Serial.println("Failsafe check: no valid boot state found, initializing");
         _bootState.setMagic(FAILSAFE_BOOTSTATE_MAGIC);

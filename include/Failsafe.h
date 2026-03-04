@@ -1,5 +1,5 @@
 #pragma once
-//DO NOT include project-specific headers here, as this should be as standalone as possible 
+//DO NOT include project-specific headers here, as this should be as standalone as possible
 #include "ESPAsyncWebServer.h"
 
 #ifndef FAILSAFE_AP_SSID
@@ -56,7 +56,7 @@ class FailsafeClass
                     }
                 }
                 _bootState[3] = crc;
-            }   
+            }
 
             void setBootCount(uint8_t bootCount) {
                 _bootState[2] = bootCount;
@@ -75,12 +75,12 @@ class FailsafeClass
                     (static_cast<uint32_t>(_bootState[1]) << 8) |
                     (static_cast<uint32_t>(_bootState[2]) << 16) |
                     (static_cast<uint32_t>(_bootState[3]) << 24);
-            }            
+            }
 
             uint16_t getMagic() {
                 return static_cast<uint16_t>(_bootState[0]) |
                     static_cast<uint16_t>(_bootState[1] << 8);
-            } 
+            }
 
             void setMagic(uint16_t magic) {
                 _bootState[0] = magic & 0xFF;
@@ -113,7 +113,7 @@ class FailsafeClass
 
         void setupWifiAp();
         void setupServer();
-        
+
         bool checkAuth(AsyncWebServerRequest *request);
         const char *failsafePage();
         void handleRoot(AsyncWebServerRequest *request);

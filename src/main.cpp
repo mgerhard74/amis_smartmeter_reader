@@ -56,7 +56,7 @@ void setup() {
     */
 
     Serial.begin(115200, SERIAL_8N1); // Setzen wir ggf fürs debgging gleich mal einen default Wert
-   
+
     if(Failsafe.check()) {
         return;
     }
