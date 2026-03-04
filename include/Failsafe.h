@@ -19,8 +19,6 @@
 #endif
 
 #define FAILSAFE_BOOTSTATE_MAGIC 0x71AD //some random value to check if boot state is valid (to detect if rtc memory was cleared or brownout)
-#define FAILSAFE_BOOTSTATE_MAGIC_LSB 0xAD //some random value to check if boot state is valid (to detect if rtc memory was cleared or brownout)
-#define FAILSAFE_BOOTSTATE_MAGIC_MSB 0x71 //some random value to check if boot state is valid (to detect if rtc memory was cleared or brownout)
 #define FAILSAFE_MAX_REBOOTS  5 //amount of reboots within the bootloop detection window to trigger failsafe mode
 #define FAILSAFE_CLEAR_AFTER_SEC 90 //the time span on which reboots are counted for bootloop detection
 #define FAILSAFE_RETRY_BOOT_SEC  5*60 //retry normal boot after this time in failsafe mode
