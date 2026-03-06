@@ -273,7 +273,7 @@ bool FailsafeClass::loop()
             ESP.restart();
         }
 
-        if(millis() % 300 < 150) { //blinking LED to indicate failsafe mode
+        if((millis() & 4095) < 2048) { // blinking LED (~2sec) to indicate failsafe mode
             if(!_ledState) {
                 digitalWrite(LED_BUILTIN, HIGH);
                 _ledState = true;
