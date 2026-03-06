@@ -845,6 +845,14 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>upcoming</h3>
+              Failsafe-Mode: Wenn der Leser innerhalb von 90 Sekunden 5 Mal rebootet wird er in den Failsafe-Mode gebracht.<br>
+              - Dabei erstellt er einen WiFi Accesspoint (SSID=AMIS_FAILSAFE, IP=192.168.4.1).
+              - In diesem Modus kann man nur eine neue Firmware aufspielen (<a href="http://192.168.4.1/">http://192.168.4.1/</a>).<br>
+              - Der Firmware-Dateiname muss mit "firmware" beginnen und mit ".bin" enden.<br>
+              - Von außen ist diese Modus am Blinken im 2-Sekunden-Takt zu erkennen.<br>
+              - Spätestens nach 5 Minuten rebootet das System wieder und das Spiel beginnt von vorne.<br>
+              - Details: siehe <a href="https://github.com/mgerhard74/amis_smartmeter_reader/pull/48">PR #48</a> (Danke Karl)<br>
               <h3>Version 1.5.9</h3>
               Beim MQTT publish wird die Uhrzeit wieder richtig ausgegeben.<br>
               Wifi, MQTT und ThingSpeak: Verbindungsversuche werden nach 3 Fehlschlägen nicht mehr protokolliert.<br>
