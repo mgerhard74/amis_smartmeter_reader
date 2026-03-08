@@ -243,11 +243,6 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason)
         return;
     }
 
-    // If we have HA discovery enabled, try to publish offline status (clean disconnect)
-    if (_config.mqtt_ha_discovery) {
-        _mqttHA.publishHaAvailability(false);
-    }
-
     if (_reloadConfigState == 0 && Network.isConnected()) {
         // We just have lost connection to our MQTT-server. So try reconnection in 3 secs ...
         _reconnectTicker.once_scheduled(3, std::bind(&MqttBaseClass::doConnect, this));
@@ -313,7 +308,10 @@ void MqttBaseClass::reloadConfig() {
     if (_reloadConfigState == 0) {
         // Start disconnect
         _reloadConfigState = 1;
-        _mqttClient.disconnect(true);
+        if (_mqttClient.connected() && _config.mqtt_ha_discovery) {
+            _mqttHA.publishHaAvailability(false);
+        }
+        _mqttClient.disconnect(false);
         _actionTicker.attach_ms(500, std::bind(&MqttBaseClass::reloadConfig, this));
     } else if (_reloadConfigState == 1) {
         // Wait till disconnecting is finished
@@ -433,7 +431,11 @@ uint16_t MqttBaseClass::publish(const char* topic, uint8_t qos, bool retain, con
 void MqttBaseClass::stop()
 {
     LOG_DP("Stopping client.");
-    _mqttClient.disconnect(true);
+    // If we have HA discovery enabled, try to publish offline status (clean disconnect)
+    if (_mqttClient.connected() && _config.mqtt_ha_discovery) {
+        _mqttHA.publishHaAvailability(false);
+    }
+    _mqttClient.disconnect(false);
     for (;isConnected();) { // wait till disconnected
         yield();
     }
