@@ -12,6 +12,8 @@ void MqttBaseClass::init()
     loadConfigMqtt(_config);
     _enabled = _config.mqtt_enabled;
     _reloadConfigState = 0;
+    _actionstate = none;
+    _reconnectstate = None;
     _continuousConnectionTry = 0;
 }
 
@@ -62,18 +64,36 @@ MqttBaseClass::MqttBaseClass()
 
 void MqttBaseClass::loop(void)
 {
-    if (_connectionEvents.size() == 0) {
+    if (_connectionEvents.size() > 0) {
+        _connectionEvent_t event = _connectionEvents.front();
+        if (event.event & 0x1000) {
+            bool sessionPresent = (event.event & 0x0001) ?true :false;
+            onConnect(sessionPresent);
+        } else if (event.event & 0x2000) {
+            onDisconnect((AsyncMqttClientDisconnectReason)(event.event & 0xff));
+        }
+        _connectionEvents.erase(_connectionEvents.begin());
         return;
     }
 
-    _connectionEvent_t event = _connectionEvents.front();
-    if (event.event & 0x1000) {
-        bool sessionPresent = (event.event & 0x0001) ?true :false;
-        onConnect(sessionPresent);
-    } else if (event.event & 0x2000) {
-        onDisconnect((AsyncMqttClientDisconnectReason)(event.event & 0xff));
+    if (_reloadConfigState) {
+        reloadConfig();
+        return;
     }
-    _connectionEvents.erase(_connectionEvents.begin());
+
+    if (_reconnectstate != None) {
+        if (millis() - _reconnectstateMs >= _reconnectstateInterval) {
+            doConnect();
+        }
+        return;
+    }
+
+    if (_actionstate != none) {
+        if (millis() - _actionstateMs >= _actionstateInterval) {
+            publishTickerCb();
+        }
+        return;
+    }
 }
 
 
@@ -99,20 +119,29 @@ void MqttBaseClass::onMessage(char* topic, char* payload, AsyncMqttClientMessage
 
 
 void MqttBaseClass::publishTickerCb() {
-    _actionTicker.detach();
+    if (!_enabled) {
+        LOG_WP("publishTickerCb() but disabled!");
+        _actionstate = none;
+        return;
+    }
 
     if (!_mqttClient.connected()) {
         LOG_WP("publishTickerCb() but not connected!");
-        return; // _actionTicker will be armed in onConnect()
+        _actionstate = none;
+        return; // _actionstate will be set in onConnect()
     }
 
     if (Databroker.valid == 5 && first_frame == 1) {
         LOG_DP("Publishing reader data");
         _mqttReaderData.publish();
-        _actionTicker.once_scheduled(_config.mqtt_keep, std::bind(&MqttBaseClass::publishTickerCb, this));
+        //_actionstate = Publish;
+        _actionstateMs = millis();
+        _actionstateInterval = _config.mqtt_keep * 1000;
     } else {
         // Try sending agin in 2 secs
-        _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
+        //_actionstate = Publish;
+        _actionstateMs = millis();
+        _actionstateInterval = 2000;
     }
 }
 
@@ -131,13 +160,15 @@ void MqttBaseClass::onConnect(bool sessionPresent)
 {
     UNUSED_ARG(sessionPresent);
 
-    _reconnectTicker.detach();
-    _actionTicker.detach();
+    _reconnectstate = None;
     if (!_enabled) {
         stop();
+        _actionstate = none;
         return; // hierher kommen wir nur, wenn genau während des Verbinden disabled() wurde
     }
-    _actionTicker.once_scheduled(2, std::bind(&MqttBaseClass::publishTickerCb, this));
+    _actionstate = Publish;
+    _actionstateMs = millis();
+    _actionstateInterval = 2000;
 
     if (_continuousConnectionTry > MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
         LOGF_IP("Connected to server " PRsIP ":%" PRIu16 " after %u failed connection attempts.",
@@ -158,6 +189,8 @@ void MqttBaseClass::onConnect(bool sessionPresent)
 
 void MqttBaseClass::doConnect()
 {
+    _reconnectstate = None; // we'll get an onDisconnect() event if connect() fails
+
     if (!_enabled) {
         return;
     }
@@ -184,7 +217,9 @@ void MqttBaseClass::doConnect()
             if (_continuousConnectionTry <= MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
                 LOGF_EP("Could not get IPNumber for '%s'.", _config.mqtt_broker.c_str());
             }
-            _reconnectTicker.once_scheduled(5, std::bind(&MqttBaseClass::doConnect, this));
+            _reconnectstate = connect;
+            _reconnectstateMs = millis();
+            _reconnectstateInterval = 5000;
             return;
         }
         _brokerIp[0] = ip[0];
@@ -235,9 +270,9 @@ void MqttBaseClass::onDisconnectCb(AsyncMqttClientDisconnectReason reason)
 void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason)
 {
     if (_reloadConfigState == 0) {
-        _actionTicker.detach();
+        _actionstate = none;
     }
-    _reconnectTicker.detach();
+    _reconnectstate = None;
 
     if (!_enabled) {
         return;
@@ -245,7 +280,9 @@ void MqttBaseClass::onDisconnect(AsyncMqttClientDisconnectReason reason)
 
     if (_reloadConfigState == 0 && Network.isConnected()) {
         // We just have lost connection to our MQTT-server. So try reconnection in 3 secs ...
-        _reconnectTicker.once_scheduled(3, std::bind(&MqttBaseClass::doConnect, this));
+        _reconnectstate = connect;
+        _reconnectstateMs = millis();
+        _reconnectstateInterval = 3000;
     }
 
     if (_continuousConnectionTry > MQTT_LOG_MAX_CONNECTION_ATTEMPS) {
@@ -290,7 +327,9 @@ void MqttBaseClass::networkOnStationModeGotIP(const WiFiEventStationModeGotIP& e
 {
     UNUSED_ARG(event);
 
-    _reconnectTicker.once_scheduled(3, std::bind(&MqttBaseClass::doConnect, this));
+    _reconnectstate = connect;
+    _reconnectstateMs = millis();
+    _reconnectstateInterval = 3000;
 }
 
 
@@ -298,8 +337,8 @@ void MqttBaseClass::networkOnStationModeDisconnected(const WiFiEventStationModeD
 {
     UNUSED_ARG(event);
 
-    _actionTicker.detach();
-    _reconnectTicker.detach(); // ensure we don't reconnect to MQTT while reconnecting to WiFi
+    _actionstate = none;
+    _reconnectstate = None;
     _mqttClient.disconnect(true);
 }
 
@@ -312,7 +351,6 @@ void MqttBaseClass::reloadConfig() {
             _mqttHA.publishHaAvailability(false);
         }
         _mqttClient.disconnect(false);
-        _actionTicker.attach_ms(500, std::bind(&MqttBaseClass::reloadConfig, this));
     } else if (_reloadConfigState == 1) {
         // Wait till disconnecting is finished
         if (_mqttClient.connected()) {
@@ -327,7 +365,6 @@ void MqttBaseClass::reloadConfig() {
         LOG_IP("Config reloaded.");
     }  else if (_reloadConfigState == 3) {
         // finished ... try reconnecting
-        _actionTicker.detach();
         _reloadConfigState = 0;
         _continuousConnectionTry = 0;
         doConnect();
@@ -439,8 +476,8 @@ void MqttBaseClass::stop()
     for (;isConnected();) { // wait till disconnected
         yield();
     }
-    _actionTicker.detach();
-    _reconnectTicker.detach();
+    _actionstate = none;
+    _reconnectstate = None;
 }
 
 
