@@ -69,6 +69,44 @@ So to get available Stacksize, we just calculate it!
 Details: See
     cont_t* g_pcont __attribute__((section(".noinit")));
 */
+
+/*
+seems stack/memory look like
+
+0x3fffdcbc      ??????
+0x3fffdcc0      sys-stack end           (Address is total unsure ... got this via tests as app gets unstable overwriting this)
+0x3fffdcd0      uint32_t                user_start_fptr
+                .....
+0x3fffe79c      this would be 2kB sys-stack
+0x3fffef9c      sys-stack begin
+
+                typedef struct cont_ {
+0x3fffefa0          void (*pc_ret)(void);
+0x3fffefa4          unsigned* sp_ret;
+
+0x3fffefa8          void (*pc_suspend)(void);
+0x3fffefac          unsigned* sp_suspend;
+
+0x3fffefb0          unsigned* stack_end;
+0x3fffefb4          unsigned unused1;
+0x3fffefb8          unsigned unused2;
+0x3fffefbc          unsigned stack_guard1;
+
+                    unsigned stack[CONT_STACKSIZE / 4]; // This is the "cont" stack (user context)
+0x3fffefc0          // stack[0]
+                    // ....
+0x3fffffbc          // stack[1023]
+
+0x3fffffc0          unsigned stack_guard2;
+0x3fffffc4          unsigned* struct_start;
+                } cont_t;
+0x3fffffc8      ?????
+
+0x3fffffff      // End of DRAM
+0x40000000      // Start of ROM
+
+*/
+
 void Utils::ESP8266getStackInfo(int& context, uintptr_t& stack_bot, uintptr_t& stack_top, uintptr_t& stack_current)
 {
     static_assert(sizeof(g_pcont->stack[0]) == sizeof(uint32_t), "Stack element size mismatch!");
@@ -108,7 +146,7 @@ void Utils::ESP8266getStackInfo(int& context, uintptr_t& stack_bot, uintptr_t& s
     // Seems I have to guess as  ..../framework-arduinoespressif8266/tools/sdk/ld/eagle.app.v6.common.ld.h disabled symbol _stack_sentry
     // Expecting 2kB stack in sys context
     // TODO(anyone): find out exact bottom, top and length of sys-stack
-    // Seems the userstack (g_pcont) itself is within the systemstack.
+    // The userstack (g_pcont) itself is within the systemstack.
     //   see: core_esp8266_main.cpp, app_entry_redefinable()
     //           and disable_extra4k_at_link_time()
     stack_top = reinterpret_cast<uintptr_t>(g_pcont);

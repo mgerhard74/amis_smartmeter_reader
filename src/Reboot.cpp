@@ -46,7 +46,7 @@ bool RebootClass::startUpdateFirmware()
     ModbusSmartmeterEmulation.disable();
     ShellySmartmeterEmulation.disable();
     ThingSpeak.disable();
-    Mqtt.stop();
+    Mqtt.disable();
     MDNS.end();
     return true;
 }
@@ -73,7 +73,7 @@ bool RebootClass::startUpdateLittleFS()
     ModbusSmartmeterEmulation.disable();
     ShellySmartmeterEmulation.disable();
     ThingSpeak.disable();
-    Mqtt.stop();
+    Mqtt.disable();
     MDNS.end();
     LittleFS.end(); // we can also end the filesystem as it will be overwritten
     return true;
@@ -84,6 +84,13 @@ void RebootClass::endUpdateLittleFS()
     if (_state == -2) {
         _state = 1;
     }
+}
+
+
+// Immediate reset&restart (no services gets stopped, no data gets written, ...)
+void RebootClass::softreset()
+{
+    _state = 11;
 }
 
 
@@ -106,7 +113,7 @@ void RebootClass::loop()
             secTicker.detach();
             break;
         case 5:
-            Mqtt.stop();
+            Mqtt.disable();
             MDNS.end();
             break;
         case 6:

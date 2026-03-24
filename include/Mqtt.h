@@ -59,8 +59,9 @@ public:
     MqttBaseClass();
     void init();
     void loop();
-    void stop();
     bool isConnected();
+    // void enable(); // brauchen wir zur Zeit nicht (_enabled wird beim reloadConfig() oder init() gesetzt)
+    void disable();
 
     void networkOnStationModeGotIP(const WiFiEventStationModeGotIP& event);
     void networkOnStationModeDisconnected(const WiFiEventStationModeDisconnected& event);
@@ -72,6 +73,8 @@ public:
     const MqttConfig_t &getConfigMqtt();
 
 private:
+    bool _enabled;
+
     typedef struct _connectionEvent {
         unsigned event;
         _connectionEvent()
@@ -81,9 +84,23 @@ private:
 
 
     AsyncMqttClient _mqttClient;
-    Ticker _reconnectTicker;
-    Ticker _actionTicker;
 
+    typedef enum {
+        none = 0,
+        Publish,
+    } _actionstate_t;
+
+    typedef enum  {
+        None = 0,
+        connect,
+    } _reconnectstate_t;
+
+    _actionstate_t _actionstate;
+    uint32_t _actionstateMs, _actionstateInterval;
+    _reconnectstate_t _reconnectstate;
+    uint32_t _reconnectstateMs, _reconnectstateInterval;
+
+    void stop();
     void onMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total);
     void onConnect(bool sessionPresent);
     void onDisconnect(AsyncMqttClientDisconnectReason reason);

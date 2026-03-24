@@ -8,6 +8,7 @@ public:
     void endUpdateFirmware();
     bool startUpdateLittleFS();
     void endUpdateLittleFS();
+    void softreset();
     void loop();
 
 private:
