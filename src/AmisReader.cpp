@@ -113,7 +113,10 @@ static void setTime(time_t ts_now) {
     ti.tv_usec = 105000;
     settimeofday(&ti, NULL);
 
-    LOGF_IP("Time synchronized. (ts-old=%llu, ts-now=%llu, millis=%u)", tv_sec_old, ts_now, millis());
+    if (tv_sec_old - ts_now > 1 || tv_sec_old - ts_now < -1) {
+        // only log if time diff is more than 1 sec
+        LOGF_IP("Time sync (counter). (ts-old=%llu, ts-now=%llu, millis=%u)", tv_sec_old, ts_now, millis());
+    }
     RebootAtMidnight.adjustTicker();
 }
 

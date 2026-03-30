@@ -3,7 +3,7 @@
 //    *  MqttHAClass            handling
 //    *  MqttReaderDataClass
 
-#define MQTT_LOG_MAX_CONNECTION_ATTEMPS         3
+#define MQTT_LOG_MAX_CONNECTION_ATTEMPS         2
 
 void MqttBaseClass::init()
 {
