@@ -21,7 +21,7 @@
 
 extern const char *__COMPILED_GIT_HASH__;
 
-#define NETWORK_LOG_MAX_CONNECTION_ATTEMPS   3
+#define NETWORK_LOG_MAX_CONNECTION_ATTEMPS   2
 
 void NetworkClass::init(bool apMode)
 {
