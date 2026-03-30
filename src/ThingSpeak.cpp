@@ -5,7 +5,7 @@
 #include "Network.h"
 #include "Utils.h"
 
-#define THINGSPEAK_LOG_MAX_CONNECTION_ATTEMPS   3
+#define THINGSPEAK_LOG_MAX_CONNECTION_ATTEMPS   2
 
 void ThingSpeakClass::init()
 {
