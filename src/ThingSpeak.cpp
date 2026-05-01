@@ -25,7 +25,7 @@ void ThingSpeakClass::enable()
         return;
     }
     _enabled = true;
-    _readerValues.isValid = false; // force fresh data
+    _readerValues.isValid = false;
 
     if (_apiKeyWrite[0] == 0) {
         _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
@@ -35,9 +35,9 @@ void ThingSpeakClass::enable()
 
     uint32_t now = millis();
     if (now < 30000) {
-        _lastSentMs = 30000 - _intervalMs; // earliest run is after uptime of 30 sec
+        _lastSentMs = 30000 - _intervalMs;
     } else {
-        _lastSentMs = now - _intervalMs; // run as soon as we got valid data
+        _lastSentMs = now - _intervalMs;
     }
 
     _continuousConnectionErrors = 0;
@@ -51,7 +51,6 @@ void ThingSpeakClass::disable()
     _ticker.detach();
     _client.stop();
     _enabled = false;
-
 }
 
 void ThingSpeakClass::setInterval(unsigned int intervalSeconds)
@@ -61,7 +60,7 @@ void ThingSpeakClass::setInterval(unsigned int intervalSeconds)
     if (_intervalMs == newInterval) {
         return;
     }
-    _intervalMs = (uint32_t)intervalSeconds * 1000ul;
+    _intervalMs = newInterval;
 }
 
 void ThingSpeakClass::setApiKeyWrite(const char *apiKeyWrite)
@@ -70,20 +69,22 @@ void ThingSpeakClass::setApiKeyWrite(const char *apiKeyWrite)
         return;
     }
     strlcpy(_apiKeyWrite, apiKeyWrite, sizeof(_apiKeyWrite));
+
     if (!_enabled) {
         return;
     }
 
-    _readerValues.isValid = false; // force fresh data
+    _readerValues.isValid = false;
+
     if (_apiKeyWrite[0] == 0) {
         _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
     }
 
     uint32_t now = millis();
     if (now < 30000) {
-        _lastSentMs = 30000 - _intervalMs; // earliest run is after uptime of 30 sec
+        _lastSentMs = 30000 - _intervalMs;
     } else {
-        _lastSentMs = now - _intervalMs; // run as soon as we got valid data
+        _lastSentMs = now - _intervalMs;
     }
 }
 
@@ -92,19 +93,17 @@ void ThingSpeakClass::onNewData(bool isValid, const uint32_t *readerValues, time
     if (!_enabled) {
         return;
     }
+
     _readerValues.isValid = isValid;
     if (!isValid) {
         return;
     }
 
-    for(size_t i=0; i<std::size(_readerValues.values); i++) {
+    for (size_t i = 0; i < std::size(_readerValues.values); i++) {
         _readerValues.values[i] = *readerValues++;
     }
     _readerValues.ts = ts;
 
-    /* Wir müssen vom Interval noch eine Sekunde abziehen, da wir jede Sekunde neue Werte bekommen
-       und das Versenden ebenfalls etwas Zeit braucht.
-       Das hätte dann zur Folge, dass unsere Millisekundenwartezeit uns immer eine ganze Sekunde kostet  */
     if (millis() - _lastSentMs > _intervalMs - 1000) {
         if (!_ticker.active()) {
             _ticker.once_ms_scheduled(10, std::bind(&ThingSpeakClass::sendData, this));
@@ -119,12 +118,10 @@ void ThingSpeakClass::sendData()
     }
 
     if (!_readerValues.isValid) {
-        // Try again with our next datas
         return;
     }
 
     if (_apiKeyWrite[0] == 0) {
-        //_lastResult = "No ThingSpeak Write API Key configured.";
         _lastResult = F("Kein ThingSpeak Write API Key angegeben.");
         _lastSentMs = millis();
         return;
@@ -132,32 +129,37 @@ void ThingSpeakClass::sendData()
 
     _client.stop();
 
+    // Timeout setzen → verhindert Blockieren
+    _client.setTimeout(2000);
+    yield();
+
     if (!Network.isConnected()) {
-        // Kein Netzwerk ... brauchen wir auch nichts senden
         LOG_DP("Skipping - network not connected.");
         _lastResult = F("Keine WiFi Netzwerkverbindung");
+
+        // Retry in ~10 Sekunden
         _lastSentMs = millis() - _intervalMs + 10000;
-        // Fühestens in 10 Sekunden wieder probieren
         _ticker.once_ms_scheduled(10000, std::bind(&ThingSpeakClass::sendData, this));
+
+        yield();
         return;
     }
 
 #if (THINGSPEAK_USE_SSL)
-    #warning "Enabling SSL needs a lot of CPU. System may become unresponsible!"
-
     _client.setInsecure();
+
     if (!_client.connect("api.thingspeak.com", 443)) {
-        //_lastResult = "Connecting https://api.thingspeak.com failed.";
-        //_lastResult = "Verbindung zu https://api.thingspeak.com fehlgeschlagen.";
         char errmsg[100];
         _client.getLastSSLError(errmsg, sizeof(errmsg));
         _lastResult = errmsg;
+
+        yield();
         return;
     }
 #else
     LOG_DP("Connecting to 'api.thingspeak.com'...");
+
     if (!_client.connect("api.thingspeak.com", 80)) {
-        //_lastResult = F("Connecting http://api.thingspeak.com failed.");
         _lastResult = F("Verbindung zu http://api.thingspeak.com fehlgeschlagen.");
 
         _continuousConnectionErrors++;
@@ -166,8 +168,14 @@ void ThingSpeakClass::sendData()
         } else if (_continuousConnectionErrors == THINGSPEAK_LOG_MAX_CONNECTION_ATTEMPS) {
             LOGF_WP("%u continuous connecting errors. Stopping logging thingspeak connecting errors.", _continuousConnectionErrors);
         }
+
+        // 🔧 Retry statt Stillstand
+        _lastSentMs = millis() - _intervalMs + 10000;
+
+        yield();
         return;
     }
+
     LOG_DP("Connected to 'api.thingspeak.com'.");
 #endif
 
@@ -177,28 +185,38 @@ void ThingSpeakClass::sendData()
     _continuousConnectionErrors = 0;
 
     String data = "api_key=" + String(_apiKeyWrite);
-    for (size_t i=0; i<std::size(_readerValues.values); i++) {
-        data += "&field" + String(i+1) + "=" + String(_readerValues.values[i]);
+    for (size_t i = 0; i < std::size(_readerValues.values); i++) {
+        data += "&field" + String(i + 1) + "=" + String(_readerValues.values[i]);
     }
+
     if (IFLOG_V()) {
         LOG_PRINTF_VP("Sending data: '%s' ...", Utils::escapeJson(data.c_str(), data.length(), 0xffffffff).c_str());
     } else {
         LOG_DP("Sending data ...");
     }
+
     _client.print(F("POST /update HTTP/1.1\r\n"
-                  "Host: api.thingspeak.com\r\n"
-                  "Connection: close\r\n"
-                  "Content-Type: application/x-www-form-urlencoded\r\n"
-                  "Content-Length: ")); _client.print(String(data.length()));  _client.print("\r\n"
-                  "\r\n");
+                    "Host: api.thingspeak.com\r\n"
+                    "Connection: close\r\n"
+                    "Content-Type: application/x-www-form-urlencoded\r\n"
+                    "Content-Length: "));
+    _client.print(String(data.length()));
+    _client.print("\r\n\r\n");
+
     _client.print(data);
 
     LOG_DP("Data sent.");
+
+    // 🔧 Flush + yield gegen Hänger
+    _client.flush();
+    yield();
+
     _lastResult = String(static_cast<uint32_t>(_readerValues.ts), HEX);
     _lastSentMs = millis();
 }
 
-const String& ThingSpeakClass::getLastResult() {
+const String& ThingSpeakClass::getLastResult()
+{
     return _lastResult;
 }
 
