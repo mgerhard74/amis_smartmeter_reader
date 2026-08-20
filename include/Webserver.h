@@ -2,6 +2,7 @@
 
 #include "Webserver_Login.h"
 #include "Webserver_Rest.h"
+#include "Webserver_Shelly.h"
 #include "Webserver_Update.h"
 #include "Webserver_ws_Console.h"
 #include "Webserver_ws_Data.h"
@@ -26,6 +27,7 @@ class WebserverClass
 
         WebserverLoginClass _websrvLogin;
         WebserverRestClass _websrvRest;
+        WebserverShellyClass _websrvShelly;
         WebserverUpdateClass _websrvUpdate;
 
         WebserverWsConsoleClass _websrvWsConsole;

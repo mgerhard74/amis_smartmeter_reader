@@ -165,6 +165,8 @@ void ConfigClass::loadConfigGeneral()
 
     smart_mtr = json[F("smart_mtr")].as<bool>();
     shelly_smart_mtr_udp = json[F("shelly_smart_mtr_udp")].as<bool>();
+    shelly_smart_mtr_http = json[F("shelly_smart_mtr_http")].as<bool>();
+    shelly_smart_mtr_http_hostname = json[F("shelly_smart_mtr_http_hostname")].as<bool>();
     shelly_smart_mtr_udp_device_index = json[F("shelly_smart_mtr_udp_device_index")].as<unsigned>();
     shelly_smart_mtr_udp_offset = json[F("shelly_smart_mtr_udp_offset")].as<int>();
 
@@ -228,16 +230,22 @@ void ConfigClass::applySettingsConfigGeneral()
 
     Webserver.reloadCredentials();
 
-    // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten!
-    Network.restartMDNSIfNeeded();
-
     // Shelly
+    // NOTE: must be done before restarting MDNS - the announced services depend on it
     ShellySmartmeterEmulation.disable();
-    if (Config.shelly_smart_mtr_udp &&
+    if ((Config.shelly_smart_mtr_udp || Config.shelly_smart_mtr_http) &&
         ShellySmartmeterEmulation.init(Config.shelly_smart_mtr_udp_device_index, Config.shelly_smart_mtr_udp_hardware_id_appendix, Config.shelly_smart_mtr_udp_offset))
     {
-        ShellySmartmeterEmulation.enable();
+        if (Config.shelly_smart_mtr_udp) {
+            ShellySmartmeterEmulation.enable();
+        }
+        if (Config.shelly_smart_mtr_http) {
+            ShellySmartmeterEmulation.enableHttpApi();
+        }
     }
+
+    // Config.Devicename könnte geändert worden sein! ==> ev MDNS neu starten!
+    Network.restartMDNSIfNeeded();
 
     // TODO(anyone): Apply more settings but we must first check setup() as there are prior some MODULE.init() calls
 #if 0

@@ -156,10 +156,17 @@ void setup() {
     }
 
     // Shelly Smart Meter Emulator
-    if (Config.shelly_smart_mtr_udp &&
+    if ((Config.shelly_smart_mtr_udp || Config.shelly_smart_mtr_http) &&
         ShellySmartmeterEmulation.init(Config.shelly_smart_mtr_udp_device_index, Config.shelly_smart_mtr_udp_hardware_id_appendix, Config.shelly_smart_mtr_udp_offset))
     {
-        ShellySmartmeterEmulation.enable();
+        if (Config.shelly_smart_mtr_udp) {
+            ShellySmartmeterEmulation.enable();
+        }
+        if (Config.shelly_smart_mtr_http) {
+            // The endpoints are served by our webserver, the mDNS announcement is done
+            // by Network.restartMDNSIfNeeded() - which is called once we are connected.
+            ShellySmartmeterEmulation.enableHttpApi();
+        }
     }
 
 

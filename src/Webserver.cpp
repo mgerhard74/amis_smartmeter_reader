@@ -123,6 +123,7 @@ void WebserverClass::init()
     // Initilisieren der einzelnen Handler für diverse Unterverzeichnisse
     _websrvLogin.init(_server);
     _websrvRest.init(_server);
+    _websrvShelly.init(_server);
     _websrvUpdate.init(_server);
 
     // Initilisieren der Websocket Handler
