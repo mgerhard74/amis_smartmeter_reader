@@ -12,7 +12,9 @@
 #include "Json.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "Mqtt.h"
+#include "ShellySmartmeterEmulation.h"
 #include "SystemMonitor.h"
+#include "Webserver.h"
 
 #include <EEPROM.h>
 #include <ESP8266mDNS.h>
@@ -377,18 +379,52 @@ bool NetworkClass::loadConfigWifiFromEEPROM(NetworkConfigWifi_t &config)
 }
 
 
+/*
+    Announces the emulated Shelly as the real device does: an instance named after the
+    Shelly device name (eg "ShellyPro3EM-A8032ABE1234") with the TXT records the consumers
+    look at. Both "_http._tcp" and "_shelly._tcp" are needed, that's what a Shelly Gen2+ offers.
+
+    The SRV record points to the Shelly device name, which restartMDNSIfNeeded() uses as
+    the mDNS hostname while the emulation is active - just like the original device does.
+*/
+static void addShellyMDNSService(const char *service)
+{
+    // The instance name uses the "official" mixed case spelling - a Solakon One is
+    // picky about that, see https://github.com/mgerhard74/amis_smartmeter_reader/issues/36
+    MDNSResponder::hMDNSService hService = MDNS.addService(ShellySmartmeterEmulation.getDeviceName(),
+                                                          service, "tcp", WEBSERVER_HTTP_PORT);
+    if (!hService) {
+        LOGF_EP("Error adding MDNS service '%s' for the Shelly emulation!", service);
+        return;
+    }
+
+    MDNS.addServiceTxt(hService, "id", ShellySmartmeterEmulation.getDeviceId());
+    MDNS.addServiceTxt(hService, "mac", WiFi.macAddress().c_str()); // uppercase, with colons
+    MDNS.addServiceTxt(hService, "app", String(ShellySmartmeterEmulation.getMdnsApp()).c_str());
+    MDNS.addServiceTxt(hService, "model", String(ShellySmartmeterEmulation.getModel()).c_str());
+    MDNS.addServiceTxt(hService, "gen", String(ShellySmartmeterEmulation.getMdnsGeneration()).c_str());
+    MDNS.addServiceTxt(hService, "ver", String(ShellySmartmeterEmulation.getFirmwareVersion()).c_str());
+    MDNS.addServiceTxt(hService, "fw_id", String(ShellySmartmeterEmulation.getFirmwareId()).c_str());
+    // The emulated devices are esp32 based - report what the original does, not what we are
+    MDNS.addServiceTxt(hService, "arch", "esp32");
+}
+
 void NetworkClass::restartMDNSIfNeeded()
 {
     if (Network.inAPMode()) {
         return;
     }
 
+    // The Shelly emulation is only discoverable with a running MDNS responder,
+    // so we start it even if the user did not enable MDNS himself.
+    bool doMDNS = _configWifi.mdns || ShellySmartmeterEmulation.httpApiEnabled();
+
     // Totally strange:
     //   MDNS.isRunning() returns true even if we called MSND.end() previously ... check this
     // So stop ... and if needed start
     bool isRunning = MDNS.isRunning();
     bool doRestart = false;
-    if (isRunning && _configWifi.mdns && _isConnected) {
+    if (isRunning && doMDNS && _isConnected) {
         doRestart = true;
     } else {
         doRestart = false;
@@ -398,18 +434,34 @@ void NetworkClass::restartMDNSIfNeeded()
 
     MDNS.end();
 
-    if (_configWifi.mdns && _isConnected) {
+    if (doMDNS && _isConnected) {
         LOGF_IP("(Re)starting MDNS responder.");
 
+        // A real Shelly answers to "<shelly device name>.local". Consumers normally follow
+        // the SRV record of the announced service (which points to us and resolves fine),
+        // but should one resolve the Shelly name directly, we can take it over as our
+        // mDNS hostname. Off by default - a Solakon One does not need it.
+        // Our own services keep the configured device name as their instance name, so the
+        // reader itself stays discoverable ... but "<devicename>.local" does not resolve then.
+        // (The mDNS responder of the ESP8266 only knows a single hostname, so it is one or
+        //  the other - see MDNSResponder::m_pcHostname.)
+        const char *hostname = Config.DeviceName;
+        if (ShellySmartmeterEmulation.httpApiEnabled() && Config.shelly_smart_mtr_http_hostname) {
+            hostname = ShellySmartmeterEmulation.getDeviceName();
+        }
+
         // Hostname kann nur MDNS_DOMAIN_LABEL_MAXLENGTH Zeichen lang werden !
-        if (!MDNS.begin(Config.DeviceName)) {
+        if (!MDNS.begin(hostname)) {
             LOGF_EP("Error setting up MDNS responder!");
             return;
         }
 
-        MDNS.addService("http", "tcp", 80);
-        MDNS.addService("amis-reader", "tcp", 80); // our rest api service (service "amis-reader" is not official)
-        MDNS.addServiceTxt("amis-reader", "tcp", "git_hash", __COMPILED_GIT_HASH__);
+        MDNS.addService(Config.DeviceName, "http", "tcp", 80);
+        // our rest api service (service "amis-reader" is not official)
+        MDNSResponder::hMDNSService hAmisService = MDNS.addService(Config.DeviceName, "amis-reader", "tcp", 80);
+        if (hAmisService) {
+            MDNS.addServiceTxt(hAmisService, "git_hash", __COMPILED_GIT_HASH__);
+        }
         /*
         There is no 'modbus' service available
         see: https://www.dns-sd.org/servicetypes.html abd RFC2782
@@ -417,6 +469,13 @@ void NetworkClass::restartMDNSIfNeeded()
         if (Config.smart_mtr) {
             MDNS.addService("modbus", "tcp", SMARTMETER_EMULATION_SERVER_PORT);
         }*/
+
+        if (ShellySmartmeterEmulation.httpApiEnabled()) {
+            LOGF_IP("Announcing Shelly emulation '%s' via MDNS (hostname is '%s.local').",
+                    ShellySmartmeterEmulation.getDeviceId(), hostname);
+            addShellyMDNSService("http");
+            addShellyMDNSService("shelly");
+        }
 
         LOG_DP("MDNS (re)started");
     }

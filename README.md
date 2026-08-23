@@ -9,6 +9,11 @@ Der NetzOÖ Smartmeter gibt Daten im Sekundentakt aus, somit stehen jede Sekunde
 Der Amis Leser benötigt eine 5V Spannungsversorgung (max. 0,13A, typ. 0,075A; Leistungsaufnahme < 1W) durch ein Micro-USB Netzteil und wird magnetisch durch 3 Magnete, die an der Platinenunterseite angeklebt sind, an der optischen Kundenschnittstelle des Siemens Smartmeter gehalten.
 
 Der AMIS Leser emuliert auch einen Fronius Smartmeter (nur Einspeisepunkt Adresse 1) per Modbus/TCP für einen Fronius Symo (ab Datamanager Version 3.28.1-3) oder Gen24 Wechselrichter. Siehe dazu Docs/AmisFroniusSmartmeter.pdf.
+Ebenso kann ein Shelly Smartmeter (Pro 3EM, Pro EM-50, EM Gen3) emuliert werden, wie ihn viele Balkonkraftwerksspeicher für die Nulleinspeisung erwarten. Dafür stehen zwei Varianten zur Verfügung, die auch gemeinsam aktiv sein können:
+- "RPC over UDP" für Speicher vom Typ B2500 (z.B. Marstek Saturn), die den Shelly per UDP-Broadcast abfragen.
+- "RPC over HTTP" für Speicher, die den Shelly per mDNS im Netzwerk suchen und danach per HTTP abfragen (z.B. Solakon One, Hoymiles, Anker). Der Leser meldet sich dabei als `_http._tcp`/`_shelly._tcp` an und beantwortet unter seiner normalen Webserver-Adresse zusätzlich `/shelly` sowie `/rpc/<Methode>` (`EM.GetStatus`, `EMData.GetStatus`, `EM.GetConfig`, `Shelly.GetDeviceInfo`, `Shelly.ListMethods`, bzw. die `EM1.*` Varianten bei einphasigen Geräten).
+  Findet ein Speicher den Leser nicht, kann optional der Shelly-Name (z.B. `ShellyPro3EM-8C4F0044B70B.local`) als mDNS-Hostname verwendet werden - für Geräte, die diesen Namen direkt auflösen statt dem SRV-Eintrag zu folgen. `<Gerätename>.local` ist dann nicht mehr auflösbar, da der ESP8266 nur einen mDNS-Hostnamen führen kann.
+
 In der aktuellen Version ist es auch möglich eine (Tasmota-, Shelly-)Wifi Steckdose aufgrund von PV Überschuss anzusteuern. ("Ein" unter Saldowert; "Aus" über Saldowert; Url für Ein bzw Aus)
 
 Startseite Webinterface:
@@ -18,7 +23,7 @@ Startseite Webinterface:
 ## Highlights
 - Webinterface (Einstellungen, Updates)
 - Schnittstellen: RestApi, MQTT, ModbusTCP, Upload zu Thingspeak
-- Wifi Sleep Mode, Neustart bei Ping-Fehler, Schaltet eine Tasmota Steckdose bei PV Überschuss, Emuliert einen Fronuis Smartmeter per ModbusTCP
+- Wifi Sleep Mode, Neustart bei Ping-Fehler, Schaltet eine Tasmota Steckdose bei PV Überschuss, Emuliert einen Fronuis Smartmeter per ModbusTCP, Emuliert einen Shelly Smartmeter per UDP und HTTP
 
 ## Inbetriebnahme
 Der Amis-ESP8266 läuft normalerweise im Station-Mode, d.h. der ESP8266 verbindet sich als Client mit einem Wlan Router/AP. Dazu muss er aber erst einmal die SSID und das Wlan Passwort kennen. Daher wird der ESP8266 zur Einrichtung in den AP-Mode (Access-Point) versetzt. Das geschieht, indem man mit gesetztem Jumper (Steckbrücke) bootet.

@@ -271,7 +271,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         "pingrestart_max": "5",
         "channel": "0"
     }
-    { // 32 Objects
+    { // 34 Objects
         "command": "/config_general",
         "devicetype": "AMIS-Reader",
         "devicename": "Amis-1",
@@ -299,6 +299,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         "switch_intervall": "60",
         "reboot0": true,
         "shelly_smart_mtr_udp": false,
+        "shelly_smart_mtr_http": false,
+        "shelly_smart_mtr_http_hostname": false,
         "shelly_smart_mtr_udp_device": "shellypro3em",
         "shelly_smart_mtr_udp_offset": "0",
         "shelly_smart_mtr_udp_hardwareID": "",
@@ -323,7 +325,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     */
 
     // add space for 5 "additional" objects and some extra bytes
-    DynamicJsonDocument root(JSON_OBJECT_SIZE(32) + JSON_OBJECT_SIZE(5) + 32); // ~624 bytes
+    DynamicJsonDocument root(JSON_OBJECT_SIZE(34) + JSON_OBJECT_SIZE(5) + 32); // ~656 bytes
 
     // Do not change 'requestData' ... but then we need more memory!
     // error = deserializeJson(root, (const char*) requestData, requestLength);

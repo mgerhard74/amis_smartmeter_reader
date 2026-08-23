@@ -36,6 +36,8 @@ var config_general = {
     "rest_neg": false,
     "smart_mtr":false,
     "shelly_smart_mtr_udp": false,
+    "shelly_smart_mtr_http": false,
+    "shelly_smart_mtr_http_hostname": false,
     "shelly_smart_mtr_udp_device_index": 0,
     "shelly_smart_mtr_udp_offset": 0,
     "shelly_smart_mtr_udp_hardware_id_appendix": "",
