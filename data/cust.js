@@ -5,7 +5,7 @@ var UpdateUri = "";
 const wday=["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 var ws_pingpong;
 var logpage=1;
-var logpages=1;
+var logpages;
 var e180,e280;
 var yestd_in=null;
 var yestd_out;
