@@ -474,6 +474,10 @@ uint32_t LogfileClass::noOfPages(uint32_t entriesPerPage)
 {
     uint32_t entries = noOfEntries();
 
+    if (entries == 0) {
+        return 1;
+    }
+
     if (entries % entriesPerPage) {
         entries += entriesPerPage - 1;
     }
