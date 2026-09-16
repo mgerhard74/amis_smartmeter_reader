@@ -21,7 +21,8 @@ void WebserverRestClass::init(AsyncWebServer& server)
 }
 
 void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
-{   if (!Webserver.checkCredentials(request)) {
+{
+    if (!Webserver.checkCredentials(request, true)) {
         return;
     }
 

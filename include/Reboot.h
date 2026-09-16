@@ -6,8 +6,6 @@ public:
     void startReboot();
     bool startUpdateFirmware();
     void endUpdateFirmware();
-    bool startUpdateLittleFS();
-    void endUpdateLittleFS();
     void softreset();
     void loop();
 

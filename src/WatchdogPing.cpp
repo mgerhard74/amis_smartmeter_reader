@@ -135,9 +135,18 @@ void WatchdogPingClass::startSinglePing()
     // bool begin(const IPAddress &addr, u8_t count = 3, u32_t timeout = 1000);
     // bool begin(const char *host, u8_t count = 3, u32_t timeout = 1000);
     _lastPingStartedMs = millis();
-    LOGF_DP("Starting ping to " PRsIP " ...", PRIPVal(_targetIP));
-    _ping.begin(_targetIP, 1, 1500); // single ping with timeout of 1500ms
-    _isWaitingForPingResult = true;
+    if (!Network.isConnected()) {
+        // simulate ping failure if we're not connected
+        LOGF_DP("Skip pinging " PRsIP ". (Network not connected)", PRIPVal(_targetIP));
+        _isWaitingForPingResult = true;
+        AsyncPingResponse response;
+        response.answer = false;
+        onPingEndOfPing(response);
+    } else {
+        LOGF_DP("Starting ping to " PRsIP " ...", PRIPVal(_targetIP));
+        _ping.begin(_targetIP, 1, 1500); // single ping with timeout of 1500ms
+        _isWaitingForPingResult = true;
+    }
 }
 
 void WatchdogPingClass::stopSinglePing()

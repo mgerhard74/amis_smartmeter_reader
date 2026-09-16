@@ -15,6 +15,7 @@
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
+#include "RebootAtMidnight.h"
 #include "SystemMonitor.h"
 #include "Webserver.h"
 #include "Utils.h"
@@ -78,26 +79,17 @@ void WebserverWsDataClass::init(AsyncWebServer& server)
     _wsCleanupTicker.attach_scheduled(1, std::bind(&WebserverWsDataClass::wsCleanupTaskCb, this));
     _sendDataTicker.attach_ms_scheduled(10, std::bind(&WebserverWsDataClass::sendDataTaskCb, this));
 
-    _simpleDigestAuth.setRealm("data websocket");
-
     reload();
 }
 
 void WebserverWsDataClass::reload()
 {
-    _ws.removeMiddleware(&_simpleDigestAuth);
-
-    if (!Config.use_auth) {
-        return;
+    AsyncAuthType _authMethod = (Config.use_auth) ? AsyncAuthType::AUTH_DIGEST : AsyncAuthType::AUTH_NONE;
+    _ws.setAuthentication(Config.auth_user, Config.auth_passwd, _authMethod);
+    if (Config.use_auth && Config.auth_user[0] && Config.auth_passwd[0]) {
+        // Authentication is enabled or got changed. Kick out all connected clients!
+        _ws.closeAll();
     }
-
-    _ws.enable(false);
-    _simpleDigestAuth.setUsername(Config.auth_user);
-    _simpleDigestAuth.setPassword(Config.auth_passwd);
-    _ws.addMiddleware(&_simpleDigestAuth);
-    //_ws.setAuthentication(Config.auth_user.c_str(), Config.auth_passwd.c_str());
-    _ws.closeAll();
-    _ws.enable(true);
 }
 
 void WebserverWsDataClass::wsCleanupTaskCb()
@@ -631,6 +623,20 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             LittleFS.remove(filename);
             filename += ".md5";
             LittleFS.remove(filename);
+        }
+    } else if (!strcmp_P(command, PSTR("browsertime"))) { // if not time set: use time from browser
+        time_t tv_sec_now = time(NULL);
+        if (tv_sec_now < __COMPILED_DATE_TIME_UTC_TIME_T__) {
+            uint32_t value = root[F("value")].as<uint32_t>();
+            if (value >= __COMPILED_DATE_TIME_UTC_TIME_T__) {
+                // Use time from browser
+                struct timeval ti;
+                ti.tv_sec = value;
+                ti.tv_usec = 0;
+                settimeofday(&ti, NULL);
+                LOGF_IP("Time sync (browser). (ts-old=%llu, ts-now=%llu, millis=%u)", tv_sec_now, ti.tv_sec, millis());
+                RebootAtMidnight.adjustTicker();
+            }
         }
     } else if (!strcmp(command, "dev-tools-button1")) {
         if (!client) {

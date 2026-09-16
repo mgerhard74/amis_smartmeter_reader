@@ -5,7 +5,6 @@
 class RebootAtMidnightClass {
 public:
     void init(void);
-    void config(void);
     void enable(void);
     void disable(void);
     void adjustTicker(void);

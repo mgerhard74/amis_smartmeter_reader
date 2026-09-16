@@ -58,34 +58,6 @@ void RebootClass::endUpdateFirmware()
     }
 }
 
-bool RebootClass::startUpdateLittleFS()
-{
-// Start a updating LittleFS filesystem
-// End or disable all things stressing the cpu
-// That would be:
-// AmisReader, WatchdogPing, MQTT, MDNS, ModbusSmartmeterEmulation, RemoteOnOff, RebootAtMidnight, Thingspeak, LittleFS
-    if (_state != 0) {
-        return false;
-    }
-    _state = -2;
-    AmisReader.end();
-    Databroker.valid = 6;
-    ModbusSmartmeterEmulation.disable();
-    ShellySmartmeterEmulation.disable();
-    ThingSpeak.disable();
-    Mqtt.disable();
-    MDNS.end();
-    LittleFS.end(); // we can also end the filesystem as it will be overwritten
-    return true;
-}
-void RebootClass::endUpdateLittleFS()
-{
-// LittleFS has been updatet -> Now end the Webserver, Websocket and reboot
-    if (_state == -2) {
-        _state = 1;
-    }
-}
-
 
 // Immediate reset&restart (no services gets stopped, no data gets written, ...)
 void RebootClass::softreset()
