@@ -39,6 +39,7 @@ class WebserverWsDataClass
 
         Ticker _sendDataTicker;
         void sendDataTaskCb();
+        uint32_t _requestDelayedSinceMs = 0;
 
         void onWifiScanCompletedCb(int nFound);
         bool _wifiScanInProgress;

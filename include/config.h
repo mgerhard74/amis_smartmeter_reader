@@ -32,7 +32,7 @@
 #define CONFIG_JSON_CONFIG_GENERAL_DOCUMENT_SIZE    JSON_OBJECT_SIZE(35) + 1024
 
 
-extern const char* Config_restValueKeys[2][9];
+extern const char* Config_restValueKeys[2][11];
 
 class ConfigClass {
 

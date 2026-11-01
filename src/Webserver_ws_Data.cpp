@@ -26,6 +26,12 @@
 
 #include "Webserver_ws_Data_cmd_status.inl"
 
+// Requests vom Webclient werden erst bearbeitet, wenn ein ausreichend großer Speicherblock frei ist
+// (z.B. wenn der Browser beim Laden der Seite gleichzeitig mehrere Dateien abruft, wird der Speicher knapp)
+#define WSDATA_REQUEST_MIN_FREE_BLOCK   8192
+// Nach dieser Zeit wird der Request trotzdem bearbeitet (die Websocket-Library verwirft ggf. die Antwort)
+#define WSDATA_REQUEST_MAX_DELAY_MS     3000
+
 static void wsSendFile(const char *filename, AsyncWebSocketClient *client);
 static void sendWeekData(AsyncWebSocketClient *client);
 static void wsSendRuntimeConfigAll(AsyncWebSocket *ws);
@@ -107,6 +113,23 @@ void WebserverWsDataClass::sendDataTaskCb()
 
     // 2.) Handle our _clientRequests queue
     _clientRequest_t request;
+    if (_clientRequests.count() == 0) {
+        _requestDelayedSinceMs = 0;
+        return;
+    }
+
+    if (ESP.getMaxFreeBlockSize() < WSDATA_REQUEST_MIN_FREE_BLOCK) {
+        uint32_t msNow = millis();
+        if (_requestDelayedSinceMs == 0) {
+            _requestDelayedSinceMs = msNow | 1; // 0 means "not delayed"
+        }
+        if (msNow - _requestDelayedSinceMs < WSDATA_REQUEST_MAX_DELAY_MS) {
+            return; // Spaeter nochmal versuchen
+        }
+        LOGF_WP("Low memory (max free block %" PRIu32 "): processing request anyway", ESP.getMaxFreeBlockSize());
+    }
+    _requestDelayedSinceMs = 0;
+
     if (!_clientRequests.pop(request)) {
         return;
     }
@@ -845,7 +868,16 @@ static void wsSendFile(const char *filename, AsyncWebSocketClient *client) {
     LOGF_DP("Sending file '%s' to client %u", filename, client->id());
     File f = LittleFS.open(filename, "r");
     if (f) {
-        client->text(f.readString());
+        // Datei in einem Stück lesen (f.readString() vergrößert den String schrittweise und fragmentiert den Heap)
+        size_t len = f.size();
+        char *buffer = (char *) malloc(len);
+        if (buffer) {
+            len = f.read((uint8_t *) buffer, len);
+            client->text(buffer, len);
+            free(buffer);
+        } else {
+            LOGF_EP("Not enough memory to send file '%s'", filename);
+        }
         f.close();
     } else {
         LOGF_EP("File '%s' not found", filename);

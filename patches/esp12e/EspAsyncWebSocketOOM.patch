@@ -1,0 +1,35 @@
+diff --git a/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/AsyncWebSocket.cpp b/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/AsyncWebSocket.cpp
+index 9deb74a..bf230b2 100644
+--- a/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/AsyncWebSocket.cpp
++++ b/.pio/libdeps/$$$env$$$/ESPAsyncWebServer/src/AsyncWebSocket.cpp
+@@ -407,7 +407,7 @@ bool AsyncWebSocketClient::_queueControl(uint8_t opcode, const uint8_t* data, si
+ }
+
+ bool AsyncWebSocketClient::_queueMessage(AsyncWebSocketSharedBuffer buffer, uint8_t opcode, bool mask) {
+-  if (!_client || buffer->size() == 0 || _status != WS_CONNECTED)
++  if (!_client || !buffer || buffer->size() == 0 || _status != WS_CONNECTED)
+     return false;
+
+ #ifdef ESP32
+@@ -651,8 +651,21 @@ size_t AsyncWebSocketClient::printf_P(PGM_P formatP, ...) {
+ }
+ #endif
+
++#ifndef WS_MIN_FREE_HEAP_RESERVE
++  // AMIS: Heap which must be left free after allocating a websocket message buffer
++  #define WS_MIN_FREE_HEAP_RESERVE 2048
++#endif
++
+ namespace {
+   AsyncWebSocketSharedBuffer makeSharedBuffer(const uint8_t* message, size_t len) {
++#ifdef ESP8266
++    // AMIS: operator new() does not return nullptr on ESP8266 but aborts ("Unhandled C++ exception: OOM")
++    // So check for enough contiguous heap first and discard the message if there is not enough memory
++    if (ESP.getMaxFreeBlockSize() < len + WS_MIN_FREE_HEAP_RESERVE) {
++      ets_printf("AsyncWebSocket: Not enough memory for message (%u bytes): discarding message\n", len);
++      return nullptr;
++    }
++#endif
+     auto buffer = std::make_shared<std::vector<uint8_t>>(len);
+     std::memcpy(buffer->data(), message, len);
+     return buffer;

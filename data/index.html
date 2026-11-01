@@ -122,6 +122,10 @@
             <div class="pure-u-11-24" name="4_7_0" post=" kVar" div="1000"></div>
             <div class="pure-u-11-24">1.128.0 (Inkasso)</div>
             <div class="pure-u-11-24" name="1_128_0"></div>
+            <div class="pure-u-11-24">1.6.0 (Max. 1/4h Leistung Monat)</div>
+            <strong><div class="pure-u-11-24" name="1_6_0" post=" W"></div></strong>
+            <div class="pure-u-11-24">1.6.0 (Max. 1/4h Leistung Vormonat)</div>
+            <strong><div class="pure-u-11-24" name="1_6_0_vm" post=" W"></div></strong>
             <br><hr>
             <div class="pure-u-11-24">Laufzeit</div>
             <div class="pure-u-11-24" name="uptime"></div>
@@ -871,11 +875,15 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
-              <h3>Version 1.6.5-dev1</h3>
+              <h3>Version 1.6.5</h3>
               Weitere Stabilitätsverbesserungen eingefügt.<br>
               Upload des littelfs entfernt (wird nicht mehr benötigt).<br>
               Alle Webzugriffe honorieren nun Username/Passwort.<br>
               Falls noch keine Uhrzeit gesetzt ist, wird diese beim Webzugriff mit der des Browsers synchronisiert.<br>
+              Höchster Viertelstundenverbrauch aktuelles Monat und Vormonat:<br>
+              In der Weboberfläche, Rest und MQTT wird nun ein aus 1.8.0 errechneter höchster Viertelstundenverbrauch angezeigt bzw übertragen. (Rest und MQTT: 1.6.0 und 1.6.0_vm). Die Daten werden in der Datei /max_1_6_0_w gespeichert: Feld 1 Monat (2026*12+10=24322 für November 2026), Feld 2 1.6.0 und Feld 3 1.6.0_vm.<br>
+              Achtung: Bei einem Lesekopf Neustart könnten 2 Viertelstunden nicht berücksichtigt werden.<br>
+              Webseitenaufrufe führen nicht mehr zum Reboot bei zu knappem Speicher<br>
               <h3>Version 1.6.4</h3>
               Von GH Copilot vorgeschlagene Stabilitätsverbesserungen umgesetzt.<br>
               <h3>Version 1.6.3</h3>

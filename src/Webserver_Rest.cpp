@@ -10,6 +10,7 @@
 #include "Json.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSERVER
+#include "MaxDemand.h"
 #include "Webserver.h"
 
 
@@ -40,11 +41,13 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         "3_7_0": 4294967289,
         "4_7_0": 4294967288,
         "1_128_0": -2147483647,
+        "1_6_0": 4294967287,
+        "1_6_0_vm": 4294967286,
         "saldo": -2147483647,
         "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
     }
     */
-    StaticJsonDocument<JSON_OBJECT_SIZE(12) + 64> root;
+    StaticJsonDocument<JSON_OBJECT_SIZE(14) + 64> root;
 
     if (Databroker.valid != 5) {
         root[F("error")] = F("No actual valid result available");
@@ -62,6 +65,8 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         root[Config_restValueKeys[Config.rest_var][6]] = Databroker.results_u32[6];
         root[Config_restValueKeys[Config.rest_var][7]] = Databroker.results_u32[7];
         root[Config_restValueKeys[Config.rest_var][8]] = Databroker.results_i32[0];
+        root[Config_restValueKeys[Config.rest_var][9]] = MaxDemand.getCurrentMonth();
+        root[Config_restValueKeys[Config.rest_var][10]] = MaxDemand.getPreviousMonth();
         if (Config.rest_neg) {
             saldo = -saldo;
         }
