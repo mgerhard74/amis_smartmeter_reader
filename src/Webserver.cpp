@@ -28,7 +28,7 @@ R"(<!doctype html>
 </head>
 <body>
 <h1>Versions Upgrade / Datei Upload</h1><br>
-Upgrade vervollständigen: Im Filedialog bitte 'firmware.bin', 'littlefs.bin' oder eine andere Datei auswählen.<br><br><br>
+Upgrade vervollständigen: Im Filedialog bitte 'firmware.bin' oder eine andere Datei auswählen.<br><br><br>
 <form method='POST' action='/update' enctype='multipart/form-data' id="up">
     <input type='file' name='update'><input type='button' value='Update' onclick="btclick();">
 </form>
@@ -52,8 +52,13 @@ WebserverClass::WebserverClass()
 }
 
 
-void WebserverClass::responseBinaryDataWithETagCache(AsyncWebServerRequest* request, const char *contentType, bool utf8, const char *contentEncoding, const uint8_t* content, size_t len, const char *md5sum)
+void WebserverClass::responseBinaryDataWithETagCache(AsyncWebServerRequest* request, const char *contentType, bool utf8, const char *contentEncoding, const uint8_t* content, size_t len, const char *md5sum, bool checkCredentials)
 {
+    if (checkCredentials && !Webserver.checkCredentials(request, true)) {
+        // Some static pages may be shipped without checking credentials
+        return;
+    }
+
     if (!ApplicationRuntime.webUseFilesFromFirmware() && _staticFilesServer) {
         if (_staticFilesServer->canHandle(request)) {
             if (request->_tempObject) {
@@ -109,7 +114,7 @@ void WebserverClass::responseBinaryDataWithETagCache(AsyncWebServerRequest* requ
     response->addHeader(asyncsrv::T_ETag, expectedEtag);
     response->addHeader(asyncsrv::T_Content_Disposition, "inline");
     // response->addHeader("last-modified", "Fri, 12 Dec 2025 13:05:45 GMT");
-    response->addHeader("X-AMIS-From-Firmware", "yes"); // Just for us: Indicate that we shipped it directly
+    response->addHeader(F("X-AMIS-From-Firmware"), "yes"); // Just for us: Indicate that we shipped it directly
     request->send(response);
 }
 
@@ -127,7 +132,6 @@ void WebserverClass::init()
     _websrvUpdate.init(_server);
 
     // Initilisieren der Websocket Handler
-    _websrvWsConsole.init(_server);
     _websrvWsData.init(_server);
 
     // Eine 404 (Not Found) Site
@@ -138,24 +142,36 @@ void WebserverClass::init()
         request->send_P(200, F("text/html; charset=utf-8"), _page_upgrade);
     });
 
-    // Restliche Standard Seiten - ebenfalls aus der Firmware
+    // Restliche Standard Seiten - ebenfalls aus der Firmware - aber mit ETag-Header
     _server.on("/amis.css", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        responseBinaryDataWithETagCache(request, asyncsrv::T_text_css, true, asyncsrv::T_gzip, amis_css_gz, amis_css_gz_size, amis_css_gz_md5);
+        responseBinaryDataWithETagCache(request, asyncsrv::T_text_css, true,
+                                        asyncsrv::T_gzip, amis_css_gz, amis_css_gz_size, amis_css_gz_md5,
+                                        false);
     });
     _server.on("/chart.js", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true, asyncsrv::T_gzip, chart_js_gz, chart_js_gz_size, chart_js_gz_md5);
+        responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true,
+                                        asyncsrv::T_gzip, chart_js_gz, chart_js_gz_size, chart_js_gz_md5,
+                                        false);
     });
     _server.on("/cust.js", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true, asyncsrv::T_gzip, cust_js_gz, cust_js_gz_size, cust_js_gz_md5);
+        responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true,
+                                        asyncsrv::T_gzip, cust_js_gz, cust_js_gz_size, cust_js_gz_md5,
+                                        false);
     });
     _server.on("/index.html", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        responseBinaryDataWithETagCache(request, asyncsrv::T_text_html, true, asyncsrv::T_gzip, index_html_gz, index_html_gz_size, index_html_gz_md5);
+        responseBinaryDataWithETagCache(request, asyncsrv::T_text_html, true,
+                                        asyncsrv::T_gzip, index_html_gz, index_html_gz_size, index_html_gz_md5,
+                                        false);
     });
     _server.on("/jquery371slim.js", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true, asyncsrv::T_gzip, jquery371slim_js_gz, jquery371slim_js_gz_size, jquery371slim_js_gz_md5);
+        responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true,
+                                        asyncsrv::T_gzip, jquery371slim_js_gz, jquery371slim_js_gz_size, jquery371slim_js_gz_md5,
+                                        false);
     });
     _server.on("/pure-min.css", HTTP_GET, [&](AsyncWebServerRequest* request) {
-        responseBinaryDataWithETagCache(request, asyncsrv::T_text_css, true, asyncsrv::T_gzip, pure_min_css_gz, pure_min_css_gz_size, pure_min_css_gz_md5);
+        responseBinaryDataWithETagCache(request, asyncsrv::T_text_css, true,
+                                        asyncsrv::T_gzip, pure_min_css_gz, pure_min_css_gz_size, pure_min_css_gz_md5,
+                                        false);
     });
 
     // Die "Defaultseite" / behandeln
@@ -168,7 +184,7 @@ void WebserverClass::init()
     _server.begin();
 }
 
-bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
+bool WebserverClass::checkCredentials(AsyncWebServerRequest* request, bool sendErrorResponse)
 {
     if (!_auth_enabled) {
         return true;
@@ -178,15 +194,15 @@ bool WebserverClass::checkCredentials(AsyncWebServerRequest* request)
         return true;
     }
 
-    AsyncWebServerResponse* r = request->beginResponse(401);
-
-#if 0
-    // WebAPI should set the X-Requested-With to prevent browser internal auth dialogs
-    if (!request->hasHeader("X-Requested-With")) {
-        r->addHeader(asyncsrv::T_WWW_AUTH, "Basic realm=\"Login Required\"");
+    if (sendErrorResponse) {
+        if (request->hasHeader("X-Requested-With")) {
+            // If we have a header X-Requested-With prevent browser internal auth dialogs - just return 401
+            AsyncWebServerResponse* r = request->beginResponse(401);
+            request->send(r);
+        } else {
+            request->requestAuthentication();
+        }
     }
-#endif
-    request->send(r);
 
     return false;
 }
@@ -201,14 +217,13 @@ void WebserverClass::onNotFound(AsyncWebServerRequest *request)
     }
 }
 
-void WebserverClass::reload()
-{
-    _websrvWsConsole.reload();
-    _websrvWsData.reload();
-}
-
 void WebserverClass::reloadCredentials()
 {
+    if (_staticFilesServer == nullptr) {
+        // Webserver.init() must be called first
+        return;
+    }
+
     bool changed = false;
     if (_auth_enabled != Config.use_auth) {
         changed = true;
@@ -223,7 +238,14 @@ void WebserverClass::reloadCredentials()
         _auth_password = Config.auth_passwd;
     }
     if (changed) {
-        reload();
+        if (!_auth_enabled) {
+            _staticFilesServer->setAuthentication("", "", AUTH_NONE);
+        } else {
+            _staticFilesServer->setAuthentication(_auth_username, _auth_password); // AUTH_DIGEST is default (AUTH_BASIC)
+        }
+
+        // Update the websockets also
+        _websrvWsData.reload();
     }
 }
 

@@ -4,7 +4,6 @@
 #include "Webserver_Rest.h"
 #include "Webserver_Shelly.h"
 #include "Webserver_Update.h"
-#include "Webserver_ws_Console.h"
 #include "Webserver_ws_Data.h"
 
 #define WEBSERVER_HTTP_PORT     80
@@ -15,12 +14,11 @@ class WebserverClass
         WebserverClass();
         void init();
         void reloadCredentials();
-        bool checkCredentials(AsyncWebServerRequest* request);
+        bool checkCredentials(AsyncWebServerRequest* request, bool sendErrorResponse);
 
     private:
-        void reload();
         void onNotFound(AsyncWebServerRequest *request);
-        void responseBinaryDataWithETagCache(AsyncWebServerRequest* request, const char *contentType, bool utf8, const char *contentEncoding, const uint8_t* content, size_t len, const char *md5sum);
+        void responseBinaryDataWithETagCache(AsyncWebServerRequest* request, const char *contentType, bool utf8, const char *contentEncoding, const uint8_t* content, size_t len, const char *md5sum, bool checkCredentials);
 
         AsyncWebServer _server;
         AsyncStaticWebHandler *_staticFilesServer;
@@ -30,7 +28,6 @@ class WebserverClass
         WebserverShellyClass _websrvShelly;
         WebserverUpdateClass _websrvUpdate;
 
-        WebserverWsConsoleClass _websrvWsConsole;
         WebserverWsDataClass _websrvWsData;
 
         bool _auth_enabled;

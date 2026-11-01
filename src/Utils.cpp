@@ -292,7 +292,7 @@ bool Utils::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
 
     t.tm_sec   = mbusdata[0] & 0x3f; // (C99/C++11) 0..60 // MBUS: 0..59
     t.tm_isdst = (mbusdata[0] & 0x40) ? 1 : 0;  // day saving time
-    // bool leypYear = (mbusdata[0] & 0x80) ? 1 : 0;  // Schaltjahr
+    // bool leapYear = (mbusdata[0] & 0x80) ? 1 : 0;  // Schaltjahr
 
     t.tm_min   = mbusdata[1] & 0x3f; // C: 0..59
     t.tm_hour  = mbusdata[2] & 0x1f; // C: 0..23

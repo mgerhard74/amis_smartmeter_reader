@@ -16,9 +16,6 @@ void RebootAtMidnightClass::init()
     _enabled = false;
 }
 
-void RebootAtMidnightClass::config(void)
-{
-}
 void RebootAtMidnightClass::enable(void)
 {
     if (_enabled || Network.inAPMode()) {

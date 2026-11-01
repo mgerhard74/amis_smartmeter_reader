@@ -636,6 +636,10 @@ function connectWS() {
   websock.onopen = function(evt) {
     $("#panel-home").show();
     //$("#panel-graf").show();
+
+    // Uhrzeit vom Browser senden
+    websock.send('{"command":"browsertime","value":' + Math.trunc(Date.now() / 1000) + '}');
+
     websock.send('{"command":"getconf"}');
     setTimeout( function(){
       websock.send('{"command":"energieWeek"}');
@@ -748,6 +752,9 @@ function showPanel() {              // menu click select panel
   else if ($(this).attr('data')=='panel-log') {
     websock.send('{"command":"geteventlog","page":'+logpage+'}');
   }
+  else if ($(this).attr('data')=='panel-emulation') {
+    showHideShellyDetails();
+  }
   else if ($(this).attr('data')=='panel-update') {
     websock.send('{"command":"weekdata"}');
     greyButtons();
@@ -773,7 +780,12 @@ function progressAnimate(id,time) {
 
 function doUpdateGeneral() {                 // button save config
   progressAnimate('prgbar_general',300);
-  //let boot=($("#use_auth").prop("checked")!=config_general.use_auth);
+  let authChanged = false;
+  if( ($("#use_auth").prop("checked") != config_general.use_auth) ||
+      ($("#auth_user").value != config_general.auth_user) ||
+      ($("#auth_passwd").value != config_general.auth_passwd) ) {
+    authChanged = true;
+  }
   $(".general").each(function () {
     //console.log($(this).prop('type'),this.name,this.value)
     if ($(this).prop('type') == 'checkbox') config_general[this.name] = $(this).prop('checked');
@@ -794,7 +806,9 @@ function doUpdateGeneral() {                 // button save config
   }
   websock.send(JSON.stringify(config_general));
   websock.send('{"command":"set-amisreader","key":"' + config_general.amis_key + '"}');
-  //if (boot) doReboot("Wenn die Authentifizierung ein- oder ausgeschaltet wurde, muss neu gebootet werden.\n")
+  if (authChanged && config_general.use_auth) {
+    doReload(200);
+  }
 }
 //TODO eigenes configfile - derzeit in general gespeichert (hier wegen progressAnimate extra funktion)
 function doUpdateEmulation() {                  // button save config
@@ -864,7 +878,7 @@ function doUpgrade () {               // firmware update
   xhr.addEventListener("abort", network_error, false);
   xhr.addEventListener("load", function(e) {
     if(xhr.status===200) {
-        if (file.name.startsWith("firmware") || file.name.startsWith("littlefs")) {
+        if (file.name.startsWith("firmware")) {
           const milliseconds_s = Date.now();
           $("#prgbar_update").hide();
           alert(msg_ok);
@@ -881,7 +895,7 @@ function doUpgrade () {               // firmware update
   // xhr.upload.onprogress liefert keine vernünftigne Daten im Kurzzeitbereich
   xhr.open("POST",UpdateUri);
   xhr.send(data);
-  if (file.name.startsWith("firmware") || file.name.startsWith("littlefs"))
+  if (file.name.startsWith("firmware"))
     progressAnimate('prgbar_update',15000);
   else progressAnimate('prgbar_update',400);
 }
@@ -904,6 +918,27 @@ function thingsDetails() {  // display settings only if thingspeak active
 function authDetails() {  // display settings only if auth active
   if ($(this).prop('checked')) $(".auth_details").show();
   else $(".auth_details").hide();
+}
+
+function showHideShellyDetails() {  // display shelly settings
+  var anyShellyActive = false;
+  if ($('#shelly_smart_mtr_udp').prop('checked')) {
+    $(".shelly_details_udp").show();
+    anyShellyActive = true;
+  } else {
+    $(".shelly_details_udp").hide();
+  }
+  if ($('#shelly_smart_mtr_http').prop('checked')) {
+    $(".shelly_details_http").show();
+    anyShellyActive = true;
+  } else {
+    $(".shelly_details_http").hide();
+  }
+  if (anyShellyActive) {
+    $(".shelly_details").show();
+  } else {
+    $(".shelly_details").hide();
+  }
 }
 
 function developerModeEnabled() {  // display settings only if auth active
@@ -1217,6 +1252,8 @@ $(function() {            // main
   $("input[name='thingspeak_aktiv']").on("click", thingsDetails);
   $("input[name='developerModeEnabled']").on("click", developerModeEnabled);
   $("input[name='webUseFilesFromFirmware']").on("click", webUseFilesFromFirmware);
+  $("input[name='shelly_smart_mtr_udp']").on("click", showHideShellyDetails);
+  $("input[name='shelly_smart_mtr_http']").on("click", showHideShellyDetails);
   //$("input[name='smart_aktiv']").on("click", smart_mtr);
   $("input[name='use_auth']").on("click", authDetails);
   $(".button-upgrade").on("click", doUpgrade);      // firmware update

@@ -191,7 +191,6 @@ void setup() {
 
     // Reboot um Mitternacht?
     RebootAtMidnight.init();
-    RebootAtMidnight.config();
     if (Config.reboot0) {
         RebootAtMidnight.enable();
         LOG_DP("RebootAtMidnight enabled");
@@ -222,6 +221,8 @@ void loop() {
     Mqtt.loop();
 
     AmisReader.loop();  // Zähler auslesen
+
+    yield(); // geben wir dem System mal Zeit sich um den System-Context (WiFi, Serial, ... zu kümmern)
 
     Log.loop(); // Eine Seite des Logfiles an einen Websocket client senden
 

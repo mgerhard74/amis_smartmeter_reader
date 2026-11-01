@@ -1,5 +1,5 @@
 /*
-    Handle updates of firmware, littlefs or any other fileupload (POST requests)
+    Handle updates of firmware or any other fileupload (POST requests)
     at http://<espiIp>/update
 
     Configuration changes get updated via the websochet and a command
@@ -13,6 +13,7 @@
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"
+#include "Webserver.h"
 
 #include <LittleFS.h>
 
@@ -39,7 +40,19 @@ void WebserverUpdateClass::init(AsyncWebServer& server)
 
 void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String& filename, size_t index, uint8_t* data, size_t len, bool final)
 {
-    UNUSED_ARG(request);
+#if 1
+    if (!Webserver.checkCredentials(request, false)) {
+        // skip any update if credentials do not match
+        return;
+    }
+#else
+    if (!Webserver.checkCredentials(request, true)) { // return a 401 here
+        // We should add header "Connection: close" in this case to stop upload immediately
+        // But: request->requestAuthentication(); does not support adding headers
+        request->client()->stop();
+        return;
+    }
+#endif
 
     //Upload handler chunks in data
     if (!index) {  // Start der Übertragung: index==0
@@ -57,19 +70,13 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             _uploadfiletype = firmware;
             content_len = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-        } else if (_uploadFilename == F("littlefs.bin")) {
-            if (!Reboot.startUpdateLittleFS()) {
-                return;
-            }
-            _uploadfiletype = littlefs;
-            content_len = ((size_t) &_FS_end - (size_t) &_FS_start);        // eigentlich Größe d. Flash-Partition
         } else {
             _uploadfiletype = anyOther;// anderes File
         }
 
         //eprintf("command: %d  content_len: %x  request: %x \n",cmd,content_len,request->contentLength());
         // SPIFFS-Partition: eprintf("_FS_start %x;  _FS_end %x; Size: %x\n",(size_t)&_FS_start,(size_t)&_FS_end,(size_t)&_FS_end-(size_t)&_FS_start);
-        if (_uploadfiletype == firmware || _uploadfiletype == littlefs) {
+        if (_uploadfiletype == firmware) {
             Update.runAsync(true);
             if (!Update.begin(content_len, _uploadfiletype)) {
                 Update.printError(Serial);
@@ -92,14 +99,14 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
 
 
     // jetzt kommen die Daten:
-    if (_uploadfiletype == firmware || _uploadfiletype == littlefs) { // Update Flash
+    if (_uploadfiletype == firmware) { // Update Flash
         if (!Update.hasError()) {
             if (Update.write(data, len) != len) {
                 LOGF_EP("Error writing to flash: %s", _uploadFilename.c_str());
                 Update.printError(Serial);
             }
         }
-    } else if (_uploadfiletype == anyOther || _uploadfiletype == monate) { // write "any other file" content
+    } else { // just write "any other file" content to file system
         if (_uploadFile) {
             if (_uploadFile.write(data, len) != len) {
                 LOGF_EP("Error writing file: %s", _uploadFilename.c_str());
@@ -108,20 +115,16 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
     }
 
     if (final) {  // Ende Übertragung erreicht
-        if (_uploadfiletype == firmware || _uploadfiletype == littlefs) {
+        if (_uploadfiletype == firmware) {
             // Flash oder LittleFS Update
             if (Update.end(true)) {
-                LOG_IP("Update succes.");
+                LOG_IP("Update success.");
             } else {
                 LOG_EP("Update failed");
                 Update.printError(Serial);
                 //return request->send(400, "text/plain", "Could not end OTA");
             }
-            if (_uploadfiletype == firmware) {
-                Reboot.endUpdateFirmware();
-            } else { // _uploadfiletype == littlefs
-                Reboot.endUpdateLittleFS();
-            }
+            Reboot.endUpdateFirmware();
         } else {                          // File write
             if (_uploadFile) {
                 _uploadFile.close();
@@ -138,9 +141,11 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
 
 void WebserverUpdateClass::onUploadRequest(AsyncWebServerRequest* request)
 {
-    // the request handler is triggered after the upload has finished...
-    AsyncWebServerResponse *response = request->beginResponse(200,F("text/html"),"");
-    request->send(response);
+    // The request handler triggers once the upload has finished and should return an appropriate HTTP status.
+    if (Webserver.checkCredentials(request, true)) {
+        AsyncWebServerResponse *response = request->beginResponse(200, F("text/html"), "Upload finished");
+        request->send(response);
+    }
     LOG_DP("WebserverUpdateClass::onUploadRequest()");
 }
 
