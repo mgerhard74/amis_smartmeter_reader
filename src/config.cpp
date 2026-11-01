@@ -25,15 +25,15 @@
 #define CONFIG_AMIS_KEY_JSON_NAME_LEN (sizeof(CONFIG_AMIS_KEY_JSON_NAME)-1)
 
 
-extern const char* Config_restValueKeys[2][9];
-const char * Config_restValueKeys[2][9] =
+extern const char* Config_restValueKeys[2][11];
+const char * Config_restValueKeys[2][11] =
 {
     { "1.8.0", "2.8.0", "3.8.1", "4.8.1",
       "1.7.0", "2.7.0", "3.7.0", "4.7.0",
-      "1.128.0" },
+      "1.128.0", "1.6.0", "1.6.0_vm" },
     { "1_8_0", "2_8_0", "3_8_1", "4_8_1",
       "1_7_0", "2_7_0", "3_7_0", "4_7_0",
-      "1_128_0" }
+      "1_128_0", "1_6_0", "1_6_0_vm" }
 };
 
 

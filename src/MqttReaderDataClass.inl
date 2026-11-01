@@ -3,6 +3,7 @@
 #include "Mqtt.h"
 
 #include "config.h"
+#include "MaxDemand.h"
 
 
 void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
@@ -15,7 +16,7 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
 {
     MqttConfig_t config = _mqttBase->getConfigMqtt();
 
-    StaticJsonDocument<384> root; // Keys NOT <const char*> // CHECK
+    StaticJsonDocument<448> root; // Keys NOT <const char*> // CHECK
     /*
     {
         "1.8.0": 4294967295,
@@ -27,6 +28,8 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
         "3.7.0": 4294967289,
         "4.7.0": 4294967288,
         "1.128.0": -2147483647,
+        "1.6.0": 4294967287,
+        "1.6.0_vm": 4294967286,
         "saldo": -2147483646,
         "time": 4294967288,
         "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
@@ -47,6 +50,8 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
     root[Config_restValueKeys[Config.rest_var][6]] = Databroker.results_u32[6];
     root[Config_restValueKeys[Config.rest_var][7]] = Databroker.results_u32[7];
     root[Config_restValueKeys[Config.rest_var][8]] = Databroker.results_i32[0];
+    root[Config_restValueKeys[Config.rest_var][9]] = MaxDemand.getCurrentMonth();
+    root[Config_restValueKeys[Config.rest_var][10]] = MaxDemand.getPreviousMonth();
 
     root[F("saldo")] = saldo;
     root[F("time")] = static_cast<uint32_t>(Databroker.ts); // generate valid values till 2106

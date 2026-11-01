@@ -4,6 +4,7 @@
 #include "Json.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSSOCKET
+#include "MaxDemand.h"
 #include "ThingSpeak.h"
 
 //#define DEBUG
@@ -53,12 +54,14 @@ void sendZData() {
         "3.7.0": 4294967289,
         "4.7.0": 4294967288,
         "1.128.0": -2147483647,
+        "1_6_0": 4294967287,
+        "1_6_0_vm": 4294967286,
         "uptime": 4294967287,
         "things_up": "Verbindung zu http://api.thingspeak.com fehlgeschlagen.",
         "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
     }
     */
-    StaticJsonDocument<352> doc; // Keys are <const char *>  // CHECK
+    StaticJsonDocument<416> doc; // Keys are <const char *>  // CHECK
 
     doc["now"] = Databroker.timeCp48Hex;
     doc["time"] = static_cast<uint32_t>(time(NULL));
@@ -71,6 +74,8 @@ void sendZData() {
     doc[Config_restValueKeys[1][6]] = Databroker.results_u32[6];
     doc[Config_restValueKeys[1][7]] = Databroker.results_u32[7];
     doc[Config_restValueKeys[1][8]] = Databroker.results_i32[0];
+    doc[Config_restValueKeys[1][9]] = MaxDemand.getCurrentMonth();
+    doc[Config_restValueKeys[1][10]] = MaxDemand.getPreviousMonth();
     doc["uptime"] = millis() / 1000;
     doc["things_up"] = ThingSpeak.getLastResult();      //  Error-/Infotext or hexstring(without 0x) of timestamp from counter last transmitted
     doc["serialnumber"] = AmisReader.getSerialNumber();

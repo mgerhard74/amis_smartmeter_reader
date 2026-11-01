@@ -10,6 +10,7 @@
 #include "LedSingle.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
+#include "MaxDemand.h"
 #include "ModbusSmartmeterEmulation.h"
 #include "ShellySmartmeterEmulation.h"
 #include "Mqtt.h"
@@ -143,6 +144,9 @@ void setup() {
 
     // Load history of last 7 days and get YYMM of last entry in
     historyInit();
+
+    // Maximum 1/4h Verbrauch (1.6.0) aktuelles Monat und Vormonat laden
+    MaxDemand.init();
 
     // Webserver ... damit wir auch was machen können
     Webserver.init();    // Unter "/"" wird die "/index.html" ausgeliefert, "/update" ist eine statische fixe Seite

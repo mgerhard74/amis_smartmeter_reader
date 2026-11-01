@@ -26,6 +26,8 @@ static const HASensor HASensors[] = {
     {"1.7.0",   "Leistung Bezug",       "W",    "power",    "measurement"},
     {"2.7.0",   "Leistung Lieferung",   "W",    "power",    "measurement"},
     {"saldo",   "Saldo",                "W",    "power",    "measurement"},
+    {"1.6.0",   "Max. 1/4h Leistung Monat",     "W",    "power",    "measurement"},
+    {"1.6.0_vm", "Max. 1/4h Leistung Vormonat", "W",    "power",    "measurement"},
 };
 
 
