@@ -32,9 +32,9 @@ void MaxDemandClass::load()
     String s = f.readString();
     f.close();
 
-    long monthKey;
-    unsigned long cur, prev;
-    if (sscanf(s.c_str(), "%ld %lu %lu", &monthKey, &cur, &prev) == 3) {
+    int32_t monthKey;
+    uint32_t cur, prev;
+    if (sscanf(s.c_str(), "%" SCNd32 " %" SCNu32 " %" SCNu32, &monthKey, &cur, &prev) == 3) {
         _monthKey = monthKey;
         _maxCurrentMonth = cur;
         _maxPreviousMonth = prev;
@@ -48,8 +48,7 @@ void MaxDemandClass::save()
 {
     File f = LittleFS.open(MAXDEMAND_FILENAME, "w");
     if (f) {
-        f.printf("%ld %lu %lu\n", static_cast<long>(_monthKey),
-                 static_cast<unsigned long>(_maxCurrentMonth), static_cast<unsigned long>(_maxPreviousMonth));
+        f.printf("%" PRId32 " %" PRIu32 " %" PRIu32 "\n", _monthKey, _maxCurrentMonth, _maxPreviousMonth);
         f.close();
     }
 }
