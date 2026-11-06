@@ -1196,7 +1196,9 @@ $(function() {            // main
     websock.send('{"command":"ls"}');
   });
   $(".button-dev-cmd-clear").on("click", function () {
-    websock.send('{"command":"clear"}');
+    if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen.")) {
+      websock.send('{"command":"clear"}');
+    }
   });
   $(".button-dev-remove-webdeveloper-files").on("click", function () {
     if (window.confirm("Webserverentwicklungsdateien löschen (auch *.gz und *.md5). Sicher?")) {
