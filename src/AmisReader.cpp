@@ -575,7 +575,7 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 
             // "0" ...  300 Bd, "1" ...  600 Bd, "2" ...  1200 Bd, "3" ...   2400 Bd
             // "4" ... 4800 Bd, "5" ... 9600 Bd, "6" ... 19200 Bd. "9" ... 115200 Bd
-            _baudRateIdentifier = _serialReadBuffer[5];
+            _baudRateIdentifier = _serialReadBuffer[4];
 
             const char *serialNr = (const char *)_serialReadBuffer+5;
             strlcpy(_serialNumber, serialNr, sizeof(_serialNumber));
