@@ -28,7 +28,7 @@ void sendZDataWait() {
     doc["now"] = 0;
     // For 64 bits seems we must define ARDUINOJSON_USE_LONG_LONG ... but 32 Bits unsigned is valid till 2106
     doc["time"] = static_cast<uint32_t>(time(NULL));
-    doc["valid"] = Databroker.valid;
+    doc["status"] = AmisReader.statusText();
     doc["uptime"] = millis() / 1000;
     doc["things_up"] = ThingSpeak.getLastResult(); //  Error-/Infotext or hexstring(without 0x) of timestamp from counter last transmitted
     doc["serialnumber"] = AmisReader.getSerialNumber();

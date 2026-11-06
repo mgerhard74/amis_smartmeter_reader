@@ -16,6 +16,10 @@ var g_lastDT = new Date(); // Zuletzt erhaltene Zählerwerte (lt Zähleruhrzeit)
 var wsTimer;
 var wsActiveFlag=true;
 
+var lastSerail = "";
+var lastNow = 1;
+var billingDatasetFilename = "";
+
 var config_general = {
     "devicetype": "AMIS-Reader",
     "devicename": "Amis-1",
@@ -88,6 +92,203 @@ var config_runtime = {
     "webUseFilesFromFirmware": true,
     "command": "config_runtime" // ohne führendes "/"
 };
+
+const blockClick = (e) => e.preventDefault();
+
+
+
+function CESTStrToUnixTimestamp(dateStr) {
+  // String zerlegen: und daraus "YYYY-MM-DDThh:mm:ss" machen
+  const formattedStr = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}T${dateStr.substring(8, 10)}:${dateStr.substring(10, 12)}:${dateStr.substring(12, 14)}`;
+
+  // Das Datum mal als UTC ("Z") erstellen
+  const date = new Date(formattedStr + 'Z'); // Zwingt JS zunächst zu UTC
+
+  // Über den lokalen Zeit-Offset den echten Unix-Timestamp ermitteln
+  // Am Schalttag ist das womöglich nicht eindeutig (gibt ja 2 mal 02:15:00)
+  // Hilft nix - genauer Zeitinfo bekommen wir nicht vom Zähler !
+  const localDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Vienna' }));
+  const diff = localDate.getTime() - date.getTime();
+
+  return Math.floor((date.getTime() + diff) / 1000);
+}
+
+
+function unixTimestampToViennaStr(timestamp) {
+  // Timestamp in Millisekunden umwandeln und Date-Objekt erstellen
+  const date = new Date(timestamp * 1000);
+
+  // Formatierer für Europa/Vienna definieren (liefert die exakten lokalen Teile)
+  const formatter = new Intl.DateTimeFormat('de-AT', {
+    timeZone: 'Europe/Vienna',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  // Teile extrahieren
+  const parts = formatter.formatToParts(date);
+  const dict = Object.fromEntries(parts.map(p => [p.type, p.value]));
+
+  // String im Format YYYYMMDDhhmmss zusammenbauen
+  return `${dict.year}${dict.month}${dict.day}${dict.hour}${dict.minute}${dict.second}`;
+}
+
+async function generateDemandFromBillingDataset() {
+    // YYMM v.1.6.0 Timestamp(Beginn)
+
+    // 1) /xxx.txt laden
+    const res = await fetch(`/${billingDatasetFilename}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch ${billingDatasetFilename} fehlgeschlagen: ${res.status}`);
+    const text = await res.text();
+
+    // 2) Zeilen parsen
+    // 1.6.0: Zählerstand, Index = Monat, Datum+Zeit vorhanden
+    const re_160_hist = /^1\.6\.0[*&](\d+)\(([\d.]+)\)\((\d{2})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\)/;
+    const map = new Map(); // "YYMM" -> { quarterMax, quarterMaxDT }
+
+    //  "1.6.0(3.888*kW)(26-11-06 11:15)"
+    const re_160_curr = /^1\.6\.0\(([\d.]+)\*kW\)\((\d{2})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\)/;
+
+    var m_160_curr = null;
+
+    // Bauen wir das Set aus den 1.6.0'er Werten (höchster viertelstunden wert)
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+
+        if (!m_160_curr) { // use first match
+          m_160_curr = t.match(re_160_curr);
+          if (m_160_curr) {
+            const [, valueStr, yy, mm, dd, hh, min] = m_160_curr;
+            const key = yy + mm;
+            const quarterMax = Math.round(parseFloat(valueStr) * 1000);
+            const quarterMaxDT = CESTStrToUnixTimestamp(`20${yy}${mm}${dd}${hh}${min}00`);
+            m_160_curr = `${key} ${quarterMax} ${quarterMaxDT}`;
+          }
+        }
+
+        const m = t.match(re_160_hist);
+        if (m) {
+            const [, , valueStr, yy, mm, dd, hh, min] = m;
+            const key = yy + mm;
+            let e = map.get(key);
+            if (!e) {
+              e = {quarterMax:0, quarterMaxDT:0};
+              map.set(key, e);
+            }
+            const q_max = Math.round(parseFloat(valueStr) * 1000);
+            if (q_max > e.quarterMax) {
+              e.quarterMax = Math.round(parseFloat(valueStr) * 1000);
+              e.quarterMaxDT = CESTStrToUnixTimestamp(`20${yy}${mm}${dd}${hh}${min}00`);
+            }
+        }
+    }
+
+    // /monthend-Zeilen bauen - alle
+    const lines = [...map.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, e]) =>
+            `${key} ${e.quarterMax} ${e.quarterMaxDT}`
+        );
+
+    websock.send(JSON.stringify({command:"/maxdemand_hist", items:lines}));
+    websock.send(JSON.stringify({command:"/maxdemand_curr", items:[m_160_curr]}));
+
+    return { curr:m_160_curr, history:lines.join('\n') + '\n' };
+}
+
+async function generateMonthFromBillingDataset() {
+    // YYMM bezugWh einspeisungWh zaehlerWh "YY-MM-DD HH:MM"
+
+    // 1) /xxx.txt laden
+    const res = await fetch(`/${billingDatasetFilename}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch ${billingDatasetFilename} fehlgeschlagen: ${res.status}`);
+    const text = await res.text();
+
+    // 2) Zeilen parsen
+    // 1.8.0 / 2.8.0: Monatswerte (Index = Monat)
+    const re_180 = /^1\.8\.0[*&](\d+)\(([\d.]+)\)\((\d{2})-(\d{2})-\d{2}[^)]*\)/;
+    const re_280 = /^2\.8\.0[*&](\d+)\(([\d.]+)\)/;
+    const map = new Map(); // "YYMM" -> { bezug, einspeisung, quarterMax, quarterMaxDT }
+    const map_iidx = new Map(); // "idx" -> {YYMM }
+
+    // Als erstes nehmen wir nur die 1.80 (bezug)
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+        // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
+        const m = t.match(re_180);
+        if (m) {
+            const [, iidx, valueStr, yy, mm] = m;
+            const key = yy + mm;
+            if (key === '0000') continue; // bei "00-00-00 00:00" wäre das der aktuelle Wert
+
+            const val = parseFloat(valueStr);
+            let e = map.get(key);
+            if (!e) {
+              e = {};
+              map.set(key, e);
+            }
+            e.bezug = Math.round(val * 1000);
+            e.einspeisung = Math.round(val * 1000);
+
+            let eidx = map_iidx.get(iidx);
+            if (!eidx) {
+              eidx = {key};
+              map_iidx.set(iidx, eidx);
+            }
+        }
+    }
+
+    // Nun die 2.8.0 (einspeisung - di haben aber kein Datum - sondern nur den iidx)
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+        // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
+        const m = t.match(re_280);
+        if (m) {
+            const [, iidx, valueStr] = m;
+
+            let eidx = map_iidx.get(iidx);
+            if (!eidx) continue;
+
+            const key = eidx.key;
+            const val = parseFloat(valueStr);
+            let e = map.get(key);
+            if (!e) continue;
+            e.einspeisung = Math.round(val * 1000);
+
+        }
+    }
+
+    // /month-Zeilen bauen - alle die zumindest 1.8.0 und 2.8.0 haben (bezug & einspeisung)
+    const lines = [...map.entries()]
+        .filter(([, e]) => e.bezug != null && e.einspeisung != null)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, e]) =>
+            `${key} ${e.bezug} ${e.einspeisung}`
+        );
+
+    websock.send(JSON.stringify({command:"monthlist", month:lines}));
+
+    return lines.join('\n') + '\n';
+}
+
+async function createMonFileFromBillingDataset() {
+   const [month] = await Promise.all([
+    generateMonthFromBillingDataset(),
+  ]);
+  console.log(month);
+}
+
+async function createMaxDemandFileFromBillingDataset() {
+    const [maxDemand] = await Promise.all([
+     generateDemandFromBillingDataset()
+  ]);
+  console.log(maxDemand);
+}
 
 function toNumberString(value, numberOfDecimals) {
     return value.toFixed(numberOfDecimals).replace('.',',');
@@ -238,6 +439,27 @@ function setAvgItem(basitemname, totalValue, numberOfSeconds, setcolorNegPos) {
     $(fieldname).html("Ø " + toNumberString((totalValue * 3600) / numberOfSeconds / 1000, 3));
 }
 
+function enableDisableBillingdatasetLink(enable) {
+  const el = document.getElementById('billingdataset_link');
+  if (!el) return;
+  if (!enable) {
+    el.setAttribute('aria-disabled', 'true');
+    el.setAttribute('tabindex', '-1');
+    el.style.color = 'gray';
+    el.style.textDecoration = 'none';
+    el.style.pointerEvents = 'none';   // optional, verhindert auch Hover
+    el.addEventListener('click', blockClick);   // deaktivieren
+  } else {
+    el.removeAttribute('aria-disabled');
+    el.removeAttribute('tabindex');
+    el.style.color = '';
+    el.style.textDecoration = '';
+    el.style.pointerEvents = '';
+    el.removeEventListener('click', blockClick);
+  }
+}
+
+
 function updateElements(obj) {
   let pre;
   let post;
@@ -276,37 +498,58 @@ function updateElements(obj) {
     }
     else if (key==='now') {
       // Now:
-      //      0:  dann beinhaltet .valid den "Fehlercode"
+      //      0:  dann beinhaltet "status" den "Fehlercode"
       //  sonst:  ist es die MBUSCP48(5Byte) Uhrzeit vom Zähler (als Hexstring ohne "0x")
       let v = Number(value);
       if (v === 0) {
-        const valid = obj.valid;
-        switch (valid) {
-          case 0:
-            value = 'Warte auf Zählerdaten...';
-            break;
-          case 1:
-          case 2:
-          case 3:
-          case 4:
-            value = 'Amis-Key ungültig?';
-            break;
-          default:
-            value = 'Invalid valid ' + v;
-        }
+        value = obj.status;
       } else {
         value = timeDecoderMbusCP48(value, true);
       }
+
+      if (lastNow === 0 && v !== 0) {
+        // Live-Zählerdaten wurden soeben gültig
+        websock.send('{"command":"get-billingdataset"}');
+      } else if (lastNow !== 0 && v === 0) {
+        // Live-Zählerdaten wurden soeben ungültig
+        websock.send('{"command":"get-billingdataset"}');
+      }
+      lastNow = v;
     }
     else if (key==='time') {
       // UNIX Timestamp
       value = timeDecoderTS(value);
     }
-    /*
     else if (key==='serialnumber') {
-      // nothing to do as 'key' matches the 'name' of the div element
+      if (lastSerail !== value) {
+        lastSerail = value;
+        websock.send('{"command":"get-billingdataset"}');
+      }
+      updateHTMLPageContent(key, value); // 'key' matches the 'name' of the div element
+
+    } else if (key==='billingdataset') {
+      //   "filename":"xxxx.yyy", "size":12345, "cr":1234567, "mo":1234567
+
+      billingDatasetFilename = value.filename;
+
+      const el_li = document.getElementById('billingdataset_link');
+      if (el_li) {
+        el_li.href = '/' + billingDatasetFilename; // Link updaten
+        el_li.textContent = billingDatasetFilename; // Angezeigten Text ändern
+      }
+
+      const el_mo = document.getElementById('billingdataset_modified');
+      if (el_mo) {
+          if (value.size !== 0) {
+              el_mo.textContent = 'geändert: ' + timeDecoderTS(value.mo).replaceAll("&nbsp;", " ");
+          } else {
+              el_mo.textContent = '';
+          }
+      }
+
+      enableDisableBillingdatasetLink(value.size !== 0 && lastNow !== 0);
     }
-    */
+
     else if (key==='heap' || key==='maxfreeblock' || key==='stack0' || key==='stack1' || key==='stack2') {
       let prefix = key;
       let data = obj[key];
@@ -478,8 +721,10 @@ function updateElements(obj) {
         let bzg=(monatsEndBzg-Number(arr[1]))/1000;
         let lfg=(monatsEndLfg-Number(arr[2]))/1000;
         let diff=(bzg-lfg);
-        let c= '#0000FF';           // color for diff
-        if (diff>0) c='#FF0000';
+
+        //if arr.count()
+
+        const c = (diff>0) ?'#FF0000' :'#0000FF';           // color for diff
         t += '<tr><td>' + datum + '</td><td align="right">' + bzg.toFixed(3).replace('.',',') + '</td>';
         t += '<td align="right">' + lfg.toFixed(3).replace('.',',') + '</td>';
         t += '<td align="right" style="color:'+c+'">'+diff.toFixed(3).replace('.',',')+'</td></tr>';
@@ -489,6 +734,26 @@ function updateElements(obj) {
       t+='</tbody>';
       t+='</table>';
       $("#month_table").html(t);
+    }
+    else if (key==='maxdemandhistory') {
+      demandHistory={command:"/maxdemand_hist",items:value}; // Speichern fürs Backup
+
+      const v160vm = value.at(-1)?.split(' ')[1] ?? '';
+      updateHTMLPageContent("1_6_0_vm", v160vm);
+
+      const v160vm_ts = value.at(-1)?.split(' ')[2] ?? 0;
+      const el = document.querySelector('[name="1_6_0_vm"]');
+      el.title = timeDecoderTS(v160vm_ts).replaceAll("&nbsp;", " "); // mouse-over
+    }
+    else if (key==='maxdemandcurrent') {
+      demandCurrent={command:"/maxdemand_curr",items:value}; // Speichern fürs Backup
+
+      v160 = value.at(0)?.split(' ')[1] ?? '';
+      updateHTMLPageContent("1_6_0", v160);
+
+      const v160_ts = value.at(0)?.split(' ')[2] ?? 0;
+      const el = document.querySelector('[name="1_6_0"]');
+      el.title = timeDecoderTS(v160_ts).replaceAll("&nbsp;", " "); // mouse-over
     }
     else if (key==='uptime') {
       value = runtimeTimeDecode(value, false, true, true);
@@ -583,7 +848,7 @@ function updateHTMLPageContent(key, value) {
   div = span.attr("div") || 0;
   if (div) {
     value = value / div;
-    value=value.toFixed(3).replace('.',',');
+    value = value.toFixed(3).replace('.',',');
   }
   span.html(pre + value + post);
 
@@ -594,7 +859,7 @@ function updateHTMLPageContent(key, value) {
   div = divt.attr("div") || 0;
   if (div) {
     value = value / div;
-    value=value.toFixed(3).replace('.',',');
+    value = value.toFixed(3).replace('.',',');
   }
   divt.html(pre + value + post);
 
@@ -1197,6 +1462,20 @@ $(function() {            // main
   $(".button-dev-dump-reader-serial-clear").on("click", function () {
     websock.send('{"command":"dev-dump-reader-serial-clear"}');
   });
+  $(".button-refresh-billingdataset").on("click", function () {
+    websock.send('{"command":"refresh-billingdataset"}');
+  });
+  $(".button-create-mon-from-billingdataset").on("click", function () {
+    if (window.confirm("Vorhandene Monatswerte werden gelöscht. Sicher?")) {
+      createMonFileFromBillingDataset();
+    }
+  });
+  $(".button-create-maxdemand-from-billingdataset").on("click", function () {
+    if (window.confirm("Vorhandene Daten werden gelöscht. Sicher?")) {
+      createMaxDemandFileFromBillingDataset();
+    }
+  });
+
   $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
     if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
       websock.send('{"command":"factory-reset-reboot"}');

@@ -25,6 +25,10 @@ uint8_t mon, myyear;
 // Filename fürs Mitloggen der Seriellen
 #define AMISREADER_SERIAL_RX_DUMPFILENAME   "/serialRxDump.bin"
 
+// Filename während des Einlesens des Verrechungsdatensatzes
+#define AMISREADER_BILLINGDATA_FILENAME     "/billingdata_tmp.txt"
+
+
 // Ein paar Steuerzeichendefines, die immer wieder in der Doku auftauchen
 #define SOH     "\x01"
 #define SOH0x   0x01
@@ -528,9 +532,302 @@ void AmisReaderClass::end()
     ThingSpeak.onNewData(false);
 }
 
+static void sendBCC(const char *cmd, HardwareSerial *s) {
+    const uint8_t *v = (const uint8_t *) cmd;
+
+    if (s == nullptr || !v[0]) {
+        return;
+    }
+    s->write(cmd);
+
+    /*
+    char msg[50]; strcpy(msg, "Send:");
+    for (size_t i=0; i< strlen(cmd); i++) {
+        sprintf(msg + strlen(msg), " 0x%02x", cmd[i]);
+    }
+    */
+
+    size_t bcc = Utils::calculateChecksumISO1155(cmd, true);
+    if (bcc < 0x80) {
+        s->write((uint8_t)bcc);
+        //sprintf(msg + strlen(msg), " bcc=0x%02x", bcc);
+    }
+    s->flush();
+
+    //LOGF_I(msg);
+}
+
+static unsigned getBaudrate(uint8_t baudRateIdentifier) {
+    switch(baudRateIdentifier) {
+        // case '0':   return    300; // wird über default abgefangen
+        case '1':   return    600;
+        case '2':   return   1200;
+        case '3':   return   2400;
+        case '4':   return   4800;
+        case '5':   return   9600;
+        case '6':   return  19200;
+        case '9':   return 115200;
+        default :   return    300; // es dürfte hier nur '0' geben aber wegen compiler warning ....
+    }
+}
+
+void AmisReaderClass::readBillingDataset() {
+    if (_billingDataset) {
+        return;
+    }
+
+    _billingDataset = LittleFS.open(AMISREADER_BILLINGDATA_FILENAME, "w");
+    if (!_billingDataset) {
+        LOG_EP("Error opening billing dataset file");
+        return;
+    }
+
+    LOGF_IP("Stopping counter read. %u data frames received.", _validFrameCnt);
+    _state = initReadSerial;
+    _readerIsOnline = false;
+    _stateLastSetMs = millis();
+    _stateTimoutMs = 5000;
+    _stateErrorCnt = 0;
+
+    _validFrameCnt = 0;
+    first_frame = 0;
+    Databroker.valid = 0;
+    ModbusSmartmeterEmulation.setCurrentValues(false);
+    ThingSpeak.onNewData(false);
+
+    _bytesInBufferExpectd = 0;
+    _serialReadBufferIdx = 0;
+    clearSerialRx();
+    LOG_IP("Start reading billing dataset (Verrechnungsdatensatz). Needs about 5-6 minutes!");
+}
+
 #define DELAY_NEXT_STEP(DELAY_MS, NEXT_STATE, TIMEOUT_NEXT_STATE_MS) { \
     _statePostDelay = NEXT_STATE; _stateTimeoutMsPostDelay = TIMEOUT_NEXT_STATE_MS; \
     _stateLastSetMs = msNow; _stateTimoutMs = DELAY_MS;  _state = msDelay; \
+}
+
+void AmisReaderClass::processStateReadBillingDataset(const uint32_t msNow)
+{
+    // Handbuch 5.2.9.1. bzw 5.2.9( mit der Option '0' )
+    // https://github.com/pejonp/TD3511-Siemens-
+
+    if (_state == initReadBillingDataset) {
+        if (!_billingDataset || !_serialNumber[0]) {
+            _state = initReadCounters;
+            // Break senden gleich weiter zu den Online Zählerdaten
+            sendBCC(SOH "B0" ETX, _serial);
+
+            if (_billingDataset) {
+                _billingDataset.close();
+                LittleFS.remove(AMISREADER_BILLINGDATA_FILENAME);
+            }
+            return;
+        }
+
+        // We came from serial-number-request: give the counter time...
+        _stateTimoutMs = 7000;
+        _stateErrorMax = 3; // 7 sec * 3 tries
+        _stateErrorCnt = 0;
+        DELAY_NEXT_STEP(300, requestBillingDataset, _stateTimoutMs);
+        return;
+    }
+
+    if (_state == requestBillingDataset) {
+        _billingDatasetRead = 0;
+        _billingDatasetReadPrev = 0;
+
+        // Hier müssen wir nun in den Lesemodus mit '_baudRateIdentifier' Baud schalten
+        // vgl: "5.2.8.3. Quittierungs-/Optionsauswahltelegramm" im Handbuch
+        //      "5.2.9.   Befehle"
+        //  <ACK>060\r\n // 06 30 36 30 0D 0A
+        //      0 ... normaler Protokollablauf
+        //      6 ... 19200 Bd (bzw siehe oben)
+        //      0 ... (automatisch) vollständigen Verrechnungssatz ausgeben /  1 ... Daten speziell anfordern/updaten ... (Programmiermodus)
+
+        // Quittierungs-/Optionsauswahltelegramm
+
+        const bool requestOnlySpecialValues = false;
+
+        char requestDataModeCmd[] = ACK "0Zx" CR LF;  // ACK 0 Z 0/1 CR LF
+        // Dammed - warum auch immer - das geht momentan nur mit 300 Bd :-(
+        _baudRateIdentifier = '0';
+        requestDataModeCmd[2] = _baudRateIdentifier; // set baud rate for response to explicit requested (otherwise we get ER0007)
+        requestDataModeCmd[3] = (requestOnlySpecialValues) ?'1' :'0';
+
+        clearSerialRx();
+        _serial->begin(300, SERIAL_7E1); /* Wir bleiben bei 7E1 */
+        _serialReadBufferIdx = 0;
+        _serial->clearWriteError();
+        serialWrite(requestDataModeCmd);
+        //_dumpSerialRxData.write(requestDataModeCmd, 6);
+
+        unsigned baudRate = getBaudrate(_baudRateIdentifier);
+
+        if (_serial != nullptr && baudRate != 300 ) {
+            _serial->updateBaudRate(baudRate);
+            //_serial->begin(baudRate, SERIAL_7E1); /* Wir bleiben bei 7E1 */
+        }
+        LOGF_IP("Requesting %s billing dataset with %" PRIu32 " baud.", (requestOnlySpecialValues) ?"limited" :"whole", baudRate);
+        if (requestOnlySpecialValues) {
+            DELAY_NEXT_STEP(300, requestSpecialCounterValue, _stateTimoutMs);
+        } else {
+            DELAY_NEXT_STEP(300, waitForBillingDatasetStart, _stateTimoutMs);
+            //_state = waitForBillingDatasetStart;
+            //_stateLastSetMs = msNow;
+        }
+        return;
+    }
+
+    if (_state == requestSpecialCounterValue) {
+        _state = waitForBillingDatasetStartSingleValue;
+        _stateLastSetMs = msNow;
+
+         // explicit - request special value(s)
+        //sendBCC(SOH "R2" STX "F010(1.6.0)"    ETX, _serial);  //SOH R2 STX xxxx (data) ETX BCC
+        // sendBCC(SOH "R2" STX "F010(1.6.0.*)"  ETX, _serial);  //SOH R2 STX xxxx (data) ETX BCC
+        //sendBCC(SOH "R2" STX "D110"           ETX, _serial);  //Serialnummer auslesen
+        //sendBCC(SOH "R2" STX "C003"             ETX, _serial);  //Uhrzeit auslesen
+        // sendBCC(SOH "R5" STX "P.98"  ETX, _serial);  // Logbuch auslesen
+        //sendBCC(SOH "R5" STX "0.0.0"  ETX, _serial);  // Serialnummer auslesen
+        //sendBCC(SOH "R5" STX "0.9.1"  ETX, _serial);  // Uhrzeit auslesen
+        //serialWrite("\x01\x52\x32\x02\x44\x31\x31\x30\x03\x76");  //Serialnummer auslesen
+        //sendBCC(SOH "R2" STX "F001"           ETX, _serial);  //Verkürzter Datensatz (inklusive 1 Vorwert)
+
+        // 01 50 30  02 28 36 41  42 32 44 30  43 32 29 03  62 02 45 52  30 30 30 31 03 77
+        // Anwort ist dann immer : <SOH>P0<STX>(12345678)<ETX><BCC> ==> dafür braucht man einen Passwortalgorythmus !
+
+        return;
+    }
+
+    if (_state == waitForBillingDatasetStartSingleValue) {
+        if (_serialReadBufferIdx == 0) {
+            return;
+        }
+        for (size_t l=0; l < _serialReadBufferIdx; l++) {
+            if (_serialReadBuffer[l] == SOH0x || _serialReadBuffer[l] == STX0x) {
+                eatSerialReadBuffer(l);
+                _state = waitForBillingDatasetEndSingleValue;
+                _stateLastSetMs = msNow;
+                LOG_IP("Billing dataset single value start found");
+                break;
+            }
+        }
+        return;
+    }
+
+    if (_state == waitForBillingDatasetEndSingleValue) {
+        if (_serialReadBufferIdx < 2) {
+            return;
+        }
+
+        size_t l;
+        const uint8_t *end = (const uint8_t*) memmem(_serialReadBuffer, _serialReadBufferIdx - 1, ETX, 1);
+        if (end) {
+            l = end - _serialReadBuffer + 2; // das BCC nach dem ETX speichern wir auch!
+        } else {
+            l = _serialReadBufferIdx - 1; // ein Zeichen brauchen wir noch
+        }
+        _billingDatasetRead += l;
+        _billingDataset.write(_serialReadBuffer, l);
+        _billingDataset.flush();
+        eatSerialReadBuffer(l);
+
+        if (end || _billingDatasetRead > 16*1024) { // Ende gefunden oder 16kiB gelesen
+            // we got the end !
+            _state = decodeBillingDataset;
+            _stateLastSetMs = msNow;
+        } else if (_billingDatasetRead > _billingDatasetReadPrev + 20) {
+            // read more than 20 Bytes ==> extend timer
+            _billingDatasetReadPrev = _billingDatasetRead;
+            _stateLastSetMs = msNow;
+        }
+    }
+
+    if (_state == waitForBillingDatasetStart) {
+        // check if we've already got enough to check start of billingdataset
+        if (_serialReadBufferIdx < 4) {
+            return;
+        }
+
+        const uint8_t *ff_start = (const uint8_t*) memmem(_serialReadBuffer, _serialReadBufferIdx, "F.F(", 4);
+
+        if (ff_start == nullptr)  {
+            if (_serialReadBufferIdx > 20) {
+                eatSerialReadBuffer(_serialReadBufferIdx - 3);
+            }
+            return;
+        }
+        eatSerialReadBuffer(ff_start - _serialReadBuffer);
+        _state = waitForBillingDatasetEnd;
+        _stateLastSetMs = msNow;
+        LOG_IP("Billing dataset start found");
+        return;
+    }
+
+    if (_state == waitForBillingDatasetEnd) {
+        size_t l;
+
+        const uint8_t *end = (const uint8_t*) memmem(_serialReadBuffer, _serialReadBufferIdx, CR LF ETX, 3);
+        if (end) {
+            l = end - _serialReadBuffer + 2; // das ETX speichern wir nicht!
+        } else {
+            l = _serialReadBufferIdx;
+            // 2 bytes müssen wir im puffer lassen, um das Ende erkennen zu können!
+            if (l <= 2) {
+                return;
+            }
+            l -= 2;
+        }
+
+        _billingDatasetRead += l;
+        _billingDataset.write(_serialReadBuffer, l);
+        _billingDataset.flush();
+        eatSerialReadBuffer(l);
+
+        if (end || _billingDatasetRead > 16*1024) { // Ende gefunden oder 16kiB gelesen
+            // we got the end !
+            _state = decodeBillingDataset;
+            _stateLastSetMs = msNow;
+        } else if (_billingDatasetRead > _billingDatasetReadPrev + 20) {
+            // read more than 20 Bytes ==> extend timeout
+            _billingDatasetReadPrev = _billingDatasetRead;
+            _stateLastSetMs = msNow;
+        }
+        return;
+    }
+
+    if (_state == decodeBillingDataset) {
+        _state = endBillingDataset;
+        _stateLastSetMs = msNow;
+        return;
+    }
+
+    if (_state == endBillingDataset) {
+        char filename[33];
+
+        // Senden wir noch gleich ein "Break" (siehe 5.2.8.12. Break B0) - das sollte das aktuelle Protokoll beenden
+        // SOH B0 ETX BCC // BCC müsste hier 113 (0x71) sein
+        sendBCC(SOH "B0" ETX, _serial);
+
+        if (_billingDataset) {
+            _billingDataset.close();
+            if (!_serialNumber[0] || _billingDatasetRead == 0) {
+                LOG_WP("End read billing dataset: No data read!");
+            } else {
+                snprintf_P(filename, sizeof(filename), "%s_vd.txt", _serialNumber); // _vd = VerrechnungsDatensatz
+                LittleFS.remove(filename);
+                LittleFS.rename(AMISREADER_BILLINGDATA_FILENAME, filename);
+                LOGF_IP("End read billing dataset: %" PRIu32 " bytes read, saved as '%s'.", _billingDatasetRead, filename);
+            }
+        } else {
+            LOG_WP("End read billing dataset: Internal error!");
+        }
+        LittleFS.remove(AMISREADER_BILLINGDATA_FILENAME);
+
+        _state = initReadCounters;
+        _stateLastSetMs = msNow;
+        return;
+    }
 }
 
 void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
@@ -618,22 +915,12 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 
             // Der Zähler bleibt nun anscheinend 10 Sekunden in dem IEC 62056-21 Modus
             // siehe https://wiki.volkszaehler.org/_media/hardware/channels/meters/power/siemens/amis_td-351x_bhbk.pdf 5.2.13.1
-            _state = initReadCounters;
+            _state = initReadBillingDataset;
             _stateLastSetMs = msNow;
             _stateErrorCnt = 0;
             LOGF_IP("Serialnumber %s found", _serialNumber);
-
-            // Senden wir noch gleich ein "Break" (siehe 5.2.8.12. Break B0) - das sollte das aktuelle Protokoll beenden
-            // SOH B0 ETX BCC
-            //
-            // SOH=0x01 (Start of Header)  (STX wäre 0x02)
-            // ETX=0x03
-            // BCC=BlockPrüfzeichen lt ISO 1155 (=XOR aller Bytes)
-            constexpr uint8_t bcc = 0x01 ^ 'B' ^ '0' ^ 0x03;
-            serialWrite("\x01BO\x03");
-            serialWrite(bcc);
-            delay(15); // Wait a bit till it's really sent as we change to 9600 in next step
-
+            // Das "break"(B0) um die aktuelle Protokoll-Ebene zu beenden,
+            // senden wir mit dem _state initReadBillingDataset oder endBillingDataset
         } else {
             // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
             _state = requestReaderSerial;
@@ -828,7 +1115,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             Databroker.valid = 1;
             LOGF_DP("Decrypting data failed: error=%d", r);
         } else {
-            // Beim Zählertelegram stimmten schon die Eckdatenm (Header, Checksumme, usw nicht)
+            // Beim Zählertelegram stimmten schon die Eckdaten (Header, Checksumme, usw nicht)
             // ==> d.h.: vermutlich ungültige Daten empfangen
             Databroker.valid = 0;
             LOGF_DP("Invalid data received: error=%d", r);
@@ -873,6 +1160,9 @@ void AmisReaderClass::loop()
     // Do all releated things querying serialnumber
     processStateSerialnumber(msNow);
 
+    // Do all releated things querying billing dataset (Verrechnungsdatensatz)
+    processStateReadBillingDataset(msNow);
+
     // Do all releated steps to read the counters
     processStateCounters(msNow);
 
@@ -897,6 +1187,9 @@ void AmisReaderClass::loop()
 
         if (_state == waitForReaderSerial) {
             _state = requestReaderSerial;
+        } else if (_state == waitForBillingDatasetStart || _state == waitForBillingDatasetEnd ||
+                   _state == waitForBillingDatasetStartSingleValue || _state == waitForBillingDatasetEndSingleValue) {
+            _state = requestBillingDataset;
         }
     }
 
@@ -918,6 +1211,13 @@ void AmisReaderClass::loop()
 
         _serialReadBufferIdx = 0;
         clearSerialRx();
+
+        if (_state == initReadBillingDataset || _state == requestBillingDataset || _state == requestSpecialCounterValue ||
+            _state == waitForBillingDatasetStart || _state == waitForBillingDatasetEnd ||
+            _state == decodeBillingDataset) {
+            _state = endBillingDataset;
+            return;
+        }
 
         if (_state == initReadSerial || _state == requestReaderSerial ||
             _state == waitForReaderSerial || _state == decodeReaderSerial ) {
@@ -978,6 +1278,43 @@ void AmisReaderClass::enableRestart() {
 
 void AmisReaderClass::disable() {
     _isEnabled = false;
+}
+
+
+String AmisReaderClass::statusText() {
+    static const __FlashStringHelper* dots[] = { F(""), F("."), F(".."), F("...") };
+    String r;
+    AmisReaderState_t s = (_state == msDelay) ?_statePostDelay :_state;
+
+    if (!_isEnabled) {
+        r = F("Zählerabfrage disabled");
+    } else {
+        size_t dots_num = time(NULL) & 3;
+        const __FlashStringHelper* dots_repeat = dots[dots_num];
+        if (s == readReaderCounters || s == decodeReaderCounter) {
+            if (Databroker.valid == 5) {
+                r = F("Lese Zählerdaten");
+                r += dots_repeat; // Alles OK ... wir lesen
+            } else if (Databroker.valid == 0) {
+                r = F("Warte auf Zählerdaten");
+                r += dots_repeat;
+            } else {
+                r = F("Amis-Key ungültig?");
+            }
+        } else {
+            if (s == initReadCounters) {
+                r = F("Warte auf Zählerdaten");
+                r += dots_repeat;
+            } else if (s == initReadSerial || s == requestReaderSerial || s == waitForReaderSerial || s == decodeReaderSerial) {
+                r = F("Lese Gerätenummer");
+                r += dots_repeat;
+            } else {
+                r = F("Lese interne Zählerdaten (") + String(_billingDatasetRead)  + " Bytes)";
+                r += dots_repeat;
+            }
+        }
+    }
+    return r;
 }
 
 AmisReaderClass AmisReader;

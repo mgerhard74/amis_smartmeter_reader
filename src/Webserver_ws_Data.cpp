@@ -673,6 +673,33 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
                 RebootAtMidnight.adjustTicker();
             }
         }
+    } else if (!strcmp_P(command, PSTR("get-billingdataset"))) {
+        String filename = AmisReader.getSerialNumber(); filename += "_vd.txt";
+
+        // { "billingdataset" : { "filename":"xxxx.yyy", "size":12345, "cr":1234567, "mo":1234567 }}
+        DynamicJsonDocument doc(192);
+        if (!doc.capacity()) {
+            return; // Out of memory
+        }
+        JsonObject billingdataset = doc.createNestedObject("billingdataset");
+
+        billingdataset[F("filename")] = filename;
+        File f = LittleFS.open(filename, "r");
+        if (f) {
+            billingdataset[F("size")] = f.size();
+            billingdataset[F("cr")] = static_cast<uint32_t>(f.getCreationTime());
+            billingdataset[F("mo")] = static_cast<uint32_t>(f.getLastWrite());
+            f.close();
+        } else {
+            billingdataset[F("size")] = 0;
+            billingdataset[F("cr")] = 0;
+            billingdataset[F("mo")] = 0;
+        }
+        String buffer;
+        SERIALIZE_JSON_LOG(doc, buffer);
+        ws->text(client->id(), buffer);
+    } else if (!strcmp(command, "refresh-billingdataset")) {
+        AmisReader.readBillingDataset();
     } else if (!strcmp(command, "dev-tools-button1")) {
         if (!client) {
             return;

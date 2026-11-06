@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <time.h>
 
 // TODO(anyone): Refactor this global vars
@@ -47,7 +48,11 @@ public:
     void enable();
     void disable();
     void end();
+    // int getState() { return (int) ((_state == msDelay) ?_statePostDelay :_state);}
+    String statusText();
     // void enableRestart(); // enables and restart fresh readings
+
+    void readBillingDataset();
 
     void serialEnableDump(bool enable);
     void serialClearDumpFile();
@@ -64,6 +69,16 @@ private:
         readReaderCounters,
         decodeReaderCounter,
 
+        initReadBillingDataset,
+        requestBillingDataset,
+        requestSpecialCounterValue,
+        waitForBillingDatasetStart,
+        waitForBillingDatasetStartSingleValue,
+        waitForBillingDatasetEnd,
+        waitForBillingDatasetEndSingleValue,
+        decodeBillingDataset,
+        endBillingDataset,
+
         msDelay,
 
         //stateUndefined,
@@ -78,6 +93,7 @@ private:
 
     void processStateSerialnumber(const uint32_t msNow);
     void processStateCounters(const uint32_t msNow);
+    void processStateReadBillingDataset(const uint32_t msNow);
 
     void moveSerialBufferToDecodingWorkBuffer(size_t n);
 
@@ -123,6 +139,10 @@ private:
     uint32_t _validFrameCnt=0; // Gültige Zählerdaten-Frames hintereinander
 
     uint32_t _lastTimeSync;
+
+    File _billingDataset;
+    size_t _billingDatasetRead=0;
+    size_t _billingDatasetReadPrev=0;
 };
 
 extern AmisReaderClass AmisReader;
