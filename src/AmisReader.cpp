@@ -578,10 +578,11 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
             return;
         }
         if (memcmp(_serialReadBuffer, "/SAT", 4)) {
-            LOGF_VP("Got %u bytes: %02x %02x %02x %02x ....",
+            LOGF_VP("Got %u bytes: %02x %02x %02x %02x %02x %02x ...",
                         _serialReadBufferIdx,
                         _serialReadBuffer[0], _serialReadBuffer[1],
-                        _serialReadBuffer[2], _serialReadBuffer[3]);
+                        _serialReadBuffer[2], _serialReadBuffer[3],
+                        _serialReadBuffer[4], _serialReadBuffer[5]);
             _state = requestReaderSerial;
             return;
         }
@@ -883,7 +884,8 @@ void AmisReaderClass::loop()
 
     if (msNow - _stateLastSetMs >= _stateTimoutMs) {
         // Timeout: seems something gone at the actual state wrong and needed too long
-        LOGF_DP("State timeout occured! current state=%d", (int)_state);
+        LOGF_DP("State timeout occured! current state=%d _stateErrorCnt=%u _stateErrorMax=%u",
+                 (int)_state, _stateErrorCnt, _stateErrorMax);
 
         _stateLastSetMs = msNow;
         _stateErrorCnt++;
