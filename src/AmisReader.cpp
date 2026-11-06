@@ -528,6 +528,11 @@ void AmisReaderClass::end()
     ThingSpeak.onNewData(false);
 }
 
+#define DELAY_NEXT_STEP(DELAY_MS, NEXT_STATE, TIMEOUT_NEXT_STATE_MS) { \
+    _statePostDelay = NEXT_STATE; _stateTimeoutMsPostDelay = TIMEOUT_NEXT_STATE_MS; \
+    _stateLastSetMs = msNow; _stateTimoutMs = DELAY_MS;  _state = msDelay; \
+}
+
 void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
@@ -855,13 +860,28 @@ void AmisReaderClass::loop()
 
     msNow = millis();
 
+    if (_state == msDelay) {
+        if (msNow - _stateLastSetMs <= _stateTimoutMs) {
+            return;
+        }
+        _state = _statePostDelay;
+        _stateTimoutMs = _stateTimeoutMsPostDelay;
+        _stateLastSetMs = msNow;
+    }
+
     // Do all releated things querying serialnumber
     processStateSerialnumber(msNow);
 
     // Do all releated steps to read the counters
     processStateCounters(msNow);
 
-    if ( msNow - _stateLastSetMs >= _stateTimoutMs ) {
+    if (_state == msDelay) {
+        // Status wurd nun soeben auf delay gesetzt (ansonsten hätten wir das oben behandlet!)
+        _stateLastSetMs = millis(); // wirklich die aktuelle Zeit fürs delay verwenden
+        return;
+    }
+
+    if (msNow - _stateLastSetMs >= _stateTimoutMs) {
         // Timeout: seems something gone at the actual state wrong and needed too long
         LOGF_DP("State timeout occured! current state=%d", (int)_state);
 

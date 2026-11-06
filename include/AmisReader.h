@@ -64,6 +64,8 @@ private:
         readReaderCounters,
         decodeReaderCounter,
 
+        msDelay,
+
         //stateUndefined,
     };
 
@@ -91,6 +93,8 @@ private:
     char _serialNumber[AMISREADER_MAX_SERIALNUMER + 1]; // auch als "Geräteadresse" oder "Identifikation" bezeichnet
 
     AmisReaderState_t _state = initReadSerial;
+    AmisReaderState_t _statePostDelay = initReadSerial;
+    uint32_t _stateTimeoutMsPostDelay;
     //AmisReaderState_t _prevState = stateUndefined;
     uint32_t _stateLastSetMs;
 
