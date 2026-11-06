@@ -118,15 +118,19 @@ void WebserverWsDataClass::sendDataTaskCb()
         return;
     }
 
-    if (ESP.getMaxFreeBlockSize() < WSDATA_REQUEST_MIN_FREE_BLOCK) {
+    const uint32_t maxfreemem = ESP.getMaxFreeBlockSize();
+    if (maxfreemem < WSDATA_REQUEST_MIN_FREE_BLOCK) {
         uint32_t msNow = millis();
         if (_requestDelayedSinceMs == 0) {
-            _requestDelayedSinceMs = msNow | 1; // 0 means "not delayed"
+            _requestDelayedSinceMs = msNow | 1; // 0 means "not delayed" - so ensure and set bit 0
+            if (WSDATA_REQUEST_MAX_DELAY_MS) {
+                return;
+            }
         }
         if (msNow - _requestDelayedSinceMs < WSDATA_REQUEST_MAX_DELAY_MS) {
             return; // Spaeter nochmal versuchen
         }
-        LOGF_WP("Low memory (max free block %" PRIu32 "): processing request anyway", ESP.getMaxFreeBlockSize());
+        LOGF_WP("Low memory (max free block %" PRIu32 "): processing request anyway", maxfreemem);
     }
     _requestDelayedSinceMs = 0;
 
