@@ -25,6 +25,22 @@ uint8_t mon, myyear;
 // Filename fürs Mitloggen der Seriellen
 #define AMISREADER_SERIAL_RX_DUMPFILENAME   "/serialRxDump.bin"
 
+// Ein paar Steuerzeichendefines, die immer wieder in der Doku auftauchen
+#define SOH     "\x01"
+#define SOH0x   0x01
+#define STX     "\x02"
+#define STX0x   0x02
+#define ETX     "\x03"
+#define ETX0x   0x03
+#define EOT     "\x04"
+#define ACK     "\x06"
+#define NAK     "\x0f"
+#define CR      "\r"    // 0x0d
+#define LF      "\n"    // 0x0a
+#define CRLF    CR LF
+
+
+
 // ---------------------------------------------------------------------------------------------------------------------------
 
 struct __attribute__((__packed__))  enryptedMBUSTelegram_SND_UD {
