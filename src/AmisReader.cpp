@@ -535,7 +535,6 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         }
         if (_serial != nullptr) {
             _serial->begin(300, SERIAL_7E1); /* Serialnummer wird mit 300 7E1 gelesen */
-            _serial->setTimeout(5);         // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
             _serial->clearWriteError();
         }
         _serialReadBufferIdx = 0;
@@ -679,7 +678,6 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         LOG_DP("Initalizing reading counter values");
         if (_serial) {
             _serial->begin(9600, SERIAL_8E1); /* Zählerdaten kommen angeblich mit 9600 8E1 */
-            _serial->setTimeout(5);           // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
             _serial->clearWriteError();
         }
         _serialReadBufferIdx = 0;
