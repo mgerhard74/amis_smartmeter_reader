@@ -137,7 +137,7 @@ void WebserverWsDataClass::sendDataTaskCb()
     if (request.requestData) {
         AsyncWebSocketClient *client = _ws.client(request.clientId);
         wsClientRequest(client, request.requestData, request.requestLen);
-        free(request.requestData);		 
+        free(request.requestData);
     }
 }
 
