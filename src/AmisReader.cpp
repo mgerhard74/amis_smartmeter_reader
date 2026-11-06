@@ -416,7 +416,7 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
 #endif // (AMISREADER_SIMULATE_SERIAL)
 
 
-size_t AmisReaderClass::pollSerial()
+size_t AmisReaderClass::pollSerial(size_t nbytes)
 {
 #if (AMISREADER_SIMULATE_SERIAL)
     return pollSerialSimulateSerialInput();
@@ -429,35 +429,38 @@ size_t AmisReaderClass::pollSerial()
     size_t serialBufferLeft = sizeof(_serialReadBuffer) - _serialReadBufferIdx;
     size_t serialAvail = _serial->available();
     size_t bytesRead;
+    size_t nBytesLeft = nbytes;
     size_t serialReadBufferIdxStarted = _serialReadBufferIdx;
-    bool rxError = false & _serial->hasRxError();
+    bool rxError = false & _serial->hasRxError(); // INFO: This call clears the pending error flag
+    bool overrun = false & _serial->hasOverrun();
 
-    while (serialAvail > 0 && serialBufferLeft > 0 && !rxError) {
-        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], std::min(serialAvail, serialBufferLeft));
+    while (serialAvail > 0 && serialBufferLeft > 0 && nBytesLeft > 0 && !rxError && !overrun) {
+        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], std::min(nBytesLeft, std::min(serialAvail, serialBufferLeft)));
         bytesReadTotal += bytesRead;
+        nBytesLeft -= bytesRead;
         serialBufferLeft -= bytesRead;
         _serialReadBufferIdx += bytesRead;
         serialAvail = _serial->available();
-        rxError = false & _serial->hasRxError(); // INFO: This call clears the pending error flag
+        rxError = _serial->hasRxError();
+        overrun = _serial->hasOverrun();
     }
 
-    if ((serialBufferLeft == 0 && serialAvail > 0) || rxError ) {
+    if ((serialBufferLeft == 0 && serialAvail > 0 && nBytesLeft > 0) || rxError || overrun) {
         // No space in buffer left and still something available or a rx error occured
         // Eat all from the searial port and discard everything as we had an overflow
         // ERROR: Serial input overflowed!
 
-        /*
-        MsgOut.writeTimestamp();
-        if (bytesBufferLeft == 0 && avail > 0) {
-            MsgOut.printf("ERROR: Serial interface OVERRUN: SerAvailable:%u\r\n", avail);
-        } else {
-            MsgOut.printf("ERROR: Serial interface RX-Error SerAvailable:%u BufferSpaceLeft:%u\r\n", avail, bytesBufferLeft);
+        if (overrun) {
+            LOG_EP("Serial overrun error");
         }
-        */
-
+        if (rxError) {
+            LOG_EP("Serial rx error");
+        }
+        if (serialBufferLeft == 0 && serialAvail > 0 && nBytesLeft > 0) {
+            LOG_EP("Serial read buffer overflow");
+        }
         _serialReadBufferIdx = 0;
-        bytesRead = clearSerialRx();
-        bytesReadTotal += bytesRead;
+        bytesReadTotal += clearSerialRx();
     }
 
     if (_dumpSerialRxData) {
@@ -485,7 +488,9 @@ size_t AmisReaderClass::clearSerialRx()
         bytesRead += _serial->readBytes(&b[0], std::min(avail, (size_t)sizeof(b)));
         avail = _serial->available();
     }
-     _serial->hasRxError(); // This clears the pending error flag
+    // Clear the pending error flags
+    _serial->hasRxError();
+    _serial->hasOverrun();
     return bytesRead;
 }
 
@@ -847,7 +852,7 @@ void AmisReaderClass::loop()
     }
 
     // always read some bytes from the serial interface
-    pollSerial();
+    _rxSerailRead += pollSerial(120);
 
     msNow = millis();
 

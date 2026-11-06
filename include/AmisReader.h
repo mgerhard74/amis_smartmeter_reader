@@ -70,7 +70,7 @@ private:
     size_t serialWrite(const char *str);
     size_t serialWrite(uint8_t byte);
     size_t clearSerialRx();
-    size_t pollSerial();
+    size_t pollSerial(size_t nbytes);
 
     //void eatSerialReadBuffer(size_t n); // ist derzeit nicht benötigt und mittels #if 0 dektiviert
 
@@ -114,6 +114,8 @@ private:
     bool _readerIsOnline = false;
 
     File _dumpSerialRxData;
+    size_t _rxSerailRead=0;
+
     uint32_t _validFrameCnt=0; // Gültige Zählerdaten-Frames hintereinander
 
     uint32_t _lastTimeSync;
