@@ -72,7 +72,7 @@ private:
     size_t clearSerialRx();
     size_t pollSerial(size_t nbytes);
 
-    //void eatSerialReadBuffer(size_t n); // ist derzeit nicht benötigt und mittels #if 0 dektiviert
+    void eatSerialReadBuffer(size_t n);
 
     void processStateSerialnumber(const uint32_t msNow);
     void processStateCounters(const uint32_t msNow);

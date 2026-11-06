@@ -637,9 +637,9 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
     }
 }
 
-#if 0
 void AmisReaderClass::eatSerialReadBuffer(size_t n)
 {
+    // Entfernt n Bytes aus dem internen Serial-Lese Puffer
     size_t i;
     if (n >= _serialReadBufferIdx || n >= sizeof(_serialReadBuffer)) {
         _serialReadBufferIdx = 0;
@@ -651,7 +651,6 @@ void AmisReaderClass::eatSerialReadBuffer(size_t n)
     }
     _serialReadBufferIdx -= n;
 }
-#endif
 
 void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
 {
