@@ -49,6 +49,9 @@ public:
     void end();
     // void enableRestart(); // enables and restart fresh readings
 
+    void serialEnableDump(bool enable);
+    void serialClearDumpFile();
+
 private:
     enum AmisReaderState_t {
         initReadSerial,         // serielle: baudrate usw einstellen
@@ -110,6 +113,7 @@ private:
     bool _isEnabled = false;
     bool _readerIsOnline = false;
 
+    File _dumpSerialRxData;
     uint32_t _validFrameCnt=0; // Gültige Zählerdaten-Frames hintereinander
 
     uint32_t _lastTimeSync;

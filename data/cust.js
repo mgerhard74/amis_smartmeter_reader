@@ -1188,6 +1188,15 @@ $(function() {            // main
   $(".button-dev-tools-button2").on("click", function () {
     websock.send('{"command":"dev-tools-button2"}');
   });
+  $(".button-dev-dump-reader-serial-on").on("click", function () {
+    websock.send('{"command":"dev-dump-reader-serial", value:1}');
+  });
+  $(".button-dev-dump-reader-serial-off").on("click", function () {
+    websock.send('{"command":"dev-dump-reader-serial", value:0}');
+  });
+  $(".button-dev-dump-reader-serial-clear").on("click", function () {
+    websock.send('{"command":"dev-dump-reader-serial-clear"}');
+  });
   $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
     if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
       websock.send('{"command":"factory-reset-reboot"}');

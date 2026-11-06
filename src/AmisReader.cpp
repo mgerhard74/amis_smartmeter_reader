@@ -22,6 +22,9 @@ uint8_t dow;
 uint8_t mon, myyear;
 
 
+// Filename fürs Mitloggen der Seriellen
+#define AMISREADER_SERIAL_RX_DUMPFILENAME   "/serialRxDump.bin"
+
 // ---------------------------------------------------------------------------------------------------------------------------
 
 struct __attribute__((__packed__))  enryptedMBUSTelegram_SND_UD {
@@ -324,10 +327,8 @@ size_t AmisReaderClass::serialWrite(const char *str)
     } else {
         r = strlen(str);
     }
-    /*if (false) {
-        MsgOut.writeTimestamp();
-        MsgOut.printf("serialWrite()[%u]:\r\n", strlen(str));
-        MsgOut.dumpHexBytes(str);
+    /* if (_dumpSerialRxData) {
+        _dumpSerialRxData->printf("Write %d bytes\n", r);
     }*/
     return r;
 }
@@ -341,12 +342,25 @@ size_t AmisReaderClass::serialWrite(uint8_t byte)
     } else {
         r = sizeof(byte);
     }
-    /*if (false) {
-        MsgOut.writeTimestamp();
-        MsgOut.println("serialWrite()[1]:");
-        MsgOut.dumpHexBytes(&byte, sizeof(uint8_t));
+    /*if (_dumpSerialRxData) {
+        _dumpSerialRxData->write("Write 1 byte\n");
     }*/
     return r;
+}
+
+void AmisReaderClass::serialEnableDump(bool enable) {
+    if (enable && !_dumpSerialRxData) {
+        _dumpSerialRxData = LittleFS.open(AMISREADER_SERIAL_RX_DUMPFILENAME, "a");
+    } else if (!enable && _dumpSerialRxData) {
+        _dumpSerialRxData.close();
+    }
+}
+
+void AmisReaderClass::serialClearDumpFile() {
+    bool wasEnabled = (_dumpSerialRxData) ?true :false;
+    serialEnableDump(false);
+    LittleFS.remove(AMISREADER_SERIAL_RX_DUMPFILENAME);
+    serialEnableDump(wasEnabled);
 }
 
 #if (AMISREADER_SIMULATE_SERIAL)
@@ -429,18 +443,14 @@ size_t AmisReaderClass::pollSerial()
         bytesRead = clearSerialRx();
         bytesReadTotal += bytesRead;
     }
-    if (bytesReadTotal) {
+
+    if (_dumpSerialRxData) {
         if (_serialReadBufferIdx > serialReadBufferIdxStarted) {
-          /*
-            if (false) {
-                MsgOut.writeTimestamp();
-                MsgOut.printf("Startlength: %u\r\n", serialReadBufferIdxStarted);
-                MsgOut.printf("pollSerial() Total length now in buffer: %u\r\n", _serialReadBufferIdx);
-                MsgOut.dumpHexBytes(&_serialReadBuffer[serialReadBufferIdxStarted], _serialReadBufferIdx - serialReadBufferIdxStarted, true);
-            }
-            */
+            _dumpSerialRxData.write(&_serialReadBuffer[serialReadBufferIdxStarted], _serialReadBufferIdx - serialReadBufferIdxStarted);
+            _dumpSerialRxData.flush();
         }
     }
+
     return bytesReadTotal;
 #endif // AMISREADER_SIMULATE_SERIAL
 }

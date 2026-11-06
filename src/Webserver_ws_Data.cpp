@@ -741,6 +741,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
 
         //String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
         //ws->text(client->id(), x);
+    } else if (!strcmp(command, "dev-dump-reader-serial")) {
+        if (root.containsKey(F("value"))) {
+            const uint8_t vv = root[F("value")].as<uint8_t>();
+            AmisReader.serialEnableDump(vv);
+        } else {
+            AmisReader.serialEnableDump(true);
+        }
+    } else if (!strcmp(command, "dev-dump-reader-serial-clear")) {
+        AmisReader.serialClearDumpFile();
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
         if (root.containsKey(F("value"))) {
