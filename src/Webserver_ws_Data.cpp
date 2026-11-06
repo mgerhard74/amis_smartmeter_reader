@@ -106,12 +106,9 @@ void WebserverWsDataClass::wsCleanupTaskCb()
 
 void WebserverWsDataClass::sendDataTaskCb()
 {
-    // 1.) Do some periodic sending stuff here
-    //
-    // till now: nothing periodic to do
+    // Do some periodic sending stuff here
 
-
-    // 2.) Handle our _clientRequests queue
+    // 1.) Handle our _clientRequests queue
     _clientRequest_t request;
     if (_clientRequests.count() == 0) {
         _requestDelayedSinceMs = 0;
