@@ -892,6 +892,19 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.6.6-dev1</h3>
+              <b>BREAKING-CHANGE:</b>
+              Überarbeitung der Viertelstundenhöchstverbrauchswerte - Daten werden <b>NICHT</b> übernommen.<br>
+              <br>
+              Viertelstundenwerte werden an den Web-Client nur bei Änderungen ausgegeben.<br>
+              Beim Backup/Restore werden die Viertelstundenwerte gespeichert/wiederhergestellt.<br>
+              Lesen des Verrechnungsdatensatzes aus dem Zähler (EXPERIMENTELL).<br>
+              - Im Verrechnungsdatensatz stecken historische Zählerdaten von über einem Jahr.<br>
+              - Der Leser kann aktuell darauf nur mit 300 Baud zugreifen - das Lesen dauert etwa 5-6 Minuten.<br>
+              - Erstellen der "Monatstabelle" aus diesen Daten möglich (Derzeit nur im Developmentbereich).<br>
+              - Erstellen der "Maximalen Viertelstundenwerte" aus diesen Daten möglich (Derzeit nur im Developmentbereich).<br>
+              FileExplorer unter /fexplorer.html (als Hilfe für Entwickler).<br>
+              Update ArduinoJson von 6.21.5 auf 6.21.6.<br>
               <h3>Version 1.6.5</h3>
               Weitere Stabilitätsverbesserungen eingefügt.<br>
               Upload des littelfs entfernt (wird nicht mehr benötigt).<br>
