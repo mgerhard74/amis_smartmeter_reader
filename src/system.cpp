@@ -44,10 +44,11 @@ void historyInit()
 
     latestYYMMInHistfile = "";
     f = LittleFS.open("/monate","r");
-    if (f) {
-        while (f.available()) {
-            latestYYMMInHistfile = f.readStringUntil('\n');
-        }
+    if (!f) {
+        return;
+    }
+    while (f.available()) {
+        latestYYMMInHistfile = f.readStringUntil('\n');
     }
     f.close();
     latestYYMMInHistfile.remove(4);  // 0..3 bleibt: Also yymm
