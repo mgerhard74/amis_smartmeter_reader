@@ -86,7 +86,7 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             if (!_uploadFilename.startsWith("/")) {
                 _uploadFilename = "/" + _uploadFilename;
             }
-            if (_uploadFilename.equals(F("/monate"))) {
+            if (_uploadFilename.equals("/monate")) {
                 _uploadfiletype = monate;
                 AmisReader.disable();
             }
