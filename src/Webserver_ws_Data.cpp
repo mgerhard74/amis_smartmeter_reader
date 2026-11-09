@@ -389,12 +389,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     // Check whatever the command is and act accordingly
     LOGF_DP("websocket command: '%s'", command);
 
-    if (strcmp(command, "remove") == 0) {
-        const char *filename = root["file"];
-        if (filename && filename[0]) {
-            LittleFS.remove(filename);
-        }
-    } else if (strcmp(command,"weekfiles")==0) {
+    if (strcmp(command,"weekfiles")==0) {
         uint32_t zstand;
         AmisReader.disable();
         clearHist();
@@ -525,7 +520,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
         DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+5+path.length()+1 +                 // "path":path
                                 JSON_OBJECT_SIZE(1)+3 +                                 // "ls":fileCnt
-                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(86*fileCnt) +    // "1": "fileinfo1"
+                                JSON_OBJECT_SIZE(1)+17 +                                // "id":<id aus anfrage>
+                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(88*fileCnt) +    // "1": "fileinfo1"
                                 32);                                                    // silence our low-memory check!
         if (!doc.capacity()) {
             return; // Out of memory
@@ -537,9 +533,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
                 File f = dir.openFile("r");
                 //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
                 if (f) {
-                    char puffer[86];                // 31+1 + 11+1 + 20+1 + 20  +1
-                    snprintf(puffer, sizeof(puffer),  "%-31s %11u %20lld %20lld",
+                    char puffer[88];                // 31+1 +1+1 + 11+1 + 20+1 + 20  +1
+                    snprintf(puffer, sizeof(puffer),  "%-31s %c %11u %20lld %20lld",
                                     dir.fileName().c_str(),
+                                    f.isDirectory() ?'D' :'F',
                                     f.size(),
                                     f.getCreationTime(),
                                     f.getLastWrite());
@@ -553,22 +550,35 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             }
         }
         doc["ls"] = fileCnt;
-        doc["path"] = path;
+        doc[F("path")] = path;
+        if (root.containsKey("id")) {
+            doc["id"] = root["id"];
+        }
         String buffer;
         SERIALIZE_JSON_LOG(doc, buffer);
         ws->text(client->id(), buffer);
     } else if (strcmp(command, "rm") == 0) {
+        DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+17 +    // "id":<id aus anfrage>
+                                JSON_OBJECT_SIZE(1)+6 +     // "success": true/false
+                                32);                        // silence our low-memory check!
+        if (!doc.capacity()) {
+            return; // Out of memory
+        }
+        if (root.containsKey("id")) {
+            doc["id"] = root["id"];
+        }
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
+            doc["r"] = 0;
             return;
         }
         const char *p = path.c_str();
-        if (Utils::fileExists(p)) {
-            LittleFS.remove(p);
-        }  // LittleFS hat in Wirklichkeit kein mkdir() und rmdir()
-        /* else if (Utils::dirExists(p)) {
-            LittleFS.rmdir(p);
-        }*/
+        // LittleFS hat in Wirklichkeit kein mkdir() und rmdir()
+        // Es "erstellt" ein Verzeichnis automatisch, wenn ein Dateiname ein Verzeichnis enthält
+        doc["r"] = (int) LittleFS.remove(p);
+        String buffer;
+        SERIALIZE_JSON_LOG(doc, buffer);
+        ws->text(client->id(), buffer);
     } else if (strcmp(command, "clear") == 0) {
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
@@ -636,6 +646,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             "amis.css",
             "chart.js",
             "cust.js",
+            "fexplorer.html",
             "index.html",
             "jquery371slim.js",
             "pure-min.css"

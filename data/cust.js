@@ -704,6 +704,15 @@ Nur der private Gebrauch ist gestattet."))
   onload2();
 }
 function showPanel() {              // menu click select panel
+  if ($(this).attr("data") === 'panel-file-explorer') {
+    if($("#layout").hasClass("active")) {
+      toggleMenu();
+    }
+    window.open('/fexplorer.html', '_blank');
+    return;
+  }
+
+
   try {highchartDestroy(false);}
   catch(e) {};
   $(".panel").hide();
@@ -1246,6 +1255,10 @@ $(function() {            // main
       websock.send('{"command":"dev-remove-exceptiondumpsall"}');
     }
   });
+  $(".button-open-fexplorer").on("click", function () {
+      window.open('/fexplorer.html', '_blank');
+  });
+
 
   /* Development - Buttons -  End */
 
