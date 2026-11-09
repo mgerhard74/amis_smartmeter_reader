@@ -105,8 +105,11 @@ void energieWeekUpdate() // Wochentabelle Energie an alle WebSock-Webclients sen
 }
 
 
-void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients senden
+void WSsendFileAsStringArray(const char *filename, const char *objectname, AsyncWebSocketClient *client)
 {
+    // Monatstabelle Energie oder Maxdemand-History oder Maxdemand-Current
+    // an WebSock-Clients senden
+
     /*
     {
         "monthlist":[
@@ -120,23 +123,37 @@ void energieMonthUpdate() // Monatstabelle Energie an alle WebSock-Webclients se
         return; // No Websock clients
     }
 
+    File f = LittleFS.open(filename, "r");
+    String buffer = "";
+    buffer.reserve(f.size() + f.size() / 8);
     bool isFirst = true;
-    String buffer = "{ \"monthlist\": [";
-    File f = LittleFS.open("/monate", "r");
-    while (f.available()) {
-        if (isFirst) {
-            isFirst = false;
-        } else {
-            buffer += ",";
+    buffer = "{ \""; buffer += objectname;  buffer +="\":[";
+    if (f) {
+        while (f.available()) {
+            if (isFirst) {
+                isFirst = false;
+            } else {
+                buffer += ",";
+            }
+            buffer += "\"";
+            buffer += f.readStringUntil('\n');           // das ist Text, kein JSON-Obj!
+            buffer += "\"";
         }
-        buffer += "\"";
-        buffer += f.readStringUntil('\n');           // das ist Text, kein JSON-Obj!
-        buffer += "\"";
+        f.close();
     }
     buffer += "]}";
-    f.close();
 
-    ws->textAll(buffer);
+    if (client == nullptr) {
+        ws->textAll(buffer);
+    } else {
+        ws->text(client->id(), buffer);
+    }
+}
+
+
+void energieMonthUpdate()
+{
+    WSsendFileAsStringArray("/monate", "monthlist", nullptr);
 }
 
 /* vim:set ts=4 et: */

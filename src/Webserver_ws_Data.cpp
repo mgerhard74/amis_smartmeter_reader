@@ -39,6 +39,7 @@ static void clearHist();
 static bool EEPROMClear();
 
 extern bool doSerialHwTest;
+extern void WSsendFileAsStringArray(const char *filename, const char *objectname, AsyncWebSocketClient *client);
 
 extern "C" {
     extern uint32_t _iram_start;
@@ -480,7 +481,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     } else if (strcmp(command, "energieWeek") == 0) {
         energieWeekUpdate();        // Wochentagfiles an Webclient senden
     } else if (strcmp(command, "energieMonth") == 0) {
-        energieMonthUpdate();       // Monatstabelle an Webclient senden
+        // Monatstabelle Energie an WebSock-Client(s) senden
+        WSsendFileAsStringArray("/monate", "monthlist", client);
     } else if (strcmp(command, "weekdata") == 0) {
         if (client) {
             sendWeekData(client); // die hist_inx + hist_outx Fileinhalte für save konfig

@@ -392,10 +392,10 @@ static void secTick() {
     if (updates) {
         switch (updates) {
         case 2:
-            energieWeekUpdate();    // Wochentabelle Energie senden
+            energieWeekUpdate();    // Wochentabelle Energie an alle Websock-Clients senden
             break;
         case 1:
-            energieMonthUpdate();   // Monatstabelle Energie senden
+            energieMonthUpdate();   // Monatstabelle Energie an alle Websock-Clients senden
             break;
         }
         updates--;
