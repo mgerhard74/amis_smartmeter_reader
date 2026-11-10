@@ -9,8 +9,6 @@ var logpages;
 var e180,e280;
 var yestd_in=null;
 var yestd_out;
-var monthlist;
-var weekdata;
 var restoreData;
 var g_lastDT = new Date(); // Zuletzt erhaltene Zählerwerte (lt Zähleruhrzeit)
 var wsTimer;
@@ -19,6 +17,9 @@ var wsActiveFlag=true;
 var lastSerail = "";
 var lastNow = 1;
 var billingDatasetFilename = "";
+
+var monthlist;
+var weekdata;
 
 var config_general = {
     "devicetype": "AMIS-Reader",
@@ -323,11 +324,10 @@ function secsSinceMidnight(dt) {
                     dt.getHours(), dt.getMinutes(), dt.getSeconds());
   da = UTCDate(da);
 
-  let dayBegin = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(),
-                          0, 0, 0);
+  let dayBegin = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0);
   dayBegin = UTCDate(dayBegin);
 
-  let r = ((da.getTime() - dayBegin.getTime()) / 1000) | 0;
+  const r = ((da.getTime() - dayBegin.getTime()) / 1000) | 0;
   return r;
 }
 
@@ -348,7 +348,7 @@ function secsWholeDay(date) {
   let dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(),
                         23, 59, 59);
   dayEnd = UTCDate(dayEnd);
-  let r = ((dayEnd.getTime() - dayStart.getTime()) / 1000) | 0;
+  const r = ((dayEnd.getTime() - dayStart.getTime()) / 1000) | 0;
   return r + 1; // Die Sekunde von 23:59:59 auf 00:00:00 auch noch dazuzählen !
 }
 
@@ -357,21 +357,21 @@ function timeDecoderMbusCP48(tc, update_lastDT) {
   var v;
 
   v = Number("0x" + tc.slice(8,10));
-  let secs = v & 0x3f;    // byte 1
+  const secs = v & 0x3f;    // byte 1
 
   v = Number("0x" + tc.slice(0,8));
-  let mins = v & 0x3f;    // byte 2
+  const mins = v & 0x3f;    // byte 2
   v >>= 8;
 
-  let hrs = v & 0x1f;     // byte 3
+  const hrs = v & 0x1f;     // byte 3
   v >>= 8;
 
-  let day = v & 0x1f;     // byte 4
+  const day = v & 0x1f;     // byte 4
   v >>= 5;
   let year = v & 0x07;
   v >>= 3;
 
-  let month = v & 0x0f;   // byte 5
+  const month = v & 0x0f;   // byte 5
   v >>= 4;
   year |= (v & 0x0f) << 3;
   year += 2000;
@@ -385,11 +385,9 @@ function timeDecoderMbusCP48(tc, update_lastDT) {
 }
 
 function timeDecoderTS(timestamp) {
-
-  let dt = new Date(timestamp * 1000);
+  const dt = new Date(timestamp * 1000);
 
   // return dt.toLocaleString(); // output will vary based on system locale settings
-
   return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + '&nbsp;' +
          zeroPad(dt.getHours(),2) + ':' + zeroPad(dt.getMinutes(),2) + ':' + zeroPad(dt.getSeconds(),2);
 }
@@ -708,7 +706,7 @@ function updateElements(obj) {
       continue;
     }
     else if (key==='monthlist') {
-      monthlist={command:"monthlist",month:value};
+      monthlist={command:"monthlist",month:value}; // Speichern der Monthlist für Backup
       if (yestd_in===null) continue;
       let t='<table class="pure-table pure-table-striped" width="100%">';
       t+='<thead><tr><th>Monat</th><th align="right">Bezug</th><th align="right">Lfrg.</th><th align="right">Diff.</th></tr></thead>';
@@ -910,7 +908,7 @@ function connectWS() {
       websock.send('{"command":"energieWeek"}');
     },1200);
     setTimeout( function(){
-      websock.send('{"command":"energieMonth","jahr":22}');
+      websock.send('{"command":"energieMonth"}');
     },2500);
     //console.log("connectws")
     ws_pingpong = setInterval(function() {
