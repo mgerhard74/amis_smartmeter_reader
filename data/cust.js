@@ -767,9 +767,11 @@ function updateElements(obj) {
 
       const v160vm_ts = value.at(-1)?.split(' ')[2] ?? 0;
       const el = document.querySelector('[name="1_6_0_vm"]');
+      const ts_str = timeDecoderTS(v160vm_ts).replaceAll("&nbsp;", " ");
       if (el) {
-        el.title = timeDecoderTS(v160vm_ts).replaceAll("&nbsp;", " "); // mouse-over
+        el.title = ts_str; // mouse-over
       }
+      updateHTMLPageContent("1_6_0_vm_ts", ts_str);
     }
     else if (key==='maxdemandcurrent') {
       demandCurrent={command:"/maxdemand_curr",items:value}; // Speichern fürs Backup
@@ -779,9 +781,11 @@ function updateElements(obj) {
 
       const v160_ts = value.at(0)?.split(' ')[2] ?? 0;
       const el = document.querySelector('[name="1_6_0"]');
+      const ts_str = timeDecoderTS(v160_ts).replaceAll("&nbsp;", " ");
       if (el) {
-        el.title = timeDecoderTS(v160_ts).replaceAll("&nbsp;", " "); // mouse-over
+        el.title = ts_str; // mouse-over
       }
+      updateHTMLPageContent("1_6_0_ts", ts_str);
     }
     else if (key==='uptime') {
       value = runtimeTimeDecode(value, false, true, true);
