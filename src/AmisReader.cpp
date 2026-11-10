@@ -1085,7 +1085,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             }
 
             RemoteOnOff.onNewValidData(Databroker.results_u32[4]/* 1.7.0 */, Databroker.results_u32[5] /* 2.7.0 */);
-            MaxDemand.onNewValidData(Databroker.time, Databroker.results_u32[0] /* 1.8.0 */);
+            MaxDemand.onNewValidData(Databroker.time, Databroker.ts, Databroker.results_u32[0] /* 1.8.0 */);
 
             // TODO(anyone): Refactor that "special values" from main.cpp
             dow = l_result.time.tm_wday; // dow: 1..7 (1=MON...7=SUN)
