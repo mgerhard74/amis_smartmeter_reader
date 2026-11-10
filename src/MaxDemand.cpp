@@ -2,6 +2,7 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
+#include "Webserver.h"
 
 #include <LittleFS.h>
 
@@ -30,6 +31,8 @@ void MaxDemandClass::appendMonthHistory(uint32_t yymm, uint32_t v_1_6_0, uint32_
     }
     f.printf("%04" PRIu32 " %" PRIu32 " %" PRIu32 "\n", yymm, v_1_6_0, ts);
     f.close();
+
+    Webserver.wsDataServer().queueClientRequest("{\"command\":\"maxdemandhistory\"}", nullptr);
 }
 
 
@@ -136,6 +139,7 @@ void MaxDemandClass::saveMonthCurrent()
     } else {
         LOGF_EP("Error opening '%s'", MAXDEMAND_CURRENT_FILENAME);
     }
+    Webserver.wsDataServer().queueClientRequest("{\"command\":\"maxdemandcurrent\"}", nullptr);
 }
 
 #define QUARTER_HOUR_SECS (15u*60u)

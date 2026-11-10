@@ -419,8 +419,6 @@ static void sendZData() {
         "3.7.0": 4294967289,
         "4.7.0": 4294967288,
         "1.128.0": -2147483647,
-        "1_6_0": 4294967287,
-        "1_6_0_vm": 4294967286,
         "uptime": 4294967287,
         "things_up": "Verbindung zu http://api.thingspeak.com fehlgeschlagen.",
         "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
@@ -437,7 +435,7 @@ static void sendZData() {
         "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
     }
     */
-    StaticJsonDocument<416> doc; // Keys are <const char *>  // CHECK
+    StaticJsonDocument<352> doc; // Keys are <const char *>  // CHECK
 
     // For 64 bits seems we must define ARDUINOJSON_USE_LONG_LONG ... but 32 Bits unsigned is valid till 2106
     doc["time"] = static_cast<uint32_t>(time(NULL));
@@ -454,8 +452,6 @@ static void sendZData() {
         doc[Config_restValueKeys[1][6]] = Databroker.results_u32[6];
         doc[Config_restValueKeys[1][7]] = Databroker.results_u32[7];
         doc[Config_restValueKeys[1][8]] = Databroker.results_i32[0];
-        doc[Config_restValueKeys[1][9]] = MaxDemand.getCurrentMonth();
-        doc[Config_restValueKeys[1][10]] = MaxDemand.getPreviousMonth();
     } else {
         doc["now"] = 0;
         doc["status"] = AmisReader.statusText();

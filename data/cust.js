@@ -116,8 +116,7 @@ function CESTStrToUnixTimestamp(dateStr) {
   return Math.floor((date.getTime() + diff) / 1000);
 }
 
-
-function unixTimestampToViennaStr(timestamp) {
+function unixTimestampToAmisStr(timestamp) {
   // Timestamp in Millisekunden umwandeln und Date-Objekt erstellen
   const date = new Date(timestamp * 1000);
 
@@ -137,9 +136,10 @@ function unixTimestampToViennaStr(timestamp) {
   const parts = formatter.formatToParts(date);
   const dict = Object.fromEntries(parts.map(p => [p.type, p.value]));
 
-  // String im Format YYYYMMDDhhmmss zusammenbauen
-  return `${dict.year}${dict.month}${dict.day}${dict.hour}${dict.minute}${dict.second}`;
+  // String im Format YYYY/MM/DD hh:mm:ss zusammenbauen
+  return `${dict.year}/${dict.month}/${dict.day} ${dict.hour}:${dict.minute}:${dict.second}`;
 }
+
 
 async function generateDemandFromBillingDataset() {
     // YYMM v.1.6.0 Timestamp(Beginn)

@@ -144,6 +144,27 @@ void WebserverWsDataClass::sendDataTaskCb()
     }
 }
 
+bool WebserverWsDataClass::queueClientRequest(const char *json, AsyncWebSocketClient* client, uint32_t clientId)
+{
+    _clientRequest_t request;
+    if (client) {
+        request.clientId = client->id();
+    } else {
+        request.clientId = clientId;
+    }
+    request.requestLen = strlen(json);
+    request.requestData = strdup(json);
+    if (!request.requestData) {
+        return false;
+    }
+    if (_clientRequests.push(request)) {
+        return true;
+    }
+    LOG_EP("JSON-Request queue full!");
+    free(request.requestData);
+    return false;
+}
+
 
 void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
@@ -171,7 +192,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
                 request.requestData[len] = 0;
                 request.requestLen = infolen;
                 if (!_clientRequests.push(request)) {
-                    LOG_EP("Request queue full!");
+                    LOG_EP("JSON-Request queue full!");
                     free(request.requestData);
                 }
             }
