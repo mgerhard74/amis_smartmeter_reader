@@ -12,6 +12,7 @@
 #include "Json.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSSOCKET
+#include "MaxDemand.h"
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
@@ -428,6 +429,26 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             historyInit();
         }
         AmisReader.enable();
+    } else if (strcmp(command, MAXDEMAND_HISTORY_FILENAME)==0 || strcmp(command, MAXDEMAND_CURRENT_FILENAME)==0) {
+        File f;
+        AmisReader.disable();
+        if (strcmp(command, MAXDEMAND_HISTORY_FILENAME)==0) {
+            LittleFS.remove(MAXDEMAND_HISTORY_FILENAME);
+            f = LittleFS.open(MAXDEMAND_HISTORY_FILENAME, "w");
+        } else {
+            LittleFS.remove(MAXDEMAND_CURRENT_FILENAME);
+            f = LittleFS.open(MAXDEMAND_CURRENT_FILENAME, "w");
+        }
+        if (f) {
+            size_t arrSize = root["items"].size();
+            for (size_t i=0; i<arrSize; i++) {
+                f.print(root["items"][i].as<String>());
+                f.print('\n');
+            }
+            f.close();
+            MaxDemand.init();
+        }
+        AmisReader.enable();
     } else if ((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
         File f = LittleFS.open(command, "w");
         if (f) {
@@ -483,6 +504,12 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     } else if (strcmp(command, "energieMonth") == 0) {
         // Monatstabelle Energie an WebSock-Client(s) senden
         WSsendFileAsStringArray("/monate", "monthlist", client);
+    } else if (strcmp(command, "maxdemandhistory") == 0) {
+        // MaxDemand History Tabelle an WebSock-Clients senden
+        WSsendFileAsStringArray(MAXDEMAND_HISTORY_FILENAME, "maxdemandhistory", client);
+    } else if (strcmp(command, "maxdemandcurrent") == 0) {
+        // MaxDemand Current Tabelle an WebSock-Clients senden
+        WSsendFileAsStringArray(MAXDEMAND_CURRENT_FILENAME, "maxdemandcurrent", client);
     } else if (strcmp(command, "weekdata") == 0) {
         if (client) {
             sendWeekData(client); // die hist_inx + hist_outx Fileinhalte für save konfig

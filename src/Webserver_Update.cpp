@@ -10,6 +10,7 @@
 #include "config.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_UPDATE
+#include "MaxDemand.h"
 #include "Reboot.h"
 #include "SystemMonitor.h"
 #include "unused.h"
@@ -89,6 +90,14 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             if (_uploadFilename.equals("/monate")) {
                 _uploadfiletype = monate;
                 AmisReader.disable();
+            } else if (_uploadFilename.equals(MAXDEMAND_HISTORY_FILENAME)) {
+                static_assert(MAXDEMAND_HISTORY_FILENAME[0] == '/');
+                _uploadfiletype = maxdemand_history;
+                AmisReader.disable();
+            } else if (_uploadFilename.equals(MAXDEMAND_CURRENT_FILENAME)) {
+                static_assert(MAXDEMAND_HISTORY_FILENAME[0] == '/');
+                _uploadfiletype = maxdemand_current;
+                AmisReader.disable();
             }
             _uploadFile = LittleFS.open(_uploadFilename, "w");// Open the file for writing in LittleFS (create if it doesn't exist)
             if (!_uploadFile) {
@@ -131,6 +140,9 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             }
             if (_uploadfiletype == monate) {
                 historyInit();
+                AmisReader.enable();
+            } else if (_uploadfiletype == maxdemand_current || _uploadfiletype == maxdemand_history) {
+                MaxDemand.init();
                 AmisReader.enable();
             }
         }

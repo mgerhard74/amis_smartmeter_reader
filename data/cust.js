@@ -20,6 +20,8 @@ var billingDatasetFilename = "";
 
 var monthlist;
 var weekdata;
+var demandCurrent;
+var demandHistory;
 
 var config_general = {
     "devicetype": "AMIS-Reader",
@@ -910,10 +912,16 @@ function connectWS() {
     setTimeout( function(){
       websock.send('{"command":"energieMonth"}');
     },2500);
+    setTimeout( function(){
+      websock.send('{"command":"maxdemandhistory"}');
+    },3000);
+    setTimeout( function(){
+      websock.send('{"command":"maxdemandcurrent"}');
+    },3500);
     //console.log("connectws")
     ws_pingpong = setInterval(function() {
       websock.send('{"command":"ping"}');
-    }, 3000);
+    }, 4000);
   }
   websock.onclose = function(evt) {
     clearInterval(ws_pingpong);
@@ -1303,7 +1311,14 @@ function storeToFile() {
   }
   greyButtons();
   /* save as blob */
-  var textToSave = JSON.stringify({general:config_general,wifi:config_wifi,mqtt:config_mqtt,month:monthlist,week:weekdata},null,2);
+  var textToSave = JSON.stringify({general:config_general,
+                                    wifi:config_wifi,
+                                    mqtt:config_mqtt,
+                                    month:monthlist,
+                                    week:weekdata,
+                                    demandhistory:demandHistory,
+                                    demandcurrent:demandCurrent
+                                  },null,2);
   var textToSaveAsBlob = new Blob([textToSave], {
     type: "text/plain"
   });
@@ -1354,6 +1369,18 @@ function doRestoreWeek() {
     websock.send(JSON.stringify(restoreData['week']));
   }
 }
+function doRestoreDemandHistory() {
+  if ($(".button-restore-maxdemandhistory").hasClass('button-green')){
+    progressAnimate('prgbar_update',400);
+    websock.send(JSON.stringify(restoreData['demandhistory']));
+  }
+}
+function doRestoreDemandCurrent() {
+  if ($(".button-restore-maxdemandcurrent").hasClass('button-green')){
+    progressAnimate('prgbar_update',400);
+    websock.send(JSON.stringify(restoreData['demandcurrent']));
+  }
+}
 
 function greyButtons() {
   $(".button-restore-general").removeClass("button-green");
@@ -1361,6 +1388,8 @@ function greyButtons() {
   $(".button-restore-mqtt").removeClass("button-green");
   $(".button-restore-month").removeClass("button-green");
   $(".button-restore-week").removeClass("button-green");
+  $(".button-restore-maxdemandhistory").removeClass("button-green");
+  $(".button-restore-maxdemandcurrent").removeClass("button-green");
 }
 
 function amisRestore(file) {
@@ -1387,6 +1416,12 @@ function amisRestore(file) {
             break;
          case 'week':
             $(".button-restore-week").addClass("button-green");    // Green
+            break;
+          case 'demandhistory':
+            $(".button-restore-maxdemandhistory").addClass("button-green");    // Green
+            break;
+          case 'demandcurrent':
+            $(".button-restore-maxdemandcurrent").addClass("button-green");    // Green
             break;
        }
     }
@@ -1576,6 +1611,8 @@ $(function() {            // main
   $(".button-restore-mqtt").on("click", doRestoreMqtt);
   $(".button-restore-month").on("click", doRestoreMonth);
   $(".button-restore-week").on("click", doRestoreWeek);
+  $(".button-restore-maxdemandhistory").on("click", doRestoreDemandHistory);
+  $(".button-restore-maxdemandcurrent").on("click", doRestoreDemandCurrent);
   updateElements(config_general);     // vordefinierte configs übernehmen
   updateElements(config_wifi);
   updateElements(config_mqtt);
