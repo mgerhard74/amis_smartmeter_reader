@@ -16,12 +16,26 @@ var wsActiveFlag=true;
 
 var lastSerail = "";
 var lastNow = 1;
-var billingDatasetFilename = "";
 
 var monthlist;
 var weekdata;
-var demandCurrent;
-var demandHistory;
+
+var billingDataset = {
+  filename: "",
+  size: 0, // size in bytes
+  cr: 0, // timestamp created
+  mo: 0 // timestampe modified
+};
+
+var demandCurrent = {
+  command: "/maxdemand_curr",
+  items: []
+};
+
+var demandHistory = {
+  command: "/maxdemand_hist",
+  items: []
+};
 
 var config_general = {
     "devicetype": "AMIS-Reader",
@@ -116,6 +130,7 @@ function CESTStrToUnixTimestamp(dateStr) {
   return Math.floor((date.getTime() + diff) / 1000);
 }
 
+/*
 function unixTimestampToAmisStr(timestamp) {
   // Timestamp in Millisekunden umwandeln und Date-Objekt erstellen
   const date = new Date(timestamp * 1000);
@@ -139,14 +154,16 @@ function unixTimestampToAmisStr(timestamp) {
   // String im Format YYYY/MM/DD hh:mm:ss zusammenbauen
   return `${dict.year}/${dict.month}/${dict.day} ${dict.hour}:${dict.minute}:${dict.second}`;
 }
-
+*/
 
 async function generateDemandFromBillingDataset() {
+    if (billingDataset.size == 0) return;
+
     // YYMM v.1.6.0 Timestamp(Beginn)
 
     // 1) /xxx.txt laden
-    const res = await fetch(`/${billingDatasetFilename}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Fetch ${billingDatasetFilename} fehlgeschlagen: ${res.status}`);
+    const res = await fetch(`/${billingDataset.filename}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch ${billingDataset.filename} fehlgeschlagen: ${res.status}`);
     const text = await res.text();
 
     // 2) Zeilen parsen
@@ -185,8 +202,8 @@ async function generateDemandFromBillingDataset() {
             }
             const q_max = Math.round(parseFloat(valueStr) * 1000);
             if (q_max > e.quarterMax) {
-              e.quarterMax = Math.round(parseFloat(valueStr) * 1000);
               e.quarterMaxDT = CESTStrToUnixTimestamp(`20${yy}${mm}${dd}${hh}${min}00`);
+              e.quarterMax = q_max;
             }
         }
     }
@@ -205,11 +222,13 @@ async function generateDemandFromBillingDataset() {
 }
 
 async function generateMonthFromBillingDataset() {
+    if (billingDataset.size == 0) return;
+
     // YYMM bezugWh einspeisungWh zaehlerWh "YY-MM-DD HH:MM"
 
     // 1) /xxx.txt laden
-    const res = await fetch(`/${billingDatasetFilename}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Fetch ${billingDatasetFilename} fehlgeschlagen: ${res.status}`);
+    const res = await fetch(`/${billingDataset.filename}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch ${billingDataset.filename} fehlgeschlagen: ${res.status}`);
     const text = await res.text();
 
     // 2) Zeilen parsen
@@ -217,9 +236,9 @@ async function generateMonthFromBillingDataset() {
     const re_180 = /^1\.8\.0[*&](\d+)\(([\d.]+)\)\((\d{2})-(\d{2})-\d{2}[^)]*\)/;
     const re_280 = /^2\.8\.0[*&](\d+)\(([\d.]+)\)/;
     const map = new Map(); // "YYMM" -> { bezug, einspeisung, quarterMax, quarterMaxDT }
-    const map_iidx = new Map(); // "idx" -> {YYMM }
+    const map_iidx = new Map(); // "iidx" -> {YYMM }
 
-    // Als erstes nehmen wir nur die 1.80 (bezug)
+    // Als erstes nehmen wir nur die 1.8.0 (bezug)
     for (const line of text.split(/\r?\n/)) {
         const t = line.trim();
         // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
@@ -232,11 +251,13 @@ async function generateMonthFromBillingDataset() {
             const val = parseFloat(valueStr);
             let e = map.get(key);
             if (!e) {
-              e = {};
+              e = {einspeisung:0, bezug:0};
               map.set(key, e);
             }
-            e.bezug = Math.round(val * 1000);
-            e.einspeisung = Math.round(val * 1000);
+            const bezug = Math.round(val * 1000);
+            if (bezug > e.bezug) {
+                e.bezug = bezug;
+            }
 
             let eidx = map_iidx.get(iidx);
             if (!eidx) {
@@ -258,11 +279,14 @@ async function generateMonthFromBillingDataset() {
             if (!eidx) continue;
 
             const key = eidx.key;
-            const val = parseFloat(valueStr);
             let e = map.get(key);
             if (!e) continue;
-            e.einspeisung = Math.round(val * 1000);
 
+            const val = parseFloat(valueStr);
+            const einspeisung = Math.round(val * 1000);
+            if (einspeisung > e.einspeisung) {
+                e.einspeisung = einspeisung;
+            }
         }
     }
 
@@ -530,24 +554,24 @@ function updateElements(obj) {
     } else if (key==='billingdataset') {
       //   "filename":"xxxx.yyy", "size":12345, "cr":1234567, "mo":1234567
 
-      billingDatasetFilename = value.filename;
+      billingDataset = value;
 
       const el_li = document.getElementById('billingdataset_link');
       if (el_li) {
-        el_li.href = '/' + billingDatasetFilename; // Link updaten
-        el_li.textContent = billingDatasetFilename; // Angezeigten Text ändern
+        el_li.href = '/' + billingDataset.filename; // Link updaten
+        el_li.textContent = billingDataset.filename; // Angezeigten Text ändern
       }
 
       const el_mo = document.getElementById('billingdataset_modified');
       if (el_mo) {
-          if (value.size !== 0) {
-              el_mo.textContent = 'geändert: ' + timeDecoderTS(value.mo).replaceAll("&nbsp;", " ");
+          if (billingDataset.size !== 0) {
+              el_mo.textContent = 'geändert: ' + timeDecoderTS(billingDataset.mo).replaceAll("&nbsp;", " ");
           } else {
               el_mo.textContent = '';
           }
       }
 
-      enableDisableBillingdatasetLink(value.size !== 0 && lastNow !== 0);
+      enableDisableBillingdatasetLink(billingDataset.size !== 0 && lastNow !== 0);
     }
 
     else if (key==='heap' || key==='maxfreeblock' || key==='stack0' || key==='stack1' || key==='stack2') {
@@ -571,7 +595,7 @@ function updateElements(obj) {
       setAvgItem("tdy_in", value-yestd_in, secsDayStart, false);
       $("#tdy_out" ).html(toNumberString((obj.today_out-yestd_out)/1000, 3));
       setAvgItem("tdy_out", obj.today_out-yestd_out, secsDayStart, false);
-      var diff=(value-yestd_in)-(obj.today_out-yestd_out);
+      const diff=(value-yestd_in)-(obj.today_out-yestd_out);
       if (diff >0) $("#tdy_diff").css({'color':'#FF0000'});
       else         $("#tdy_diff").css({'color':'#0000FF'});
       $("#tdy_diff").html(toNumberString(diff / 1000, 3));
@@ -597,7 +621,7 @@ function updateElements(obj) {
           setAvgItem("wd_in"+i, datax[1], secsDay, false);
           $("#wd_out"+i).html((datax[2] / 1000).toFixed(3).replace('.',','));
           setAvgItem("wd_out"+i, datax[2], secsDay, false);
-          diff=datax[1]-datax[2];
+          const diff=datax[1]-datax[2];
           if (diff >0) $("#wd_diff"+i).css({'color':'#FF0000'});
           else         $("#wd_diff"+i).css({'color':'#0000FF'});
           $("#wd_diff"+i).html(toNumberString(diff / 1000, 3));
@@ -611,7 +635,7 @@ function updateElements(obj) {
       continue;
     }
     else if (key==='1_7_0') {
-      diff=value-obj['2_7_0'];
+      const diff=value-obj['2_7_0'];
       if (diff >0) $("#saldo").css({'color':'#FF0000'});
       else         $("#saldo").css({'color':'#0000FF'});
       $("#saldo").html((diff / 1000).toFixed(3).replace('.',',')+' kW');
@@ -743,17 +767,21 @@ function updateElements(obj) {
 
       const v160vm_ts = value.at(-1)?.split(' ')[2] ?? 0;
       const el = document.querySelector('[name="1_6_0_vm"]');
-      el.title = timeDecoderTS(v160vm_ts).replaceAll("&nbsp;", " "); // mouse-over
+      if (el) {
+        el.title = timeDecoderTS(v160vm_ts).replaceAll("&nbsp;", " "); // mouse-over
+      }
     }
     else if (key==='maxdemandcurrent') {
       demandCurrent={command:"/maxdemand_curr",items:value}; // Speichern fürs Backup
 
-      v160 = value.at(0)?.split(' ')[1] ?? '';
+      const v160 = value.at(0)?.split(' ')[1] ?? '';
       updateHTMLPageContent("1_6_0", v160);
 
       const v160_ts = value.at(0)?.split(' ')[2] ?? 0;
       const el = document.querySelector('[name="1_6_0"]');
-      el.title = timeDecoderTS(v160_ts).replaceAll("&nbsp;", " "); // mouse-over
+      if (el) {
+        el.title = timeDecoderTS(v160_ts).replaceAll("&nbsp;", " "); // mouse-over
+      }
     }
     else if (key==='uptime') {
       value = runtimeTimeDecode(value, false, true, true);
@@ -1328,8 +1356,8 @@ function storeToFile() {
   downloadLink.download = filename;
   downloadLink.innerHTML = "Download File";
   downloadLink.href = textToSaveAsURL;
-  downloadLink.onclick = function () {
-    document.body.removeChild(event.target);
+  downloadLink.onclick = function (e) {
+      e.target.remove();
   };
   downloadLink.style.display = "none";
   document.body.appendChild(downloadLink);
