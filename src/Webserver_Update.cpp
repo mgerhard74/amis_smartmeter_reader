@@ -141,9 +141,16 @@ void WebserverUpdateClass::onUpload(AsyncWebServerRequest* request, const String
             if (_uploadfiletype == monate) {
                 historyInit();
                 AmisReader.enable();
+                Webserver.wsDataServer().queueClientRequest("{\"command\":\"energieMonth\"}", nullptr);
             } else if (_uploadfiletype == maxdemand_current || _uploadfiletype == maxdemand_history) {
                 MaxDemand.init();
                 AmisReader.enable();
+
+                if (_uploadfiletype == maxdemand_current) {
+                    Webserver.wsDataServer().queueClientRequest("{\"command\":\"maxdemandcurrent\"}", nullptr);
+                } else /* if (_uploadfiletype == maxdemand_history) */ {
+                    Webserver.wsDataServer().queueClientRequest("{\"command\":\"maxdemandhistory\"}", nullptr);
+                }
             }
         }
         _uploadfiletype = none;

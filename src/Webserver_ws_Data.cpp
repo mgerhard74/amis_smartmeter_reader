@@ -436,6 +436,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
         historyInit();
         AmisReader.enable();
+        queueClientRequest("{\"command\":\"energieWeek\"}", nullptr);
     } else if (strcmp(command,"monthlist")==0) {
         AmisReader.disable();
         LittleFS.remove("/monate");
@@ -450,15 +451,18 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             historyInit();
         }
         AmisReader.enable();
+        queueClientRequest("{\"command\":\"energieMonth\"}", nullptr);
     } else if (strcmp(command, MAXDEMAND_HISTORY_FILENAME)==0 || strcmp(command, MAXDEMAND_CURRENT_FILENAME)==0) {
         File f;
         AmisReader.disable();
         if (strcmp(command, MAXDEMAND_HISTORY_FILENAME)==0) {
             LittleFS.remove(MAXDEMAND_HISTORY_FILENAME);
             f = LittleFS.open(MAXDEMAND_HISTORY_FILENAME, "w");
+            queueClientRequest("{\"command\":\"maxdemandhistory\"}", nullptr);
         } else {
             LittleFS.remove(MAXDEMAND_CURRENT_FILENAME);
             f = LittleFS.open(MAXDEMAND_CURRENT_FILENAME, "w");
+            queueClientRequest("{\"command\":\"maxdemandcurrent\"}", nullptr);
         }
         if (f) {
             size_t arrSize = root["items"].size();
@@ -539,6 +543,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         clearHist();
     } else if (strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
+        WSsendFileAsStringArray("/monate", "monthlist", client);
     } else if (!strcmp(command, "set-amisreader")) {
         // Im AP Modus wird die Config nicht reloaded.
         // Danmit aber zumindest der Key auch im AP Modus upgedatet werden kann,
@@ -658,6 +663,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
+        AmisReader.disable();
         if (!LittleFS.format()) {
             LOG_EP("LittleFS.format() failed!");
         }
