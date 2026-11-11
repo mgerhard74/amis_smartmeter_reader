@@ -114,20 +114,59 @@ const blockClick = (e) => e.preventDefault();
 
 
 
-function CESTStrToUnixTimestamp(dateStr) {
-  // String zerlegen: und daraus "YYYY-MM-DDThh:mm:ss" machen
-  const formattedStr = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}T${dateStr.substring(8, 10)}:${dateStr.substring(10, 12)}:${dateStr.substring(12, 14)}`;
+function ISO8601StrToUnixTimestamp(dateStr, timezone = "Europe/Vienna") {
+  // dateStr: yyyy-MM-ddThh:mm:ss           (timezone verwenden)
+  //          yyyy-MM-ddThh:mm:ssZ          (ist schon UTC  / timezone ignorieren )
+  //          yyyy-MM-ddThh:mm:ss+02:00     (offset ist angegeben / timezone ignorieren)
 
-  // Das Datum mal als UTC ("Z") erstellen
-  const date = new Date(formattedStr + 'Z'); // Zwingt JS zunächst zu UTC
+  // Wenn wir nur "new Date(yyyy-MM-ddThh:mm:ss)" machen wird die Zeitzone des Browsers verwendet
+  // Das wollen wir nicht - wir wollen ja explizit eine bestimmte Zeitzone
 
-  // Über den lokalen Zeit-Offset den echten Unix-Timestamp ermitteln
-  // Am Schalttag ist das womöglich nicht eindeutig (gibt ja 2 mal 02:15:00)
-  // Hilft nix - genauer Zeitinfo bekommen wir nicht vom Zähler !
-  const localDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Vienna' }));
-  const diff = localDate.getTime() - date.getTime();
 
-  return Math.floor((date.getTime() + diff) / 1000);
+  // 1) Bereits UTC? -> direkt parsen
+  if (dateStr.endsWith("Z")) {
+    return Math.floor(new Date(dateStr).getTime() / 1000);
+  }
+
+  // 2) Lokale Zeit + Zeitzone in String? (z.B. +02:00) → direkt parsen
+  //    new Date() versteht ISO-Strings mit explizitem Offset korrekt.
+  if (/[+-]\d{2}:\d{2}$/.test(dateStr)) {
+    return Math.floor(new Date(dateStr).getTime() / 1000);
+  }
+
+  // 3) Ohne Suffix: Wallclock-Werte extrahieren (ohne TZ-Interpretation)
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(dateStr);
+  if (!m) throw new Error("Ungültiges Format: " + dateStr);
+  const [, y, mo, d, h, mi, s] = m.map(Number);
+
+  // Diese Wallclock-Werte "so als wären sie UTC" — Bezugspunkt für die Offset-Rechnung
+  const asIfUtc = Date.UTC(y, mo - 1, d, h, mi, s);
+
+  // --- Hilfsfunktion: Wallclock in `timezone` zum UTC-Zeitpunkt `utcMs` ---
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  function getZonedParts(ms) {
+    const parts = {};
+    for (const { type, value } of fmt.formatToParts(ms)) {
+      if (type !== "literal") parts[type] = +value;
+    }
+    return parts;
+  }
+
+  // 4) Offset der Zielzone zu diesem Zeitpunkt bestimmen (2 Iterationen reichen)
+  let utcMs = asIfUtc;
+  for (let i = 0; i < 2; i++) {
+    const p = getZonedParts(utcMs, timezone);
+    const zonedAsUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    const offset = zonedAsUtc - utcMs;        // in ms, z.B. +2h im Sommer
+    utcMs = asIfUtc - offset;                 // Wallclock -> echte UTC
+  }
+
+  return Math.floor(utcMs / 1000);
 }
 
 /*
@@ -177,6 +216,14 @@ async function generateDemandFromBillingDataset() {
     var m_160_curr = null;
 
     // Bauen wir das Set aus den 1.6.0'er Werten (höchster viertelstunden wert)
+    /*
+    1.6.0(3.888*kW)(26-11-06 11:15)
+    1.6.0*84(3.731)(26-06-15 19:15)
+    1.6.0*83(4.505)(26-05-17 21:45)
+    1.6.0&82(2.538)(26-05-06 22:15)
+    1.6.0*81(3.964)(26-04-28 16:15)
+    1.6.0*80(4.276)(26-03-29 18:00)
+    */
     for (const line of text.split(/\r?\n/)) {
         const t = line.trim();
 
@@ -186,7 +233,8 @@ async function generateDemandFromBillingDataset() {
             const [, valueStr, yy, mm, dd, hh, min] = m_160_curr;
             const key = yy + mm;
             const quarterMax = Math.round(parseFloat(valueStr) * 1000);
-            const quarterMaxDT = CESTStrToUnixTimestamp(`20${yy}${mm}${dd}${hh}${min}00`);
+            const quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+            // console.log(`20${yy}-${mm}-${dd} ${hh}:${min}:00`, timeDecoderTS(quarterMaxDT));
             m_160_curr = `${key} ${quarterMax} ${quarterMaxDT}`;
           }
         }
@@ -202,8 +250,9 @@ async function generateDemandFromBillingDataset() {
             }
             const q_max = Math.round(parseFloat(valueStr) * 1000);
             if (q_max > e.quarterMax) {
-              e.quarterMaxDT = CESTStrToUnixTimestamp(`20${yy}${mm}${dd}${hh}${min}00`);
               e.quarterMax = q_max;
+              e.quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+              // console.log(`20${yy}-${mm}-${dd} ${hh}:${min}:00`, timeDecoderTS(e.quarterMaxDT));
             }
         }
     }
@@ -238,7 +287,15 @@ async function generateMonthFromBillingDataset() {
     const map = new Map(); // "YYMM" -> { bezug, einspeisung, quarterMax, quarterMaxDT }
     const map_iidx = new Map(); // "iidx" -> {YYMM }
 
-    // Als erstes nehmen wir nur die 1.8.0 (bezug)
+    // Als erstes nehmen wir nur die 1.8.0 (bezug) - die haben ein Datum und einen iidx
+    /*
+    1.8.0(60857.073*kWh)(00-00-00 00:00)
+    1.8.0*84(59036.902)(26-07-01 00:00)
+    1.8.0*83(58671.185)(26-06-01 00:00)
+    1.8.0&82(58384.066)(26-05-08 14:59)
+    1.8.0*81(58286.139)(26-05-01 00:00)
+    1.8.0*80(57821.418)(26-04-01 00:00)
+    */
     for (const line of text.split(/\r?\n/)) {
         const t = line.trim();
         // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
@@ -267,7 +324,15 @@ async function generateMonthFromBillingDataset() {
         }
     }
 
-    // Nun die 2.8.0 (einspeisung - di haben aber kein Datum - sondern nur den iidx)
+    // Nun die 2.8.0 (Einspeisung - die haben aber kein Datum - sondern nur den iidx)
+    /*
+    2.8.0(510.931*kWh)
+    2.8.0*84(373.721)
+    2.8.0*83(347.509)
+    2.8.0&82(319.075)
+    2.8.0*81(309.497)
+    2.8.0*80(282.837)
+    */
     for (const line of text.split(/\r?\n/)) {
         const t = line.trim();
         // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
@@ -410,11 +475,12 @@ function timeDecoderMbusCP48(tc, update_lastDT) {
          zeroPad(hrs,2) + ':' + zeroPad(mins,2) + ':' + zeroPad(secs,2);
 }
 
-function timeDecoderTS(timestamp) {
+function timeDecoderTS(timestamp, delimiter=' ') {
+  // verwendet die Zeitzone des Browsers
   const dt = new Date(timestamp * 1000);
 
   // return dt.toLocaleString(); // output will vary based on system locale settings
-  return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + '&nbsp;' +
+  return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + delimiter +
          zeroPad(dt.getHours(),2) + ':' + zeroPad(dt.getMinutes(),2) + ':' + zeroPad(dt.getSeconds(),2);
 }
 
@@ -542,7 +608,7 @@ function updateElements(obj) {
     }
     else if (key==='time') {
       // UNIX Timestamp
-      value = timeDecoderTS(value);
+      value = timeDecoderTS(value, '&nbsp;');
     }
     else if (key==='serialnumber') {
       if (lastSerail !== value) {
@@ -565,7 +631,7 @@ function updateElements(obj) {
       const el_mo = document.getElementById('billingdataset_modified');
       if (el_mo) {
           if (billingDataset.size !== 0) {
-              el_mo.textContent = 'geändert: ' + timeDecoderTS(billingDataset.mo).replaceAll("&nbsp;", " ");
+              el_mo.textContent = 'geändert: ' + timeDecoderTS(billingDataset.mo);
           } else {
               el_mo.textContent = '';
           }
@@ -657,7 +723,7 @@ function updateElements(obj) {
       if (value) {
         let v = Number("0x" + value) | 0;
         if (v) {
-          value = timeDecoderTS(v, false);
+          value = timeDecoderTS(v, '&nbsp');
         }
       }
     }
@@ -702,7 +768,7 @@ function updateElements(obj) {
         let t='- - -';
         if (line.ts && Number(line.ts) > (2024-1970)*365*24*3600) {
           // we have a system-timestamp (syncronized from counter)
-          t = timeDecoderTS(Number(line.ts));
+          t = timeDecoderTS(Number(line.ts), '&nbsp;');
         } else if (line.time) {
           // This is the "old" logfile format
           // we have the time of last received counter data
@@ -767,7 +833,7 @@ function updateElements(obj) {
 
       const v160vm_ts = value.at(-1)?.split(' ')[2] ?? 0;
       const el = document.querySelector('[name="1_6_0_vm"]');
-      const ts_str = timeDecoderTS(v160vm_ts).replaceAll("&nbsp;", " ");
+      const ts_str = timeDecoderTS(v160vm_ts);
       if (el) {
         el.title = ts_str; // mouse-over
       }
@@ -781,7 +847,7 @@ function updateElements(obj) {
 
       const v160_ts = value.at(0)?.split(' ')[2] ?? 0;
       const el = document.querySelector('[name="1_6_0"]');
-      const ts_str = timeDecoderTS(v160_ts).replaceAll("&nbsp;", " ");
+      const ts_str = timeDecoderTS(v160_ts);
       if (el) {
         el.title = ts_str; // mouse-over
       }
