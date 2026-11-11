@@ -15,6 +15,7 @@ class WebserverClass
         void init();
         void reloadCredentials();
         bool checkCredentials(AsyncWebServerRequest* request, bool sendErrorResponse);
+        WebserverWsDataClass& wsDataServer() { return _websrvWsData; }
 
     private:
         void onNotFound(AsyncWebServerRequest *request);

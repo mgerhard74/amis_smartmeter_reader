@@ -7,6 +7,7 @@
 #include "Databroker.h"
 #include "Exception.h"
 #include "Failsafe.h"
+#include "Json.h"
 #include "LedSingle.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
@@ -29,6 +30,10 @@
 extern void historyInit();
 
 static void secTick();
+static void sendZData();
+
+static uint8_t updates = 0;
+
 
 Ticker secTicker;
 bool new_data_for_websocket;
@@ -39,10 +44,10 @@ unsigned kwh_day_in[7];
 unsigned kwh_day_out[7];
 unsigned last_mon_in;
 unsigned last_mon_out;
-uint8_t updates;
 String latestYYMMInHistfile;
 kwhstruct kwh_hist[7];
 bool doSerialHwTest=false;
+
 
 // Funktion __get_adc_mode() ( mittels Macro ADC_MODE() ) muss hier definiert werden,
 // ansonsten liefert ESP.getVcc() später keine gültigen Werte
@@ -217,7 +222,7 @@ void loop() {
 
     if (ws->count()) {      // ws-connections
         if (new_data_for_websocket) {
-            new_data_for_websocket=false;
+            new_data_for_websocket = false;
             sendZData();
         }
     }
@@ -306,8 +311,8 @@ static void secTick() {
     // wird jede Sekunde aufgerufen
 
     if (ws->count()) {        // ws-connections
-        if (first_frame==0) {
-            sendZDataWait();
+        if (Databroker.valid != 5) {
+            sendZData();
         }
     }
 
@@ -363,7 +368,7 @@ static void secTick() {
                     x = 6;
                 }
             }
-            updates = 3;                    // Trigger WebClients Update
+            updates = 3;   // Trigger WebClients Update
             first_frame = 1;                // Tabelle erzeugt, initialisierung abgeschlossen
         }
 
@@ -387,15 +392,78 @@ static void secTick() {
     if (updates) {
         switch (updates) {
         case 2:
-            energieWeekUpdate();    // Wochentabelle Energie senden
+            energieWeekUpdate();    // Wochentabelle Energie an alle Websock-Clients senden
             break;
         case 1:
-            energieMonthUpdate();   // Monatstabelle Energie senden
+            energieMonthUpdate();   // Monatstabelle Energie an alle Websock-Clients senden
             break;
         }
         updates--;
     }
 }
 
+
+static void sendZData() {
+
+    /*
+    // Zählerdaen ausgeben: Werte verfügbar
+    {
+        "now": "324b703624",
+        "time": 4294967288,
+        "1.8.0": 4294967295,
+        "2.8.0": 4294967294,
+        "3.8.1": 4294967293,
+        "4.8.1": 4294967292,
+        "1.7.0": 4294967291,
+        "2.7.0": 4294967290,
+        "3.7.0": 4294967289,
+        "4.7.0": 4294967288,
+        "1.128.0": -2147483647,
+        "uptime": 4294967287,
+        "things_up": "Verbindung zu http://api.thingspeak.com fehlgeschlagen.",
+        "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
+    }
+
+    // Zählerdaen ausgeben (jedoch keine Werte verfügbar)
+    Beispiel:
+    {
+        "now": 0,
+        "time": 4294967295,
+        "status": "Warte auf Zählerdaten...",
+        "uptime": 4294967294,
+        "things_up": "Verbindung zu http://api.thingspeak.com fehlgeschlagen.",
+        "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
+    }
+    */
+    StaticJsonDocument<352> doc; // Keys are <const char *>  // CHECK
+
+    // For 64 bits seems we must define ARDUINOJSON_USE_LONG_LONG ... but 32 Bits unsigned is valid till 2106
+    doc["time"] = static_cast<uint32_t>(time(NULL));
+
+    if (Databroker.valid == 5) {
+        doc["now"] = Databroker.timeCp48Hex;
+
+        doc[Config_restValueKeys[1][0]] = Databroker.results_u32[0];
+        doc[Config_restValueKeys[1][1]] = Databroker.results_u32[1];
+        doc[Config_restValueKeys[1][2]] = Databroker.results_u32[2];
+        doc[Config_restValueKeys[1][3]] = Databroker.results_u32[3];
+        doc[Config_restValueKeys[1][4]] = Databroker.results_u32[4];
+        doc[Config_restValueKeys[1][5]] = Databroker.results_u32[5];
+        doc[Config_restValueKeys[1][6]] = Databroker.results_u32[6];
+        doc[Config_restValueKeys[1][7]] = Databroker.results_u32[7];
+        doc[Config_restValueKeys[1][8]] = Databroker.results_i32[0];
+    } else {
+        doc["now"] = 0;
+        doc["status"] = AmisReader.statusText();
+    }
+
+    doc["uptime"] = millis() / 1000;
+    doc["things_up"] = ThingSpeak.getLastResult();      //  Error-/Infotext or hexstring(without 0x) of timestamp from counter last transmitted
+    doc["serialnumber"] = AmisReader.getSerialNumber();
+
+    String buffer;
+    SERIALIZE_JSON_LOG(doc, buffer);
+    ws->textAll(buffer);
+}
 
 /* vim:set ts=4 et: */

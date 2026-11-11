@@ -2,112 +2,218 @@
 
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
+#include "Webserver.h"
 
 #include <LittleFS.h>
 
-// Format v2: Werte in W (v1 hatte Wh gespeichert)
-#define MAXDEMAND_FILENAME  "/max_1_6_0_w"
-
 // Toleranz für die Übernahme des Zählerstands nach der vollen Viertelstunde:
 // Kommt innerhalb dieser Zeit kein gültiger Datensatz, ist die Viertelstunde nicht auswertbar
-#define MAXDEMAND_SLOT_START_TOLERANCE_SEC  60
+#define MAXDEMAND_SLOT_START_TOLERANCE_SEC  30
 
-// Erlaubte Abweichung der tatsächlich vergangenen Zeit von 15 Minuten zwischen zwei Referenzwerten
-#define MAXDEMAND_SLOT_DURATION_MS          (15u * 60u * 1000u)
-#define MAXDEMAND_SLOT_DURATION_TOLERANCE_MS (90u * 1000u)
 
 
 void MaxDemandClass::init()
 {
-    load();
+    loadMonthHistory();
+    loadMonthCurrent();
 }
 
-void MaxDemandClass::load()
+#define PTR_TO_NEXT_NUM(PTR)        while(*(PTR) && (*(PTR)<'0' || *(PTR)>'9')) (PTR)++
+#define PTR_TO_NEXT_NONNUM(PTR)     while(*(PTR)>='0' && *(PTR)<='9') (PTR)++
+
+void MaxDemandClass::appendMonthHistory(uint32_t yymm, uint32_t v_1_6_0, uint32_t ts) {
+    //     4  1   10  1  10   1 1   = 28
+    //   "yymm NUMBER1 NUMBER2\n\0"
+    File f = LittleFS.open(MAXDEMAND_HISTORY_FILENAME, "a");
+    if (!f) {
+        LOGF_EP("Error opening '%s'", MAXDEMAND_HISTORY_FILENAME);
+        return;
+    }
+    f.printf("%04" PRIu32 " %" PRIu32 " %" PRIu32 "\n", yymm, v_1_6_0, ts);
+    f.close();
+
+    Webserver.wsDataServer().queueClientRequest("{\"command\":\"maxdemandhistory\"}", nullptr);
+}
+
+
+static void splitDataLine(const String &s, uint32_t &yymm, uint32_t &value, uint32_t &ts) {
+    yymm = 0;
+    value = 0;
+    ts = 0;
+
+    const char *c = s.c_str();
+
+    PTR_TO_NEXT_NUM(c);
+    if (! *c) {
+        return;
+    }
+    yymm = strtoul(c, nullptr, 10);
+    PTR_TO_NEXT_NONNUM(c);
+    if (! *c) {
+        return;
+    }
+
+    PTR_TO_NEXT_NUM(c);
+    if (! *c) {
+        return;
+    }
+    value = strtoul(c, nullptr, 10);
+    PTR_TO_NEXT_NONNUM(c);
+    if (! *c) {
+        return;
+    }
+
+    PTR_TO_NEXT_NUM(c);
+    if (! *c) {
+        return;
+    }
+    ts = strtoul(c, nullptr, 10);
+}
+
+void MaxDemandClass::loadMonthHistory()
 {
-    File f = LittleFS.open(MAXDEMAND_FILENAME, "r");
+    /*
+    Im File "/maxdemand_hist" speichern wir Werte die erst am Monatsende geschrieben werden können
+    Format:             YYMM max1.6.0 timestamp
+    Bsp:            Im Monat 12 / 2025 sieht das wie folgt aus:
+                        2509 4584 1757284200
+                        2510 3953 1760442300
+                        2511 4020 1764437400
+    */
+
+    File f;
+    String buffer;
+
+    _prevMonthYYMM = 0;
+    _prevMonthMaxValue = 0;
+    _prevMonthTS = 0;
+
+    f = LittleFS.open(MAXDEMAND_HISTORY_FILENAME, "r");
     if (!f) {
         return;
     }
-    // Format: "MONTHKEY MAX_CURRENT MAX_PREVIOUS"
-    String s = f.readString();
+    // wir brauchen nur die letzte Zeile
+    while (f.available()) {
+        buffer = f.readStringUntil('\n');
+    }
     f.close();
 
-    int32_t monthKey;
-    uint32_t cur, prev;
-    if (sscanf(s.c_str(), "%" SCNd32 " %" SCNu32 " %" SCNu32, &monthKey, &cur, &prev) == 3) {
-        _monthKey = monthKey;
-        _maxCurrentMonth = cur;
-        _maxPreviousMonth = prev;
-        LOGF_IP("1.6.0 loaded: current=%" PRIu32 " W, previous=%" PRIu32 " W", _maxCurrentMonth, _maxPreviousMonth);
+    uint32_t yymm, value, ts;
+    splitDataLine(buffer, yymm, value, ts);
+    if (yymm != 0 && value != 0 && ts != 0) {
+        _prevMonthYYMM = yymm;
+        _prevMonthMaxValue = value;
+        _prevMonthTS = ts;
+    }
+}
+
+void MaxDemandClass::loadMonthCurrent()
+{
+    File f = LittleFS.open(MAXDEMAND_CURRENT_FILENAME, "r");
+    if (!f) {
+        return;
+    }
+
+    // Format: - eine Zeile
+    //  "MONTHKEY CURRENT_MONTH_MAX CURRENT_MONTH_MAX_TS\n"
+
+    String buffer = f.readStringUntil('\n');
+    uint32_t yymm, value, ts;
+    splitDataLine(buffer, yymm, value, ts);
+    if (yymm != 0 && value != 0 && ts != 0) {
+        _currentMonthYYMM = yymm;
+        _currentMonthMaxValue = value;
+        _currentMonthTS = ts;
+        LOGF_IP("1.6.0 loaded: current=%" PRIu32 " W, previous=%" PRIu32 " W", _currentMonthMaxValue, _prevMonthMaxValue);
     } else {
         LOG_EP("1.6.0 file invalid");
     }
 }
 
-void MaxDemandClass::save()
+void MaxDemandClass::saveMonthCurrent()
 {
-    File f = LittleFS.open(MAXDEMAND_FILENAME, "w");
+    File f = LittleFS.open(MAXDEMAND_CURRENT_FILENAME, "w");
     if (f) {
-        f.printf("%" PRId32 " %" PRIu32 " %" PRIu32 "\n", _monthKey, _maxCurrentMonth, _maxPreviousMonth);
+        f.printf("%" PRIu32 " %" PRIu32 " %" PRIu32 "\n", _currentMonthYYMM, _currentMonthMaxValue, _currentMonthTS);
         f.close();
+    } else {
+        LOGF_EP("Error opening '%s'", MAXDEMAND_CURRENT_FILENAME);
     }
+    Webserver.wsDataServer().queueClientRequest("{\"command\":\"maxdemandcurrent\"}", nullptr);
 }
 
-void MaxDemandClass::checkMonthChange(int32_t monthKey)
+#define QUARTER_HOUR_SECS (15u*60u)
+
+void MaxDemandClass::checkNewMax(const struct tm &localTime, uint32_t ts, uint32_t value1_8_0)
 {
-    if (monthKey == _monthKey) {
+    // struct tm *localTime; time_t rawtime = (time_t)ts;   localTime = localtime(&rawtime);
+
+    // timestamp_slot: timestamp auf 15 Minuten abgerundet des gerade übermittelten Wertes
+    const uint32_t ts_slot = (ts / QUARTER_HOUR_SECS) * QUARTER_HOUR_SECS;
+
+    if (_quarterStartTS == ts_slot) {
+        // Bin noch immer in der gleichen Viertelstunde
         return;
     }
-    if (_monthKey >= 0 && monthKey == _monthKey + 1) {
-        _maxPreviousMonth = _maxCurrentMonth;
-    } else if (_monthKey >= 0) {
-        // Mehr als ein Monat ohne Daten (oder Zeit zurückgesprungen): Vormonat unbekannt
-        _maxPreviousMonth = 0;
-    }
-    _maxCurrentMonth = 0;
-    _monthKey = monthKey;
-    LOGF_IP("1.6.0 month changed: previous=%" PRIu32 " W", _maxPreviousMonth);
-    save();
-}
 
-void MaxDemandClass::onNewValidData(const struct tm &localTime, uint32_t value1_8_0)
-{
-    const uint32_t msNow = millis();
+    // Neuer Viertel Stunde hat begonnen !
+    // _quarterStartTS steht noch auf dem Beginn der vorherigen Virtel-Stunde
 
-    // Viertelstunde aus der lokalen Zeit des Zählers (dient nur zum Erkennen des Wechsels).
-    // Ob die vorige Viertelstunde lückenlos ist, wird über die tatsächlich vergangene Zeit
-    // (millis) geprüft - so werden auch die Viertelstunden bei der Sommer-/Winterzeitumstellung
-    // ausgewertet (01:45 -> 03:00 bzw. 02:45 Sommerzeit -> 02:00 Winterzeit).
-    const int32_t slot = (localTime.tm_mday * 24 + localTime.tm_hour) * 4 + localTime.tm_min / 15;
-    const int32_t monthKey = (1900 + localTime.tm_year) * 12 + localTime.tm_mon;
+    // YYMM des gerade übermittelten Wertes ermitteln (Achtung: tm_mon ist 0 basierend)
+    const uint32_t yymm = (localTime.tm_year - 100) * 100 + localTime.tm_mon + 1;
 
-    if (slot != _lastSlot) {
-        // Erster Datensatz einer neuen Viertelstunde
-        const unsigned secsInSlot = (localTime.tm_min % 15) * 60 + localTime.tm_sec;
-        const bool atSlotStart = secsInSlot < MAXDEMAND_SLOT_START_TOLERANCE_SEC;
-        const uint32_t elapsedMs = msNow - _refMs;
+    /*
+    uint32_t prev_yymm = localTime.tm_year - 100;
+    prev_yymm -= (localTime.tm_mon == 0) ?1 :0;
+    prev_yymm *= 100;
+    prev_yymm += (localTime.tm_mon == 0) ?12 :localTime.tm_mon;
+    */
 
-        if (atSlotStart && _refValid && value1_8_0 >= _refValue &&
-            elapsedMs > MAXDEMAND_SLOT_DURATION_MS - MAXDEMAND_SLOT_DURATION_TOLERANCE_MS &&
-            elapsedMs < MAXDEMAND_SLOT_DURATION_MS + MAXDEMAND_SLOT_DURATION_TOLERANCE_MS)
-        {
-            // Die abgelaufene Viertelstunde gehört noch zum bisherigen Monat
-            // (daher Monatswechsel erst danach prüfen)
-            uint32_t power = (value1_8_0 - _refValue) * 4; // Wh pro 1/4h -> mittlere Leistung in W
-            if (power > _maxCurrentMonth && _monthKey >= 0) {
-                _maxCurrentMonth = power;
-                LOGF_IP("1.6.0 new maximum: %" PRIu32 " W", _maxCurrentMonth);
-                save();
+
+    if (_quarterStartTS + QUARTER_HOUR_SECS == ts_slot) {
+        // es handelt sich genau um die nach _quarterStartTS beginnende Viertelstunde
+        if (ts <= _quarterStartTS + QUARTER_HOUR_SECS + MAXDEMAND_SLOT_START_TOLERANCE_SEC && value1_8_0 >= _quarterStart_1_8_0) {
+            // wir akzeptieren den Wert als gültig - liegt innerhalb der Toleranz von 30 (MAXDEMAND_SLOT_START_TOLERANCE_SEC) Sekunden
+            const uint32_t v_1_6_0 = (value1_8_0 - _quarterStart_1_8_0) * 4; // mal 4, weil der Wert auf Stunden hochgerechnet wird
+            if (v_1_6_0 > _currentMonthMaxValue) {
+                // ein neuer "Monatshöchstwert"
+                _currentMonthMaxValue = v_1_6_0;
+                _currentMonthTS = _quarterStartTS;
+                saveMonthCurrent();
             }
         }
-
-        _refValid = atSlotStart;
-        _refMs = msNow;
-        _refValue = value1_8_0;
-        _lastSlot = slot;
     }
 
-    checkMonthChange(monthKey);
+    _quarterStartTS = ts_slot;
+    _quarterStart_1_8_0 = value1_8_0;
+    _quarterStartYYMM = yymm;
+}
+
+
+void MaxDemandClass::checkNewMonth()
+{
+    // Hat sich das Monat geändert ?
+    if (_quarterStartYYMM == _currentMonthYYMM) {
+        return;
+    }
+
+    if (_currentMonthYYMM && _prevMonthYYMM < _currentMonthYYMM) {
+        appendMonthHistory(_currentMonthYYMM, _currentMonthMaxValue, _currentMonthTS);
+    }
+    _prevMonthYYMM = _currentMonthYYMM;
+    _prevMonthMaxValue = _currentMonthMaxValue;
+    _prevMonthTS = _currentMonthTS;
+
+    _currentMonthYYMM = _quarterStartYYMM;
+    _currentMonthMaxValue = 0;
+    _currentMonthTS = _quarterStartTS;
+    saveMonthCurrent();
+}
+
+void MaxDemandClass::onNewValidData(const struct tm &localTime, uint32_t ts, uint32_t value1_8_0)
+{
+    checkNewMax(localTime, ts, value1_8_0);
+    checkNewMonth();
 }
 
 MaxDemandClass MaxDemand;

@@ -273,6 +273,44 @@ bool Utils::dirExists(const char *fname)
     return r;
 }
 
+size_t Utils::calculateChecksumISO1155(const char *v, bool only7bits)
+{
+    return Utils::calculateChecksumISO1155((const uint8_t *)v, strlen(v), only7bits);
+}
+
+size_t Utils::calculateChecksumISO1155(const uint8_t *v, size_t l, bool only7bits)
+{
+    // https://cdn.standards.iteh.ai/samples/5723/0889de48aaa5445190af6d94ee01711a/ISO-1155-1978.pdf
+    //
+    // Xor aller Bytes beginnend nach SOH(0x01) oder STX(0x02) [ was immer als erstes kommt ]
+    // SOH bzw STX kommen NICHT in die Prüfsumme
+    // Lt ISO werden nur die untersten 7 Bits jedes Bytes verwendet
+    // ETB(0x17) und ETX(0x03) sollen in die Prüfsumme eingebunden werden.
+    // SYN(0x16) wird bei der Prüfsummenbildung übersprungen
+
+    // Blockbeginn suchen: SOH(0x01) oder STX(0x02), nicht in Prüfsumme aufnehmen
+    while (l && *v != 0x01 && *v != 0x02) {
+        v++;
+        l--;
+    }
+    if (l == 0) return 0xffffffff; //return std::nullopt; // kein Blockbeginn ==> konnte Prüfsumme nicht ermitteln
+
+    v++; l--; // STX bzw SOH überspringen
+
+    uint8_t chksum = 0;
+    while (l && *v != 0x03 && *v != 0x17) {
+        if (*v != 0x16) {
+            chksum ^= *v;
+        }
+        v++; l--;
+    }
+    if (l == 0) return 0xffffffff; //return std::nullopt; // Kein Blockende ==> konnte Prüfsumme nicht ermitteln
+
+    chksum ^= *v; // ETX oder ETB noch zur Prüfsumme dazu
+    if (only7bits) chksum &= 0x7f;
+    return chksum;
+}
+
 bool Utils::MbusCP48IToTm(struct tm &t, const uint8_t *mbusdata)
 {
     // MBUS CP48 - Datum & Uhrzeit im I-Format[6Bytes-CP48] (VIF=0x6d) ==> struct tm

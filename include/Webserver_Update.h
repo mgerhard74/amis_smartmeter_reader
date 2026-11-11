@@ -15,6 +15,8 @@ class WebserverUpdateClass
         typedef enum {
             firmware = U_FLASH,
             monate,
+            maxdemand_history,
+            maxdemand_current,
             // tageswerte,      ... must be reloaded after upload
             // config_general,  ... must be reloaded after upload
             // config_mqtt,     ... must be reloaded after upload
