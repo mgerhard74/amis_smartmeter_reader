@@ -71,6 +71,12 @@ public:
     unsigned rest_var; // 0 = Variablennamen im MQTT und bei "/rest" Abfrage mit ".", ansonsten mit "_"
     signed rest_ofs;
     bool rest_neg;
+    unsigned saldo_deadband; // 0 = deaktiviert; sonst wird Saldo (1.7.0-2.7.0) innerhalb +-saldo_deadband als 0 ausgegeben (Rest, MQTT, Modbus, Shelly)
+
+    // true, wenn der (rohe) Saldo 1.7.0-2.7.0 innerhalb der eingestellten Deadband liegt
+    inline bool saldoInDeadband(int32_t saldoRaw) const {
+        return saldo_deadband > 0 && saldoRaw >= -(int32_t)saldo_deadband && saldoRaw <= (int32_t)saldo_deadband;
+    }
 
     bool reboot0;
 

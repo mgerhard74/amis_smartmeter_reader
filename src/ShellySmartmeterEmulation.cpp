@@ -173,6 +173,7 @@ void ShellySmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
     }
 
     _currentValues.saldo = (int32_t)v1_7_0 - (int32_t)v2_7_0; //directly calculate saldo (otherwise we need some mutex around)
+    _currentValues.saldoInDeadband = Config.saldoInDeadband(_currentValues.saldo);
     _currentValues.v1_8_0 = v1_8_0;
     _currentValues.v2_8_0 = v2_8_0;
 }

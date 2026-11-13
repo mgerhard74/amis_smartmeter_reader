@@ -70,6 +70,7 @@ private:
     struct {
         bool dataAreValid = false;
         int32_t saldo=0;
+        bool saldoInDeadband=false;
         uint32_t v1_8_0=0, v2_8_0=0;
     } _currentValues;
     int _offset; // Watt offset for saldo
@@ -77,7 +78,7 @@ private:
     bool listen();
     void handleRequest(AsyncUDPPacket udpPacket);
 
-    int32_t saldo() const { return _currentValues.saldo + _offset; }
+    int32_t saldo() const { return _currentValues.saldoInDeadband ? 0 : _currentValues.saldo + _offset; }
     void buildEmGetStatus(JsonObject result, bool minimalResponse);
     void buildEm1GetStatus(JsonObject result, bool minimalResponse);
     void buildEmDataGetStatus(JsonObject result);

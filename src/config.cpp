@@ -198,6 +198,10 @@ void ConfigClass::loadConfigGeneral()
     }
     rest_ofs = json[F("rest_ofs")].as<int>();
     rest_neg = json[F("rest_neg")].as<bool>();
+    {
+        int deadband = json[F("saldo_deadband")].as<int>();
+        saldo_deadband = (deadband > 0) ? (unsigned)deadband : 0;
+    }
 
     reboot0 = json[F("reboot0")].as<bool>();
 

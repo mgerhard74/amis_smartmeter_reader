@@ -327,6 +327,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         "rest_var": "0",
         "rest_ofs": "0",
         "rest_neg": false,
+        "saldo_deadband": "0",
         "smart_mtr": true,
         "developerModeEnabled": true,
         "switch_on": "0",

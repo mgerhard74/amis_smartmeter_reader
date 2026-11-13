@@ -55,6 +55,7 @@ var config_general = {
     "rest_var": 0,
     "rest_ofs": 0,
     "rest_neg": false,
+    "saldo_deadband": 0,
     "smart_mtr":false,
     "shelly_smart_mtr_udp": false,
     "shelly_smart_mtr_http": false,

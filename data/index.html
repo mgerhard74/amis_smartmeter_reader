@@ -442,6 +442,13 @@
           <input class="pure-u-1-4 general" type="number" name="rest_ofs" value="0">
         </div>
         <div class="pure-g">
+          <div class="pure-u-3-4">Deadband: Ausgabe von Saldo 0 wenn Saldo zwischen +-</div>
+          <input class="pure-u-1-4 general" type="number" name="saldo_deadband" value="0" min="0">
+          <div class="pure-u-1 hint">
+            Liegt der Saldo 1.7.0-2.7.0 des Zählers innerhalb von +- diesem Wert (in Watt), wird bei Rest, MQTT, ModbusTCP und Shelly-Emulation ein Saldo von 0 ausgegeben. 0 = deaktiviert.
+          </div>
+        </div>
+        <div class="pure-g">
           <div class="pure-u-2-3">Saldo 1.7.0-2.7.0 negieren</div>
           <div class="pure-u-1-3"><input type="checkbox" name="rest_neg" id="rest_neg" class="general"/></div>
           Änderungen hier werden auch ohne Neustart wirksam!
@@ -892,6 +899,11 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.6.7</h3>
+              Neue Einstellung "Deadband" für den Saldo 1.7.0-2.7.0 (Einstellungen/Allgemein, Standard 0 = deaktiviert).<br>
+              - Liegt der vom Zähler gelieferte Saldo innerhalb von +- dem eingestellten Wert (in Watt), wird bei Rest, MQTT, ModbusTCP und der Shelly-Emulation ein Saldo von 0 ausgegeben.<br>
+              - Offset und Negierung werden in diesem Fall nicht angewendet.<br>
+              - Alle anderen Funktionen (z.B. Schaltvorgang, Weboberfläche, Grafik) verwenden weiterhin den tatsächlichen Saldo des Zählers.<br>
               <h3>Version 1.6.6-dev1</h3>
               <b>BREAKING-CHANGE:</b>
               Überarbeitung der Viertelstundenhöchstverbrauchswerte - Daten werden <b>NICHT</b> übernommen.<br>

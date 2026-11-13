@@ -52,7 +52,9 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
     if (Databroker.valid != 5) {
         root[F("error")] = F("No actual valid result available");
     } else {
-        signed int saldo = (Databroker.results_u32[4] - Databroker.results_u32[5] - Config.rest_ofs);
+        int32_t saldoRaw = (int32_t)(Databroker.results_u32[4] - Databroker.results_u32[5]);
+        bool saldoInDeadband = Config.saldoInDeadband(saldoRaw);
+        signed int saldo = saldoRaw - Config.rest_ofs;
 
         // For 64 bits seems we must define ARDUINOJSON_USE_LONG_LONG ... but 32 Bits unsigned is valid till 2106
         root["time"] = static_cast<uint32_t>(Databroker.ts);
@@ -69,6 +71,9 @@ void WebserverRestClass::onRestRequest(AsyncWebServerRequest* request)
         root[Config_restValueKeys[Config.rest_var][10]] = MaxDemand.getPreviousMonth();
         if (Config.rest_neg) {
             saldo = -saldo;
+        }
+        if (saldoInDeadband) {
+            saldo = 0;
         }
         root[F("saldo")] = saldo;
         root[F("serialnumber")] = AmisReader.getSerialNumber();
