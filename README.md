@@ -15,6 +15,7 @@ Ebenso kann ein Shelly Smartmeter (Pro 3EM, Pro EM-50, EM Gen3) emuliert werden,
   Findet ein Speicher den Leser nicht, kann optional der Shelly-Name (z.B. `ShellyPro3EM-8C4F0044B70B.local`) als mDNS-Hostname verwendet werden - für Geräte, die diesen Namen direkt auflösen statt dem SRV-Eintrag zu folgen. `<Gerätename>.local` ist dann nicht mehr auflösbar, da der ESP8266 nur einen mDNS-Hostnamen führen kann.
 
 In der aktuellen Version ist es auch möglich eine (Tasmota-, Shelly-)Wifi Steckdose aufgrund von PV Überschuss anzusteuern. ("Ein" unter Saldowert; "Aus" über Saldowert; Url für Ein bzw Aus)
+Ein aus dem Bezugszählerstand errechneter 1/4h Spitzenverbrauchswert des aktuellen und Vormonats ist nun auch hinzugefügt worden, dieser ist ab 2027 für den lastabhängigen Teil der Netzgebühr interessant.
 
 Startseite Webinterface:
 
@@ -36,7 +37,7 @@ Sind die Einstellungen (vor allem der MBUS Key aus dem NetzOÖ Portal) korrekt, 
 ## AMIS Hardware. PCB von Jlcpcb, händisch bestückt und gelötet:
 <img src='hardware/amishardware.png' width='750'>
 
-## AMIS Hardware V2. Maschinell bestückt und gelötet:
+## AMIS Hardware V2. Maschinell bestückt und gelötet von Jlcpcb:
 <img src='hardware/amishardwareV2.png' width='750'>
 
 ## 31mm Drahtantenne verbessert Wifi Konnektivität um ca 8dB:

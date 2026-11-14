@@ -12,6 +12,7 @@
 #include "Json.h"
 #include "Log.h"
 #define LOGMODULE LOGMODULE_WEBSSOCKET
+#include "MaxDemand.h"
 #include "Mqtt.h"
 #include "Network.h"
 #include "Reboot.h"
@@ -39,6 +40,7 @@ static void clearHist();
 static bool EEPROMClear();
 
 extern bool doSerialHwTest;
+extern void WSsendFileAsStringArray(const char *filename, const char *objectname, AsyncWebSocketClient *client);
 
 extern "C" {
     extern uint32_t _iram_start;
@@ -106,27 +108,28 @@ void WebserverWsDataClass::wsCleanupTaskCb()
 
 void WebserverWsDataClass::sendDataTaskCb()
 {
-    // 1.) Do some periodic sending stuff here
-    //
-    // till now: nothing periodic to do
+    // Do some periodic sending stuff here
 
-
-    // 2.) Handle our _clientRequests queue
+    // 1.) Handle our _clientRequests queue
     _clientRequest_t request;
     if (_clientRequests.count() == 0) {
         _requestDelayedSinceMs = 0;
         return;
     }
 
-    if (ESP.getMaxFreeBlockSize() < WSDATA_REQUEST_MIN_FREE_BLOCK) {
+    const uint32_t maxfreemem = ESP.getMaxFreeBlockSize();
+    if (maxfreemem < WSDATA_REQUEST_MIN_FREE_BLOCK) {
         uint32_t msNow = millis();
         if (_requestDelayedSinceMs == 0) {
-            _requestDelayedSinceMs = msNow | 1; // 0 means "not delayed"
+            _requestDelayedSinceMs = msNow | 1; // 0 means "not delayed" - so ensure and set bit 0
+            if (WSDATA_REQUEST_MAX_DELAY_MS) {
+                return;
+            }
         }
         if (msNow - _requestDelayedSinceMs < WSDATA_REQUEST_MAX_DELAY_MS) {
             return; // Spaeter nochmal versuchen
         }
-        LOGF_WP("Low memory (max free block %" PRIu32 "): processing request anyway", ESP.getMaxFreeBlockSize());
+        LOGF_WP("Low memory (max free block %" PRIu32 "): processing request anyway", maxfreemem);
     }
     _requestDelayedSinceMs = 0;
 
@@ -137,8 +140,29 @@ void WebserverWsDataClass::sendDataTaskCb()
     if (request.requestData) {
         AsyncWebSocketClient *client = _ws.client(request.clientId);
         wsClientRequest(client, request.requestData, request.requestLen);
-        free(request.requestData);		 
+        free(request.requestData);
     }
+}
+
+bool WebserverWsDataClass::queueClientRequest(const char *json, AsyncWebSocketClient* client, uint32_t clientId)
+{
+    _clientRequest_t request;
+    if (client) {
+        request.clientId = client->id();
+    } else {
+        request.clientId = clientId;
+    }
+    request.requestLen = strlen(json);
+    request.requestData = strdup(json);
+    if (!request.requestData) {
+        return false;
+    }
+    if (_clientRequests.push(request)) {
+        return true;
+    }
+    LOG_EP("JSON-Request queue full!");
+    free(request.requestData);
+    return false;
 }
 
 
@@ -168,7 +192,7 @@ void WebserverWsDataClass::onWebsocketEvent(AsyncWebSocket* server, AsyncWebSock
                 request.requestData[len] = 0;
                 request.requestLen = infolen;
                 if (!_clientRequests.push(request)) {
-                    LOG_EP("Request queue full!");
+                    LOG_EP("JSON-Request queue full!");
                     free(request.requestData);
                 }
             }
@@ -303,6 +327,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         "rest_var": "0",
         "rest_ofs": "0",
         "rest_neg": false,
+        "saldo_deadband": "0",
         "smart_mtr": true,
         "developerModeEnabled": true,
         "switch_on": "0",
@@ -388,12 +413,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     // Check whatever the command is and act accordingly
     LOGF_DP("websocket command: '%s'", command);
 
-    if (strcmp(command, "remove") == 0) {
-        const char *filename = root["file"];
-        if (filename && filename[0]) {
-            LittleFS.remove(filename);
-        }
-    } else if (strcmp(command,"weekfiles")==0) {
+    if (strcmp(command,"weekfiles")==0) {
         uint32_t zstand;
         AmisReader.disable();
         clearHist();
@@ -417,6 +437,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
         historyInit();
         AmisReader.enable();
+        queueClientRequest("{\"command\":\"energieWeek\"}", nullptr);
     } else if (strcmp(command,"monthlist")==0) {
         AmisReader.disable();
         LittleFS.remove("/monate");
@@ -429,6 +450,29 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             }
             f.close();
             historyInit();
+        }
+        AmisReader.enable();
+        queueClientRequest("{\"command\":\"energieMonth\"}", nullptr);
+    } else if (strcmp(command, MAXDEMAND_HISTORY_FILENAME)==0 || strcmp(command, MAXDEMAND_CURRENT_FILENAME)==0) {
+        File f;
+        AmisReader.disable();
+        if (strcmp(command, MAXDEMAND_HISTORY_FILENAME)==0) {
+            LittleFS.remove(MAXDEMAND_HISTORY_FILENAME);
+            f = LittleFS.open(MAXDEMAND_HISTORY_FILENAME, "w");
+            queueClientRequest("{\"command\":\"maxdemandhistory\"}", nullptr);
+        } else {
+            LittleFS.remove(MAXDEMAND_CURRENT_FILENAME);
+            f = LittleFS.open(MAXDEMAND_CURRENT_FILENAME, "w");
+            queueClientRequest("{\"command\":\"maxdemandcurrent\"}", nullptr);
+        }
+        if (f) {
+            size_t arrSize = root["items"].size();
+            for (size_t i=0; i<arrSize; i++) {
+                f.print(root["items"][i].as<String>());
+                f.print('\n');
+            }
+            f.close();
+            MaxDemand.init();
         }
         AmisReader.enable();
     } else if ((strcmp(command, "/config_general")==0) || (strcmp(command, "/config_wifi")==0) || (strcmp(command, "/config_mqtt")==0)) {
@@ -484,7 +528,14 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
     } else if (strcmp(command, "energieWeek") == 0) {
         energieWeekUpdate();        // Wochentagfiles an Webclient senden
     } else if (strcmp(command, "energieMonth") == 0) {
-        energieMonthUpdate();       // Monatstabelle an Webclient senden
+        // Monatstabelle Energie an WebSock-Client(s) senden
+        WSsendFileAsStringArray("/monate", "monthlist", client);
+    } else if (strcmp(command, "maxdemandhistory") == 0) {
+        // MaxDemand History Tabelle an WebSock-Clients senden
+        WSsendFileAsStringArray(MAXDEMAND_HISTORY_FILENAME, "maxdemandhistory", client);
+    } else if (strcmp(command, "maxdemandcurrent") == 0) {
+        // MaxDemand Current Tabelle an WebSock-Clients senden
+        WSsendFileAsStringArray(MAXDEMAND_CURRENT_FILENAME, "maxdemandcurrent", client);
     } else if (strcmp(command, "weekdata") == 0) {
         if (client) {
             sendWeekData(client); // die hist_inx + hist_outx Fileinhalte für save konfig
@@ -493,6 +544,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         clearHist();
     } else if (strcmp(command, "clearhist2") == 0) {
         LittleFS.remove("/monate");
+        WSsendFileAsStringArray("/monate", "monthlist", client);
     } else if (!strcmp(command, "set-amisreader")) {
         // Im AP Modus wird die Config nicht reloaded.
         // Danmit aber zumindest der Key auch im AP Modus upgedatet werden kann,
@@ -524,7 +576,8 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
         DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+5+path.length()+1 +                 // "path":path
                                 JSON_OBJECT_SIZE(1)+3 +                                 // "ls":fileCnt
-                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(86*fileCnt) +    // "1": "fileinfo1"
+                                JSON_OBJECT_SIZE(1)+17 +                                // "id":<id aus anfrage>
+                                JSON_OBJECT_SIZE(fileCnt)+(3*fileCnt)+(88*fileCnt) +    // "1": "fileinfo1"
                                 32);                                                    // silence our low-memory check!
         if (!doc.capacity()) {
             return; // Out of memory
@@ -536,9 +589,10 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
                 File f = dir.openFile("r");
                 //eprintf("%s \t %u\n",dir.fileName().c_str(),f.size());
                 if (f) {
-                    char puffer[86];                // 31+1 + 11+1 + 20+1 + 20  +1
-                    snprintf(puffer, sizeof(puffer),  "%-31s %11u %20lld %20lld",
+                    char puffer[88];                // 31+1 +1+1 + 11+1 + 20+1 + 20  +1
+                    snprintf(puffer, sizeof(puffer),  "%-31s %c %11u %20lld %20lld",
                                     dir.fileName().c_str(),
+                                    f.isDirectory() ?'D' :'F',
                                     f.size(),
                                     f.getCreationTime(),
                                     f.getLastWrite());
@@ -552,22 +606,35 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             }
         }
         doc["ls"] = fileCnt;
-        doc["path"] = path;
+        doc[F("path")] = path;
+        if (root.containsKey("id")) {
+            doc["id"] = root["id"];
+        }
         String buffer;
         SERIALIZE_JSON_LOG(doc, buffer);
         ws->text(client->id(), buffer);
     } else if (strcmp(command, "rm") == 0) {
+        DynamicJsonDocument doc(JSON_OBJECT_SIZE(1)+17 +    // "id":<id aus anfrage>
+                                JSON_OBJECT_SIZE(1)+6 +     // "success": true/false
+                                32);                        // silence our low-memory check!
+        if (!doc.capacity()) {
+            return; // Out of memory
+        }
+        if (root.containsKey("id")) {
+            doc["id"] = root["id"];
+        }
         String path = root["path"].as<String>();
         if (path.isEmpty()) {
+            doc["r"] = 0;
             return;
         }
         const char *p = path.c_str();
-        if (Utils::fileExists(p)) {
-            LittleFS.remove(p);
-        }  // LittleFS hat in Wirklichkeit kein mkdir() und rmdir()
-        /* else if (Utils::dirExists(p)) {
-            LittleFS.rmdir(p);
-        }*/
+        // LittleFS hat in Wirklichkeit kein mkdir() und rmdir()
+        // Es "erstellt" ein Verzeichnis automatisch, wenn ein Dateiname ein Verzeichnis enthält
+        doc["r"] = (int) LittleFS.remove(p);
+        String buffer;
+        SERIALIZE_JSON_LOG(doc, buffer);
+        ws->text(client->id(), buffer);
     } else if (strcmp(command, "clear") == 0) {
         LittleFS.remove(F("/config_general"));
         LittleFS.remove(F("/config_wifi"));
@@ -597,6 +664,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
         }
     } else if (!strcmp(command, "factory-reset-reboot")) {
         // Remove all files (Format), Clear EEprom
+        AmisReader.disable();
         if (!LittleFS.format()) {
             LOG_EP("LittleFS.format() failed!");
         }
@@ -635,6 +703,7 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
             "amis.css",
             "chart.js",
             "cust.js",
+            "fexplorer.html",
             "index.html",
             "jquery371slim.js",
             "pure-min.css"
@@ -661,6 +730,33 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
                 RebootAtMidnight.adjustTicker();
             }
         }
+    } else if (!strcmp_P(command, PSTR("get-billingdataset"))) {
+        String filename = AmisReader.getSerialNumber(); filename += "_vd.txt";
+
+        // { "billingdataset" : { "filename":"xxxx.yyy", "size":12345, "cr":1234567, "mo":1234567 }}
+        DynamicJsonDocument doc(192);
+        if (!doc.capacity()) {
+            return; // Out of memory
+        }
+        JsonObject billingdataset = doc.createNestedObject("billingdataset");
+
+        billingdataset[F("filename")] = filename;
+        File f = LittleFS.open(filename, "r");
+        if (f) {
+            billingdataset[F("size")] = f.size();
+            billingdataset[F("cr")] = static_cast<uint32_t>(f.getCreationTime());
+            billingdataset[F("mo")] = static_cast<uint32_t>(f.getLastWrite());
+            f.close();
+        } else {
+            billingdataset[F("size")] = 0;
+            billingdataset[F("cr")] = 0;
+            billingdataset[F("mo")] = 0;
+        }
+        String buffer;
+        SERIALIZE_JSON_LOG(doc, buffer);
+        ws->text(client->id(), buffer);
+    } else if (!strcmp(command, "refresh-billingdataset")) {
+        AmisReader.readBillingDataset();
     } else if (!strcmp(command, "dev-tools-button1")) {
         if (!client) {
             return;
@@ -729,6 +825,15 @@ void WebserverWsDataClass::wsClientRequest(AsyncWebSocketClient *client, char* r
 
         //String x = String(freeHeap.value) + String(freeHeap.filename) + String(freeHeap.lineno) + String(freeHeap.functionname);
         //ws->text(client->id(), x);
+    } else if (!strcmp(command, "dev-dump-reader-serial")) {
+        if (root.containsKey(F("value"))) {
+            const uint8_t vv = root[F("value")].as<uint8_t>();
+            AmisReader.serialEnableDump(vv);
+        } else {
+            AmisReader.serialEnableDump(true);
+        }
+    } else if (!strcmp(command, "dev-dump-reader-serial-clear")) {
+        AmisReader.serialClearDumpFile();
     } else if (!strcmp(command, "dev-set-reader-serial")) {
         const char *ret_msg = R"({"r":1,"m":"Error"})"; // error
         if (root.containsKey(F("value"))) {

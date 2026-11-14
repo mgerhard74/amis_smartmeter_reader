@@ -35,9 +35,13 @@ void MqttReaderDataClass::init(MqttBaseClass *mqttBase)
         "serialnumber": "abcdefghijklmnopqrstuvwxyz789012"
     }
     */
-    signed saldo = Databroker.results_u32[4] - Databroker.results_u32[5] - Config.rest_ofs;
+    int32_t saldoRaw = (int32_t)(Databroker.results_u32[4] - Databroker.results_u32[5]);
+    signed saldo = saldoRaw - Config.rest_ofs;
     if (Config.rest_neg) {
         saldo =-saldo;
+    }
+    if (Config.saldoInDeadband(saldoRaw)) {
+        saldo = 0;
     }
 
     // Variablennamen mit Punkten (".") oder Underscore("_") aufbereiten

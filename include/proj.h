@@ -34,8 +34,6 @@ extern unsigned kwh_day_out[7];
 
 extern kwhstruct kwh_hist[7];
 extern Ticker secTicker;
-extern void sendZData();
-extern void sendZDataWait();
 extern void energieWeekUpdate();
 extern void energieMonthUpdate();
 

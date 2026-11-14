@@ -22,6 +22,29 @@ uint8_t dow;
 uint8_t mon, myyear;
 
 
+// Filename fürs Mitloggen der Seriellen
+#define AMISREADER_SERIAL_RX_DUMPFILENAME   "/serialRxDump.bin"
+
+// Filename während des Einlesens des Verrechungsdatensatzes
+#define AMISREADER_BILLINGDATA_FILENAME     "/billingdata_tmp.txt"
+
+
+// Ein paar Steuerzeichendefines, die immer wieder in der Doku auftauchen
+#define SOH     "\x01"
+#define SOH0x   0x01
+#define STX     "\x02"
+#define STX0x   0x02
+#define ETX     "\x03"
+#define ETX0x   0x03
+#define EOT     "\x04"
+#define ACK     "\x06"
+#define NAK     "\x0f"
+#define CR      "\r"    // 0x0d
+#define LF      "\n"    // 0x0a
+#define CRLF    CR LF
+
+
+
 // ---------------------------------------------------------------------------------------------------------------------------
 
 struct __attribute__((__packed__))  enryptedMBUSTelegram_SND_UD {
@@ -324,10 +347,8 @@ size_t AmisReaderClass::serialWrite(const char *str)
     } else {
         r = strlen(str);
     }
-    /*if (false) {
-        MsgOut.writeTimestamp();
-        MsgOut.printf("serialWrite()[%u]:\r\n", strlen(str));
-        MsgOut.dumpHexBytes(str);
+    /* if (_dumpSerialRxData) {
+        _dumpSerialRxData->printf("Write %d bytes\n", r);
     }*/
     return r;
 }
@@ -341,12 +362,25 @@ size_t AmisReaderClass::serialWrite(uint8_t byte)
     } else {
         r = sizeof(byte);
     }
-    /*if (false) {
-        MsgOut.writeTimestamp();
-        MsgOut.println("serialWrite()[1]:");
-        MsgOut.dumpHexBytes(&byte, sizeof(uint8_t));
+    /*if (_dumpSerialRxData) {
+        _dumpSerialRxData->write("Write 1 byte\n");
     }*/
     return r;
+}
+
+void AmisReaderClass::serialEnableDump(bool enable) {
+    if (enable && !_dumpSerialRxData) {
+        _dumpSerialRxData = LittleFS.open(AMISREADER_SERIAL_RX_DUMPFILENAME, "a");
+    } else if (!enable && _dumpSerialRxData) {
+        _dumpSerialRxData.close();
+    }
+}
+
+void AmisReaderClass::serialClearDumpFile() {
+    bool wasEnabled = (_dumpSerialRxData) ?true :false;
+    serialEnableDump(false);
+    LittleFS.remove(AMISREADER_SERIAL_RX_DUMPFILENAME);
+    serialEnableDump(wasEnabled);
 }
 
 #if (AMISREADER_SIMULATE_SERIAL)
@@ -386,7 +420,7 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
 #endif // (AMISREADER_SIMULATE_SERIAL)
 
 
-size_t AmisReaderClass::pollSerial()
+size_t AmisReaderClass::pollSerial(size_t nbytes)
 {
 #if (AMISREADER_SIMULATE_SERIAL)
     return pollSerialSimulateSerialInput();
@@ -399,48 +433,47 @@ size_t AmisReaderClass::pollSerial()
     size_t serialBufferLeft = sizeof(_serialReadBuffer) - _serialReadBufferIdx;
     size_t serialAvail = _serial->available();
     size_t bytesRead;
+    size_t nBytesLeft = nbytes;
     size_t serialReadBufferIdxStarted = _serialReadBufferIdx;
-    bool rxError = false & _serial->hasRxError();
+    bool rxError = false & _serial->hasRxError(); // INFO: This call clears the pending error flag
+    bool overrun = false & _serial->hasOverrun();
 
-    while (serialAvail > 0 && serialBufferLeft > 0 && !rxError) {
-        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], std::min(serialAvail, serialBufferLeft));
+    while (serialAvail > 0 && serialBufferLeft > 0 && nBytesLeft > 0 && !rxError && !overrun) {
+        bytesRead = _serial->readBytes(&_serialReadBuffer[_serialReadBufferIdx], std::min(nBytesLeft, std::min(serialAvail, serialBufferLeft)));
         bytesReadTotal += bytesRead;
+        nBytesLeft -= bytesRead;
         serialBufferLeft -= bytesRead;
         _serialReadBufferIdx += bytesRead;
         serialAvail = _serial->available();
-        rxError = false & _serial->hasRxError(); // INFO: This call clears the pending error flag
+        rxError = _serial->hasRxError();
+        overrun = _serial->hasOverrun();
     }
 
-    if ((serialBufferLeft == 0 && serialAvail > 0) || rxError ) {
+    if ((serialBufferLeft == 0 && serialAvail > 0 && nBytesLeft > 0) || rxError || overrun) {
         // No space in buffer left and still something available or a rx error occured
         // Eat all from the searial port and discard everything as we had an overflow
         // ERROR: Serial input overflowed!
 
-        /*
-        MsgOut.writeTimestamp();
-        if (bytesBufferLeft == 0 && avail > 0) {
-            MsgOut.printf("ERROR: Serial interface OVERRUN: SerAvailable:%u\r\n", avail);
-        } else {
-            MsgOut.printf("ERROR: Serial interface RX-Error SerAvailable:%u BufferSpaceLeft:%u\r\n", avail, bytesBufferLeft);
+        if (overrun) {
+            LOG_EP("Serial overrun error");
         }
-        */
-
+        if (rxError) {
+            LOG_EP("Serial rx error");
+        }
+        if (serialBufferLeft == 0 && serialAvail > 0 && nBytesLeft > 0) {
+            LOG_EP("Serial read buffer overflow");
+        }
         _serialReadBufferIdx = 0;
-        bytesRead = clearSerialRx();
-        bytesReadTotal += bytesRead;
+        bytesReadTotal += clearSerialRx();
     }
-    if (bytesReadTotal) {
+
+    if (_dumpSerialRxData) {
         if (_serialReadBufferIdx > serialReadBufferIdxStarted) {
-          /*
-            if (false) {
-                MsgOut.writeTimestamp();
-                MsgOut.printf("Startlength: %u\r\n", serialReadBufferIdxStarted);
-                MsgOut.printf("pollSerial() Total length now in buffer: %u\r\n", _serialReadBufferIdx);
-                MsgOut.dumpHexBytes(&_serialReadBuffer[serialReadBufferIdxStarted], _serialReadBufferIdx - serialReadBufferIdxStarted, true);
-            }
-            */
+            _dumpSerialRxData.write(&_serialReadBuffer[serialReadBufferIdxStarted], _serialReadBufferIdx - serialReadBufferIdxStarted);
+            _dumpSerialRxData.flush();
         }
     }
+
     return bytesReadTotal;
 #endif // AMISREADER_SIMULATE_SERIAL
 }
@@ -459,7 +492,9 @@ size_t AmisReaderClass::clearSerialRx()
         bytesRead += _serial->readBytes(&b[0], std::min(avail, (size_t)sizeof(b)));
         avail = _serial->available();
     }
-     _serial->hasRxError(); // This clears the pending error flag
+    // Clear the pending error flags
+    _serial->hasRxError();
+    _serial->hasOverrun();
     return bytesRead;
 }
 
@@ -497,6 +532,304 @@ void AmisReaderClass::end()
     ThingSpeak.onNewData(false);
 }
 
+static void sendBCC(const char *cmd, HardwareSerial *s) {
+    const uint8_t *v = (const uint8_t *) cmd;
+
+    if (s == nullptr || !v[0]) {
+        return;
+    }
+    s->write(cmd);
+
+    /*
+    char msg[50]; strcpy(msg, "Send:");
+    for (size_t i=0; i< strlen(cmd); i++) {
+        sprintf(msg + strlen(msg), " 0x%02x", cmd[i]);
+    }
+    */
+
+    size_t bcc = Utils::calculateChecksumISO1155(cmd, true);
+    if (bcc < 0x80) {
+        s->write((uint8_t)bcc);
+        //sprintf(msg + strlen(msg), " bcc=0x%02x", bcc);
+    }
+    s->flush();
+
+    //LOGF_I(msg);
+}
+
+static unsigned getBaudrate(uint8_t baudRateIdentifier) {
+    switch(baudRateIdentifier) {
+        // case '0':   return    300; // wird über default abgefangen
+        case '1':   return    600;
+        case '2':   return   1200;
+        case '3':   return   2400;
+        case '4':   return   4800;
+        case '5':   return   9600;
+        case '6':   return  19200;
+        case '9':   return 115200;
+        default :   return    300; // es dürfte hier nur '0' geben aber wegen compiler warning ....
+    }
+}
+
+void AmisReaderClass::readBillingDataset() {
+    if (_billingDataset) {
+        return;
+    }
+
+    _billingDataset = LittleFS.open(AMISREADER_BILLINGDATA_FILENAME, "w");
+    if (!_billingDataset) {
+        LOG_EP("Error opening billing dataset file");
+        return;
+    }
+
+    LOGF_IP("Stopping counter read. %u data frames received.", _validFrameCnt);
+    _state = initReadSerial;
+    _readerIsOnline = false;
+    _stateLastSetMs = millis();
+    _stateTimoutMs = 5000;
+    _stateErrorCnt = 0;
+
+    _validFrameCnt = 0;
+    first_frame = 0;
+    Databroker.valid = 0;
+    ModbusSmartmeterEmulation.setCurrentValues(false);
+    ThingSpeak.onNewData(false);
+
+    _bytesInBufferExpectd = 0;
+    _serialReadBufferIdx = 0;
+    clearSerialRx();
+    LOG_IP("Start reading billing dataset (Verrechnungsdatensatz). Needs about 5-6 minutes!");
+}
+
+#define DELAY_NEXT_STEP(DELAY_MS, NEXT_STATE, TIMEOUT_NEXT_STATE_MS) { \
+    _statePostDelay = NEXT_STATE; _stateTimeoutMsPostDelay = TIMEOUT_NEXT_STATE_MS; \
+    _stateLastSetMs = msNow; _stateTimoutMs = DELAY_MS;  _state = msDelay; \
+}
+
+void AmisReaderClass::processStateReadBillingDataset(const uint32_t msNow)
+{
+    // Handbuch 5.2.9.1. bzw 5.2.9( mit der Option '0' )
+    // https://github.com/pejonp/TD3511-Siemens-
+
+    if (_state == initReadBillingDataset) {
+        if (!_billingDataset || !_serialNumber[0]) {
+            _state = initReadCounters;
+            // Break senden gleich weiter zu den Online Zählerdaten
+            sendBCC(SOH "B0" ETX, _serial);
+
+            if (_billingDataset) {
+                _billingDataset.close();
+                LittleFS.remove(AMISREADER_BILLINGDATA_FILENAME);
+            }
+            return;
+        }
+
+        // We came from serial-number-request: give the counter time...
+        _stateTimoutMs = 7000;
+        _stateErrorMax = 3; // 7 sec * 3 tries
+        _stateErrorCnt = 0;
+        DELAY_NEXT_STEP(300, requestBillingDataset, _stateTimoutMs);
+        return;
+    }
+
+    if (_state == requestBillingDataset) {
+        _billingDatasetRead = 0;
+        _billingDatasetReadPrev = 0;
+
+        // Hier müssen wir nun in den Lesemodus mit '_baudRateIdentifier' Baud schalten
+        // vgl: "5.2.8.3. Quittierungs-/Optionsauswahltelegramm" im Handbuch
+        //      "5.2.9.   Befehle"
+        //  <ACK>060\r\n // 06 30 36 30 0D 0A
+        //      0 ... normaler Protokollablauf
+        //      6 ... 19200 Bd (bzw siehe oben)
+        //      0 ... (automatisch) vollständigen Verrechnungssatz ausgeben /  1 ... Daten speziell anfordern/updaten ... (Programmiermodus)
+
+        // Quittierungs-/Optionsauswahltelegramm
+
+        const bool requestOnlySpecialValues = false;
+
+        char requestDataModeCmd[] = ACK "0Zx" CR LF;  // ACK 0 Z 0/1 CR LF
+        // Dammed - warum auch immer - das geht momentan nur mit 300 Bd :-(
+        _baudRateIdentifier = '0';
+        requestDataModeCmd[2] = _baudRateIdentifier; // set baud rate for response to explicit requested (otherwise we get ER0007)
+        requestDataModeCmd[3] = (requestOnlySpecialValues) ?'1' :'0';
+
+        clearSerialRx();
+        _serial->begin(300, SERIAL_7E1); /* Wir bleiben bei 7E1 */
+        _serialReadBufferIdx = 0;
+        _serial->clearWriteError();
+        serialWrite(requestDataModeCmd);
+        //_dumpSerialRxData.write(requestDataModeCmd, 6);
+
+        unsigned baudRate = getBaudrate(_baudRateIdentifier);
+
+        if (_serial != nullptr && baudRate != 300 ) {
+            _serial->updateBaudRate(baudRate);
+            //_serial->begin(baudRate, SERIAL_7E1); /* Wir bleiben bei 7E1 */
+        }
+        LOGF_IP("Requesting %s billing dataset with %" PRIu32 " baud.", (requestOnlySpecialValues) ?"limited" :"whole", baudRate);
+        if (requestOnlySpecialValues) {
+            DELAY_NEXT_STEP(300, requestSpecialCounterValue, _stateTimoutMs);
+        } else {
+            DELAY_NEXT_STEP(300, waitForBillingDatasetStart, _stateTimoutMs);
+            //_state = waitForBillingDatasetStart;
+            //_stateLastSetMs = msNow;
+        }
+        return;
+    }
+
+    if (_state == requestSpecialCounterValue) {
+        _state = waitForBillingDatasetStartSingleValue;
+        _stateLastSetMs = msNow;
+
+         // explicit - request special value(s)
+        //sendBCC(SOH "R2" STX "F010(1.6.0)"    ETX, _serial);  //SOH R2 STX xxxx (data) ETX BCC
+        // sendBCC(SOH "R2" STX "F010(1.6.0.*)"  ETX, _serial);  //SOH R2 STX xxxx (data) ETX BCC
+        //sendBCC(SOH "R2" STX "D110"           ETX, _serial);  //Serialnummer auslesen
+        //sendBCC(SOH "R2" STX "C003"             ETX, _serial);  //Uhrzeit auslesen
+        // sendBCC(SOH "R5" STX "P.98"  ETX, _serial);  // Logbuch auslesen
+        //sendBCC(SOH "R5" STX "0.0.0"  ETX, _serial);  // Serialnummer auslesen
+        //sendBCC(SOH "R5" STX "0.9.1"  ETX, _serial);  // Uhrzeit auslesen
+        //serialWrite("\x01\x52\x32\x02\x44\x31\x31\x30\x03\x76");  //Serialnummer auslesen
+        //sendBCC(SOH "R2" STX "F001"           ETX, _serial);  //Verkürzter Datensatz (inklusive 1 Vorwert)
+
+        // 01 50 30  02 28 36 41  42 32 44 30  43 32 29 03  62 02 45 52  30 30 30 31 03 77
+        // Anwort ist dann immer : <SOH>P0<STX>(12345678)<ETX><BCC> ==> dafür braucht man einen Passwortalgorythmus !
+
+        return;
+    }
+
+    if (_state == waitForBillingDatasetStartSingleValue) {
+        if (_serialReadBufferIdx == 0) {
+            return;
+        }
+        for (size_t l=0; l < _serialReadBufferIdx; l++) {
+            if (_serialReadBuffer[l] == SOH0x || _serialReadBuffer[l] == STX0x) {
+                eatSerialReadBuffer(l);
+                _state = waitForBillingDatasetEndSingleValue;
+                _stateLastSetMs = msNow;
+                LOG_IP("Billing dataset single value start found");
+                break;
+            }
+        }
+        return;
+    }
+
+    if (_state == waitForBillingDatasetEndSingleValue) {
+        if (_serialReadBufferIdx < 2) {
+            return;
+        }
+
+        size_t l;
+        const uint8_t *end = (const uint8_t*) memmem(_serialReadBuffer, _serialReadBufferIdx - 1, ETX, 1);
+        if (end) {
+            l = end - _serialReadBuffer + 2; // das BCC nach dem ETX speichern wir auch!
+        } else {
+            l = _serialReadBufferIdx - 1; // ein Zeichen brauchen wir noch
+        }
+        _billingDatasetRead += l;
+        _billingDataset.write(_serialReadBuffer, l);
+        _billingDataset.flush();
+        eatSerialReadBuffer(l);
+
+        if (end || _billingDatasetRead > 16*1024) { // Ende gefunden oder 16kiB gelesen
+            // we got the end !
+            _state = decodeBillingDataset;
+            _stateLastSetMs = msNow;
+        } else if (_billingDatasetRead > _billingDatasetReadPrev + 20) {
+            // read more than 20 Bytes ==> extend timer
+            _billingDatasetReadPrev = _billingDatasetRead;
+            _stateLastSetMs = msNow;
+        }
+    }
+
+    if (_state == waitForBillingDatasetStart) {
+        // check if we've already got enough to check start of billingdataset
+        if (_serialReadBufferIdx < 4) {
+            return;
+        }
+
+        const uint8_t *ff_start = (const uint8_t*) memmem(_serialReadBuffer, _serialReadBufferIdx, "F.F(", 4);
+
+        if (ff_start == nullptr)  {
+            if (_serialReadBufferIdx > 20) {
+                eatSerialReadBuffer(_serialReadBufferIdx - 3);
+            }
+            return;
+        }
+        eatSerialReadBuffer(ff_start - _serialReadBuffer);
+        _state = waitForBillingDatasetEnd;
+        _stateLastSetMs = msNow;
+        LOG_IP("Billing dataset start found");
+        return;
+    }
+
+    if (_state == waitForBillingDatasetEnd) {
+        size_t l;
+
+        const uint8_t *end = (const uint8_t*) memmem(_serialReadBuffer, _serialReadBufferIdx, CR LF ETX, 3);
+        if (end) {
+            l = end - _serialReadBuffer + 2; // das ETX speichern wir nicht!
+        } else {
+            l = _serialReadBufferIdx;
+            // 2 bytes müssen wir im puffer lassen, um das Ende erkennen zu können!
+            if (l <= 2) {
+                return;
+            }
+            l -= 2;
+        }
+
+        _billingDatasetRead += l;
+        _billingDataset.write(_serialReadBuffer, l);
+        _billingDataset.flush();
+        eatSerialReadBuffer(l);
+
+        if (end || _billingDatasetRead > 16*1024) { // Ende gefunden oder 16kiB gelesen
+            // we got the end !
+            _state = decodeBillingDataset;
+            _stateLastSetMs = msNow;
+        } else if (_billingDatasetRead > _billingDatasetReadPrev + 20) {
+            // read more than 20 Bytes ==> extend timeout
+            _billingDatasetReadPrev = _billingDatasetRead;
+            _stateLastSetMs = msNow;
+        }
+        return;
+    }
+
+    if (_state == decodeBillingDataset) {
+        _state = endBillingDataset;
+        _stateLastSetMs = msNow;
+        return;
+    }
+
+    if (_state == endBillingDataset) {
+        char filename[33];
+
+        // Senden wir noch gleich ein "Break" (siehe 5.2.8.12. Break B0) - das sollte das aktuelle Protokoll beenden
+        // SOH B0 ETX BCC // BCC müsste hier 113 (0x71) sein
+        sendBCC(SOH "B0" ETX, _serial);
+
+        if (_billingDataset) {
+            _billingDataset.close();
+            if (!_serialNumber[0] || _billingDatasetRead == 0) {
+                LOG_WP("End read billing dataset: No data read!");
+            } else {
+                snprintf_P(filename, sizeof(filename), "%s_vd.txt", _serialNumber); // _vd = VerrechnungsDatensatz
+                LittleFS.remove(filename);
+                LittleFS.rename(AMISREADER_BILLINGDATA_FILENAME, filename);
+                LOGF_IP("End read billing dataset: %" PRIu32 " bytes read, saved as '%s'.", _billingDatasetRead, filename);
+            }
+        } else {
+            LOG_WP("End read billing dataset: Internal error!");
+        }
+        LittleFS.remove(AMISREADER_BILLINGDATA_FILENAME);
+
+        _state = initReadCounters;
+        _stateLastSetMs = msNow;
+        return;
+    }
+}
+
 void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 {
     if (_state == initReadSerial) {
@@ -509,7 +842,6 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
         }
         if (_serial != nullptr) {
             _serial->begin(300, SERIAL_7E1); /* Serialnummer wird mit 300 7E1 gelesen */
-            _serial->setTimeout(5);         // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
             _serial->clearWriteError();
         }
         _serialReadBufferIdx = 0;
@@ -543,10 +875,11 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
             return;
         }
         if (memcmp(_serialReadBuffer, "/SAT", 4)) {
-            LOGF_VP("Got %u bytes: %02x %02x %02x %02x ....",
+            LOGF_VP("Got %u bytes: %02x %02x %02x %02x %02x %02x ...",
                         _serialReadBufferIdx,
                         _serialReadBuffer[0], _serialReadBuffer[1],
-                        _serialReadBuffer[2], _serialReadBuffer[3]);
+                        _serialReadBuffer[2], _serialReadBuffer[3],
+                        _serialReadBuffer[4], _serialReadBuffer[5]);
             _state = requestReaderSerial;
             return;
         }
@@ -575,29 +908,19 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
 
             // "0" ...  300 Bd, "1" ...  600 Bd, "2" ...  1200 Bd, "3" ...   2400 Bd
             // "4" ... 4800 Bd, "5" ... 9600 Bd, "6" ... 19200 Bd. "9" ... 115200 Bd
-            _baudRateIdentifier = _serialReadBuffer[5];
+            _baudRateIdentifier = _serialReadBuffer[4];
 
             const char *serialNr = (const char *)_serialReadBuffer+5;
             strlcpy(_serialNumber, serialNr, sizeof(_serialNumber));
 
             // Der Zähler bleibt nun anscheinend 10 Sekunden in dem IEC 62056-21 Modus
             // siehe https://wiki.volkszaehler.org/_media/hardware/channels/meters/power/siemens/amis_td-351x_bhbk.pdf 5.2.13.1
-            _state = initReadCounters;
+            _state = initReadBillingDataset;
             _stateLastSetMs = msNow;
             _stateErrorCnt = 0;
             LOGF_IP("Serialnumber %s found", _serialNumber);
-
-            // Senden wir noch gleich ein "Break" (siehe 5.2.8.12. Break B0) - das sollte das aktuelle Protokoll beenden
-            // SOH B0 ETX BCC
-            //
-            // SOH=0x01 (Start of Header)  (STX wäre 0x02)
-            // ETX=0x03
-            // BCC=BlockPrüfzeichen lt ISO 1155 (=XOR aller Bytes)
-            constexpr uint8_t bcc = 0x01 ^ 'B' ^ '0' ^ 0x03;
-            serialWrite("\x01BO\x03");
-            serialWrite(bcc);
-            delay(15); // Wait a bit till it's really sent as we change to 9600 in next step
-
+            // Das "break"(B0) um die aktuelle Protokoll-Ebene zu beenden,
+            // senden wir mit dem _state initReadBillingDataset oder endBillingDataset
         } else {
             // das scheint ungültig zu sein ... alles wegwerfen und nochmals probieren
             _state = requestReaderSerial;
@@ -607,9 +930,9 @@ void AmisReaderClass::processStateSerialnumber(const uint32_t msNow)
     }
 }
 
-#if 0
 void AmisReaderClass::eatSerialReadBuffer(size_t n)
 {
+    // Entfernt n Bytes aus dem internen Serial-Lese Puffer
     size_t i;
     if (n >= _serialReadBufferIdx || n >= sizeof(_serialReadBuffer)) {
         _serialReadBufferIdx = 0;
@@ -621,7 +944,6 @@ void AmisReaderClass::eatSerialReadBuffer(size_t n)
     }
     _serialReadBufferIdx -= n;
 }
-#endif
 
 void AmisReaderClass::moveSerialBufferToDecodingWorkBuffer(size_t n)
 {
@@ -653,7 +975,6 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
         LOG_DP("Initalizing reading counter values");
         if (_serial) {
             _serial->begin(9600, SERIAL_8E1); /* Zählerdaten kommen angeblich mit 9600 8E1 */
-            _serial->setTimeout(5);           // eigentlich prüfen wir ja mit available() ... aber vorsichtshalber
             _serial->clearWriteError();
         }
         _serialReadBufferIdx = 0;
@@ -764,7 +1085,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             }
 
             RemoteOnOff.onNewValidData(Databroker.results_u32[4]/* 1.7.0 */, Databroker.results_u32[5] /* 2.7.0 */);
-            MaxDemand.onNewValidData(Databroker.time, Databroker.results_u32[0] /* 1.8.0 */);
+            MaxDemand.onNewValidData(Databroker.time, Databroker.ts, Databroker.results_u32[0] /* 1.8.0 */);
 
             // TODO(anyone): Refactor that "special values" from main.cpp
             dow = l_result.time.tm_wday; // dow: 1..7 (1=MON...7=SUN)
@@ -794,7 +1115,7 @@ void AmisReaderClass::processStateCounters(const uint32_t msNow)
             Databroker.valid = 1;
             LOGF_DP("Decrypting data failed: error=%d", r);
         } else {
-            // Beim Zählertelegram stimmten schon die Eckdatenm (Header, Checksumme, usw nicht)
+            // Beim Zählertelegram stimmten schon die Eckdaten (Header, Checksumme, usw nicht)
             // ==> d.h.: vermutlich ungültige Daten empfangen
             Databroker.valid = 0;
             LOGF_DP("Invalid data received: error=%d", r);
@@ -823,19 +1144,38 @@ void AmisReaderClass::loop()
     }
 
     // always read some bytes from the serial interface
-    pollSerial();
+    _rxSerailRead += pollSerial(120);
 
     msNow = millis();
+
+    if (_state == msDelay) {
+        if (msNow - _stateLastSetMs <= _stateTimoutMs) {
+            return;
+        }
+        _state = _statePostDelay;
+        _stateTimoutMs = _stateTimeoutMsPostDelay;
+        _stateLastSetMs = msNow;
+    }
 
     // Do all releated things querying serialnumber
     processStateSerialnumber(msNow);
 
+    // Do all releated things querying billing dataset (Verrechnungsdatensatz)
+    processStateReadBillingDataset(msNow);
+
     // Do all releated steps to read the counters
     processStateCounters(msNow);
 
-    if ( msNow - _stateLastSetMs >= _stateTimoutMs ) {
+    if (_state == msDelay) {
+        // Status wurd nun soeben auf delay gesetzt (ansonsten hätten wir das oben behandlet!)
+        _stateLastSetMs = millis(); // wirklich die aktuelle Zeit fürs delay verwenden
+        return;
+    }
+
+    if (msNow - _stateLastSetMs >= _stateTimoutMs) {
         // Timeout: seems something gone at the actual state wrong and needed too long
-        LOGF_DP("State timeout occured! current state=%d", (int)_state);
+        LOGF_DP("State timeout occured! current state=%d _stateErrorCnt=%u _stateErrorMax=%u",
+                 (int)_state, _stateErrorCnt, _stateErrorMax);
 
         _stateLastSetMs = msNow;
         _stateErrorCnt++;
@@ -847,6 +1187,9 @@ void AmisReaderClass::loop()
 
         if (_state == waitForReaderSerial) {
             _state = requestReaderSerial;
+        } else if (_state == waitForBillingDatasetStart || _state == waitForBillingDatasetEnd ||
+                   _state == waitForBillingDatasetStartSingleValue || _state == waitForBillingDatasetEndSingleValue) {
+            _state = requestBillingDataset;
         }
     }
 
@@ -868,6 +1211,13 @@ void AmisReaderClass::loop()
 
         _serialReadBufferIdx = 0;
         clearSerialRx();
+
+        if (_state == initReadBillingDataset || _state == requestBillingDataset || _state == requestSpecialCounterValue ||
+            _state == waitForBillingDatasetStart || _state == waitForBillingDatasetEnd ||
+            _state == decodeBillingDataset) {
+            _state = endBillingDataset;
+            return;
+        }
 
         if (_state == initReadSerial || _state == requestReaderSerial ||
             _state == waitForReaderSerial || _state == decodeReaderSerial ) {
@@ -928,6 +1278,43 @@ void AmisReaderClass::enableRestart() {
 
 void AmisReaderClass::disable() {
     _isEnabled = false;
+}
+
+
+String AmisReaderClass::statusText() {
+    static const __FlashStringHelper* dots[] = { F(""), F("."), F(".."), F("...") };
+    String r;
+    AmisReaderState_t s = (_state == msDelay) ?_statePostDelay :_state;
+
+    if (!_isEnabled) {
+        r = F("Zählerabfrage disabled");
+    } else {
+        size_t dots_num = time(NULL) & 3;
+        const __FlashStringHelper* dots_repeat = dots[dots_num];
+        if (s == readReaderCounters || s == decodeReaderCounter) {
+            if (Databroker.valid == 5) {
+                r = F("Lese Zählerdaten");
+                r += dots_repeat; // Alles OK ... wir lesen
+            } else if (Databroker.valid == 0) {
+                r = F("Warte auf Zählerdaten");
+                r += dots_repeat;
+            } else {
+                r = F("Amis-Key ungültig?");
+            }
+        } else {
+            if (s == initReadCounters) {
+                r = F("Warte auf Zählerdaten");
+                r += dots_repeat;
+            } else if (s == initReadSerial || s == requestReaderSerial || s == waitForReaderSerial || s == decodeReaderSerial) {
+                r = F("Lese Gerätenummer");
+                r += dots_repeat;
+            } else {
+                r = F("Lese interne Zählerdaten (") + String(_billingDatasetRead)  + " Bytes)";
+                r += dots_repeat;
+            }
+        }
+    }
+    return r;
 }
 
 AmisReaderClass AmisReader;

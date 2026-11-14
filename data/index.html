@@ -22,6 +22,16 @@
     float: left;
     width: 300px;
 }
+.button-restore-general,
+.button-restore-wifi,
+.button-restore-mqtt,
+.button-restore-week,
+.button-restore-month,
+.button-restore-maxdemandhistory,
+.button-restore-maxdemandcurrent
+{
+    width: 300px;
+}
       </style>
 </head>
 <body>
@@ -51,6 +61,7 @@
                 <li class="pure-menu-item"><a class="pure-menu-link" data="panel-update">Update</a></li>
                 <li class="pure-menu-item"><a class="pure-menu-link" data="panel-hist">Versionsinfo</a></li>
                 <li class="pure-menu-item menu-developer"><a class="pure-menu-link" data="panel-development-tools">Development</a></li>
+                <li class="pure-menu-item menu-developer"><a class="pure-menu-link" data="panel-file-explorer">📁 File Explorer</a></li>
             </ul>
         </div>
     </div>
@@ -126,9 +137,11 @@
             <div class="pure-u-11-24">1.128.0 (Inkasso)</div>
             <div class="pure-u-11-24" name="1_128_0"></div>
             <div class="pure-u-11-24">1.6.0 (Max. 1/4h Leistung Monat)</div>
-            <strong><div class="pure-u-11-24" name="1_6_0" post=" W"></div></strong>
+            <strong><div class="pure-u-3-24" name="1_6_0" post=" W"></div></strong>
+            <div class="pure-u-8-24" name="1_6_0_ts"></div>
             <div class="pure-u-11-24">1.6.0 (Max. 1/4h Leistung Vormonat)</div>
-            <strong><div class="pure-u-11-24" name="1_6_0_vm" post=" W"></div></strong>
+            <strong><div class="pure-u-3-24" name="1_6_0_vm" post=" W"></div></strong>
+            <div class="pure-u-8-24" name="1_6_0_vm_ts"></div>
             <br><hr>
             <div class="pure-u-11-24">Laufzeit</div>
             <div class="pure-u-11-24" name="uptime"></div>
@@ -430,6 +443,13 @@
         <div class="pure-g">
           <div class="pure-u-3-4">Offset für Saldo 1.7.0-2.7.0 (auch negativ!)</div>
           <input class="pure-u-1-4 general" type="number" name="rest_ofs" value="0">
+        </div>
+        <div class="pure-g">
+          <div class="pure-u-3-4">Deadband: Ausgabe von Saldo 0 wenn Saldo zwischen +-</div>
+          <input class="pure-u-1-4 general" type="number" name="saldo_deadband" value="0" min="0">
+          <div class="pure-u-1 hint">
+            Liegt der Saldo 1.7.0-2.7.0 des Zählers innerhalb von +- diesem Wert (in Watt), wird bei Rest, MQTT, ModbusTCP und Shelly-Emulation ein Saldo von 0 ausgegeben. 0 = deaktiviert.
+          </div>
         </div>
         <div class="pure-g">
           <div class="pure-u-2-3">Saldo 1.7.0-2.7.0 negieren</div>
@@ -827,15 +847,19 @@
             werden sofort überschrieben!
           </div>
           <div class="pure-g">
-              <button class="pure-button  button-restore-general">Allgemein</button>
+              <button class="pure-button button-restore-general">Allgemein</button>
               <div class="pure-u-1 "></div>
-              <button class="pure-button  button-restore-wifi">WiFi</button>
+              <button class="pure-button button-restore-wifi">WiFi</button>
               <div class="pure-u-1"></div>
-              <button class="pure-button  button-restore-mqtt">MQTT</button>
+              <button class="pure-button button-restore-mqtt">MQTT</button>
               <div class="pure-u-1"></div>
-              <button class="pure-button  button-restore-week">Wochenliste</button>
+              <button class="pure-button button-restore-week">Wochenliste</button>
               <div class="pure-u-1"></div>
-              <button class="pure-button  button-restore-month">Monatsliste</button>
+              <button class="pure-button button-restore-month">Monatsliste</button>
+              <div class="pure-u-1"></div>
+              <button class="pure-button button-restore-maxdemandhistory">MaxDemand-History</button>
+              <div class="pure-u-1"></div>
+              <button class="pure-button button-restore-maxdemandcurrent">MaxDemand-Current</button>
           </div>
       </div>
 
@@ -878,6 +902,22 @@
           <br>
           <div class="pure-g hist">
             <div class="pure-u-1">
+              <h3>Version 1.6.7</h3>
+              Neue Einstellung "Deadband" für den Saldo 1.7.0-2.7.0 (Einstellungen/Allgemein, Standard 0 = deaktiviert).<br>
+              - Liegt der vom Zähler gelieferte Saldo innerhalb von +- dem eingestellten Wert (in Watt), wird bei Rest, MQTT, ModbusTCP und der Shelly-Emulation ein Saldo von 0 ausgegeben.<br>
+              - Offset und Negierung werden in diesem Fall nicht angewendet.<br>
+              - Alle anderen Funktionen (z.B. Schaltvorgang, Weboberfläche, Grafik) verwenden weiterhin den tatsächlichen Saldo des Zählers.<br>
+              <h3>Version 1.6.6-dev1</h3>
+              Überarbeitung der Viertelstundenhöchstverbrauchswerte - Daten aus v1.6.5 werden <b>NICHT</b> übernommen.<br>
+              Viertelstundenwerte werden an den Web-Client nur bei Änderungen ausgegeben.<br>
+              Beim Backup/Restore werden die Viertelstundenwerte gespeichert/wiederhergestellt.<br>
+              Lesen des Verrechnungsdatensatzes aus dem Zähler (EXPERIMENTELL).<br>
+              - Im Verrechnungsdatensatz stecken historische Zählerdaten von über einem Jahr.<br>
+              - Der Leser kann aktuell darauf nur mit 300 Baud zugreifen - das Lesen dauert etwa 5-6 Minuten.<br>
+              - Erstellen der "Monatstabelle" aus diesen Daten möglich (Derzeit nur im Developmentbereich).<br>
+              - Erstellen der "Maximalen Viertelstundenwerte" aus diesen Daten möglich (Derzeit nur im Developmentbereich).<br>
+              FileExplorer unter /fexplorer.html (als Hilfe für Entwickler).<br>
+              Update ArduinoJson von 6.21.5 auf 6.21.6.<br>
               <h3>Version 1.6.5</h3>
               Weitere Stabilitätsverbesserungen eingefügt.<br>
               Upload des littelfs entfernt (wird nicht mehr benötigt).<br>
@@ -1075,6 +1115,9 @@
           <h2>Hilfsmittel für Entwickler</h2>
         </div>
         <br>
+        <h2>AmisReader File Explorer</h2>
+        <p><button class="pure-button button-dev button-open-fexplorer" title="Datei-Explorer öffnen">📁 Explorer</button></p><br>
+        <hr>
         <h2>Commands</h2>
         <p><button class="pure-button button-dev button-dev-tools-button1">Websock-Send-Command-Button1</button></p><br>
         <p><button class="pure-button button-dev button-dev-tools-button2">Websock-Send-Command-Button2</button></p><br>
@@ -1082,6 +1125,19 @@
         <p><button class="pure-button button-dev button-dev-cmd-test">Websock-Send-Command: 'test'</button></p><br>
         <p><button class="pure-button button-dev button-dev-cmd-ls">Websock-Send-Command: 'ls'</button></p><br>
         <p><button class="pure-button button-dev button-dev-cmd-clear">Websock-Send-Command: 'clear'</button></p><br>
+        <hr>
+        <h2>Serielle</h2>
+        <p><button class="pure-button button-dev button-dev-dump-reader-serial-on">Logging SerialRx: On</button></p><br>
+        <p><button class="pure-button button-dev button-dev-dump-reader-serial-off">Logging SerialRx: Off</button></p><br>
+        <p><button class="pure-button button-dev button-dev-dump-reader-serial-clear">Logging SerialRx: File leeren</button></p><br>
+        <p>Dumpfile <a href="/serialRxDump.bin">serialRxDump.bin</a> herunterladen</p><br>
+        <hr>
+        <h2>Verrechnungsdatensatz</h2>
+        <button class="pure-button button-dev button-refresh-billingdataset">Daten vom Zähler auslesen</button><br>
+        <p>Aktuell:</p>
+        <a href="/billingdata.txt" target="_blank" id="billingdataset_link"></a> <span id="billingdataset_modified"></span><br>
+        <p><button class="pure-button button-dev button-create-mon-from-billingdataset">Historische Monatsdaten erstellen</button></p><br>
+        <p><button class="pure-button button-dev button-create-maxdemand-from-billingdataset">Historische 1/4h Werte erstellen</button></p><br>
         <hr>
         <h2>Json senden</h2>
         <p><textarea id="dev-text-json" rows="5" cols="132">{ "command" : "ls" }</textarea></p>

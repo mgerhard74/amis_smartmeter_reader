@@ -1,6 +1,7 @@
 #include "ModbusSmartmeterEmulation.h"
 
 #include "Log.h"
+#include "config.h"
 #define LOGMODULE   LOGMODULE_MODBUS
 #include "Network.h"
 #include "SystemMonitor.h"
@@ -216,6 +217,9 @@ void ModbusSmartmeterEmulationClass::setCurrentValues(bool dataAreValid, uint32_
 
         float saldo;
         saldo = (float) v1_7_0 - (float) v2_7_0;                    // 1.7.0 - 2.7.0 = Power
+        if (Config.saldoInDeadband((int32_t)(v1_7_0 - v2_7_0))) {
+            saldo = 0;                                              // Deadband: Saldo als 0 ausgeben
+        }
 
         //float2Bytes.f = (float)(saldo) / 230;                     // Total AC Current
         //float2Bytes.ui32t = SWAP_BE4(float2Bytes.ui32t);

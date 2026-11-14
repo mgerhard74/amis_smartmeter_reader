@@ -12,6 +12,7 @@
 #include "__embed_data_amis_css.h"
 #include "__embed_data_chart_js.h"
 #include "__embed_data_cust_js.h"
+#include "__embed_data_fexplorer_html.h"
 #include "__embed_data_index_html.h"
 #include "__embed_data_jquery371slim_js.h"
 #include "__embed_data_pure_min_css.h"
@@ -156,6 +157,11 @@ void WebserverClass::init()
     _server.on("/cust.js", HTTP_GET, [&](AsyncWebServerRequest* request) {
         responseBinaryDataWithETagCache(request, asyncsrv::T_application_javascript, true,
                                         asyncsrv::T_gzip, cust_js_gz, cust_js_gz_size, cust_js_gz_md5,
+                                        false);
+    });
+    _server.on("/fexplorer.html", HTTP_GET, [&](AsyncWebServerRequest* request) {
+        responseBinaryDataWithETagCache(request, asyncsrv::T_text_html, true,
+                                        asyncsrv::T_gzip, fexplorer_html_gz, fexplorer_html_gz_size, fexplorer_html_gz_md5,
                                         false);
     });
     _server.on("/index.html", HTTP_GET, [&](AsyncWebServerRequest* request) {

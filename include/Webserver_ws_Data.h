@@ -11,6 +11,7 @@ class WebserverWsDataClass
         WebserverWsDataClass();
         void init(AsyncWebServer& server);
         void reload();
+        bool queueClientRequest(const char *json, AsyncWebSocketClient* client, uint32_t clientId=0);
 
     private:
         typedef struct _clientRequest {

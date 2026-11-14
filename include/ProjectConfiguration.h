@@ -2,7 +2,7 @@
 
 // Eckdaten der Applikation
 #define APP_NAME        "Amis"
-#define APP_VERSION_STR "1.6.5"
+#define APP_VERSION_STR "1.6.7"
 
 
 // Pin, mit dem der Zähler mittels Jumper auf Masse

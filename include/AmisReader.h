@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <time.h>
 
 // TODO(anyone): Refactor this global vars
@@ -47,7 +48,14 @@ public:
     void enable();
     void disable();
     void end();
+    // int getState() { return (int) ((_state == msDelay) ?_statePostDelay :_state);}
+    String statusText();
     // void enableRestart(); // enables and restart fresh readings
+
+    void readBillingDataset();
+
+    void serialEnableDump(bool enable);
+    void serialClearDumpFile();
 
 private:
     enum AmisReaderState_t {
@@ -61,18 +69,31 @@ private:
         readReaderCounters,
         decodeReaderCounter,
 
+        initReadBillingDataset,
+        requestBillingDataset,
+        requestSpecialCounterValue,
+        waitForBillingDatasetStart,
+        waitForBillingDatasetStartSingleValue,
+        waitForBillingDatasetEnd,
+        waitForBillingDatasetEndSingleValue,
+        decodeBillingDataset,
+        endBillingDataset,
+
+        msDelay,
+
         //stateUndefined,
     };
 
     size_t serialWrite(const char *str);
     size_t serialWrite(uint8_t byte);
     size_t clearSerialRx();
-    size_t pollSerial();
+    size_t pollSerial(size_t nbytes);
 
-    //void eatSerialReadBuffer(size_t n); // ist derzeit nicht benötigt und mittels #if 0 dektiviert
+    void eatSerialReadBuffer(size_t n);
 
     void processStateSerialnumber(const uint32_t msNow);
     void processStateCounters(const uint32_t msNow);
+    void processStateReadBillingDataset(const uint32_t msNow);
 
     void moveSerialBufferToDecodingWorkBuffer(size_t n);
 
@@ -88,6 +109,8 @@ private:
     char _serialNumber[AMISREADER_MAX_SERIALNUMER + 1]; // auch als "Geräteadresse" oder "Identifikation" bezeichnet
 
     AmisReaderState_t _state = initReadSerial;
+    AmisReaderState_t _statePostDelay = initReadSerial;
+    uint32_t _stateTimeoutMsPostDelay;
     //AmisReaderState_t _prevState = stateUndefined;
     uint32_t _stateLastSetMs;
 
@@ -110,9 +133,16 @@ private:
     bool _isEnabled = false;
     bool _readerIsOnline = false;
 
+    File _dumpSerialRxData;
+    size_t _rxSerailRead=0;
+
     uint32_t _validFrameCnt=0; // Gültige Zählerdaten-Frames hintereinander
 
     uint32_t _lastTimeSync;
+
+    File _billingDataset;
+    size_t _billingDatasetRead=0;
+    size_t _billingDatasetReadPrev=0;
 };
 
 extern AmisReaderClass AmisReader;

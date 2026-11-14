@@ -9,12 +9,33 @@ var logpages;
 var e180,e280;
 var yestd_in=null;
 var yestd_out;
-var monthlist;
-var weekdata;
 var restoreData;
 var g_lastDT = new Date(); // Zuletzt erhaltene Zählerwerte (lt Zähleruhrzeit)
 var wsTimer;
 var wsActiveFlag=true;
+
+var lastSerail = "";
+var lastNow = 1;
+
+var monthlist;
+var weekdata;
+
+var billingDataset = {
+  filename: "",
+  size: 0, // size in bytes
+  cr: 0, // timestamp created
+  mo: 0 // timestampe modified
+};
+
+var demandCurrent = {
+  command: "/maxdemand_curr",
+  items: []
+};
+
+var demandHistory = {
+  command: "/maxdemand_hist",
+  items: []
+};
 
 var config_general = {
     "devicetype": "AMIS-Reader",
@@ -34,6 +55,7 @@ var config_general = {
     "rest_var": 0,
     "rest_ofs": 0,
     "rest_neg": false,
+    "saldo_deadband": 0,
     "smart_mtr":false,
     "shelly_smart_mtr_udp": false,
     "shelly_smart_mtr_http": false,
@@ -89,6 +111,278 @@ var config_runtime = {
     "command": "config_runtime" // ohne führendes "/"
 };
 
+const blockClick = (e) => e.preventDefault();
+
+
+
+function ISO8601StrToUnixTimestamp(dateStr, timezone = "Europe/Vienna") {
+  // dateStr: yyyy-MM-ddThh:mm:ss           (timezone verwenden)
+  //          yyyy-MM-ddThh:mm:ssZ          (ist schon UTC  / timezone ignorieren )
+  //          yyyy-MM-ddThh:mm:ss+02:00     (offset ist angegeben / timezone ignorieren)
+
+  // Wenn wir nur "new Date(yyyy-MM-ddThh:mm:ss)" machen wird die Zeitzone des Browsers verwendet
+  // Das wollen wir nicht - wir wollen ja explizit eine bestimmte Zeitzone
+
+
+  // 1) Bereits UTC? -> direkt parsen
+  if (dateStr.endsWith("Z")) {
+    return Math.floor(new Date(dateStr).getTime() / 1000);
+  }
+
+  // 2) Lokale Zeit + Zeitzone in String? (z.B. +02:00) → direkt parsen
+  //    new Date() versteht ISO-Strings mit explizitem Offset korrekt.
+  if (/[+-]\d{2}:\d{2}$/.test(dateStr)) {
+    return Math.floor(new Date(dateStr).getTime() / 1000);
+  }
+
+  // 3) Ohne Suffix: Wallclock-Werte extrahieren (ohne TZ-Interpretation)
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(dateStr);
+  if (!m) throw new Error("Ungültiges Format: " + dateStr);
+  const [, y, mo, d, h, mi, s] = m.map(Number);
+
+  // Diese Wallclock-Werte "so als wären sie UTC" — Bezugspunkt für die Offset-Rechnung
+  const asIfUtc = Date.UTC(y, mo - 1, d, h, mi, s);
+
+  // --- Hilfsfunktion: Wallclock in `timezone` zum UTC-Zeitpunkt `utcMs` ---
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+  function getZonedParts(ms) {
+    const parts = {};
+    for (const { type, value } of fmt.formatToParts(ms)) {
+      if (type !== "literal") parts[type] = +value;
+    }
+    return parts;
+  }
+
+  // 4) Offset der Zielzone zu diesem Zeitpunkt bestimmen (2 Iterationen reichen)
+  let utcMs = asIfUtc;
+  for (let i = 0; i < 2; i++) {
+    const p = getZonedParts(utcMs, timezone);
+    const zonedAsUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    const offset = zonedAsUtc - utcMs;        // in ms, z.B. +2h im Sommer
+    utcMs = asIfUtc - offset;                 // Wallclock -> echte UTC
+  }
+
+  return Math.floor(utcMs / 1000);
+}
+
+/*
+function unixTimestampToAmisStr(timestamp) {
+  // Timestamp in Millisekunden umwandeln und Date-Objekt erstellen
+  const date = new Date(timestamp * 1000);
+
+  // Formatierer für Europa/Vienna definieren (liefert die exakten lokalen Teile)
+  const formatter = new Intl.DateTimeFormat('de-AT', {
+    timeZone: 'Europe/Vienna',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  // Teile extrahieren
+  const parts = formatter.formatToParts(date);
+  const dict = Object.fromEntries(parts.map(p => [p.type, p.value]));
+
+  // String im Format YYYY/MM/DD hh:mm:ss zusammenbauen
+  return `${dict.year}/${dict.month}/${dict.day} ${dict.hour}:${dict.minute}:${dict.second}`;
+}
+*/
+
+async function generateDemandFromBillingDataset() {
+    if (billingDataset.size == 0) return;
+
+    // YYMM v.1.6.0 Timestamp(Beginn)
+
+    // 1) /xxx.txt laden
+    const res = await fetch(`/${billingDataset.filename}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch ${billingDataset.filename} fehlgeschlagen: ${res.status}`);
+    const text = await res.text();
+
+    // 2) Zeilen parsen
+    // 1.6.0: Zählerstand, Index = Monat, Datum+Zeit vorhanden
+    const re_160_hist = /^1\.6\.0[*&](\d+)\(([\d.]+)\)\((\d{2})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\)/;
+    const map = new Map(); // "YYMM" -> { quarterMax, quarterMaxDT }
+
+    //  "1.6.0(3.888*kW)(26-11-06 11:15)"
+    const re_160_curr = /^1\.6\.0\(([\d.]+)\*kW\)\((\d{2})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\)/;
+
+    var m_160_curr = null;
+
+    // Bauen wir das Set aus den 1.6.0'er Werten (höchster viertelstunden wert)
+    /*
+    1.6.0(3.888*kW)(26-11-06 11:15)
+    1.6.0*84(3.731)(26-06-15 19:15)
+    1.6.0*83(4.505)(26-05-17 21:45)
+    1.6.0&82(2.538)(26-05-06 22:15)
+    1.6.0*81(3.964)(26-04-28 16:15)
+    1.6.0*80(4.276)(26-03-29 18:00)
+    */
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+
+        if (!m_160_curr) { // use first match
+          m_160_curr = t.match(re_160_curr);
+          if (m_160_curr) {
+            const [, valueStr, yy, mm, dd, hh, min] = m_160_curr;
+            const key = yy + mm;
+            const quarterMax = Math.round(parseFloat(valueStr) * 1000);
+            const quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+            // console.log(`20${yy}-${mm}-${dd} ${hh}:${min}:00`, timeDecoderTS(quarterMaxDT));
+            m_160_curr = `${key} ${quarterMax} ${quarterMaxDT}`;
+          }
+        }
+
+        const m = t.match(re_160_hist);
+        if (m) {
+            const [, , valueStr, yy, mm, dd, hh, min] = m;
+            const key = yy + mm;
+            let e = map.get(key);
+            if (!e) {
+              e = {quarterMax:0, quarterMaxDT:0};
+              map.set(key, e);
+            }
+            const q_max = Math.round(parseFloat(valueStr) * 1000);
+            if (q_max > e.quarterMax) {
+              e.quarterMax = q_max;
+              e.quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
+              // console.log(`20${yy}-${mm}-${dd} ${hh}:${min}:00`, timeDecoderTS(e.quarterMaxDT));
+            }
+        }
+    }
+
+    // /monthend-Zeilen bauen - alle
+    const lines = [...map.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, e]) =>
+            `${key} ${e.quarterMax} ${e.quarterMaxDT}`
+        );
+
+    websock.send(JSON.stringify({command:"/maxdemand_hist", items:lines}));
+    websock.send(JSON.stringify({command:"/maxdemand_curr", items:[m_160_curr]}));
+
+    return { curr:m_160_curr, history:lines.join('\n') + '\n' };
+}
+
+async function generateMonthFromBillingDataset() {
+    if (billingDataset.size == 0) return;
+
+    // YYMM bezugWh einspeisungWh zaehlerWh "YY-MM-DD HH:MM"
+
+    // 1) /xxx.txt laden
+    const res = await fetch(`/${billingDataset.filename}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch ${billingDataset.filename} fehlgeschlagen: ${res.status}`);
+    const text = await res.text();
+
+    // 2) Zeilen parsen
+    // 1.8.0 / 2.8.0: Monatswerte (Index = Monat)
+    const re_180 = /^1\.8\.0[*&](\d+)\(([\d.]+)\)\((\d{2})-(\d{2})-\d{2}[^)]*\)/;
+    const re_280 = /^2\.8\.0[*&](\d+)\(([\d.]+)\)/;
+    const map = new Map(); // "YYMM" -> { bezug, einspeisung, quarterMax, quarterMaxDT }
+    const map_iidx = new Map(); // "iidx" -> {YYMM }
+
+    // Als erstes nehmen wir nur die 1.8.0 (bezug) - die haben ein Datum und einen iidx
+    /*
+    1.8.0(60857.073*kWh)(00-00-00 00:00)
+    1.8.0*84(59036.902)(26-07-01 00:00)
+    1.8.0*83(58671.185)(26-06-01 00:00)
+    1.8.0&82(58384.066)(26-05-08 14:59)
+    1.8.0*81(58286.139)(26-05-01 00:00)
+    1.8.0*80(57821.418)(26-04-01 00:00)
+    */
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+        // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
+        const m = t.match(re_180);
+        if (m) {
+            const [, iidx, valueStr, yy, mm] = m;
+            const key = yy + mm;
+            if (key === '0000') continue; // bei "00-00-00 00:00" wäre das der aktuelle Wert
+
+            const val = parseFloat(valueStr);
+            let e = map.get(key);
+            if (!e) {
+              e = {einspeisung:0, bezug:0};
+              map.set(key, e);
+            }
+            const bezug = Math.round(val * 1000);
+            if (bezug > e.bezug) {
+                e.bezug = bezug;
+            }
+
+            let eidx = map_iidx.get(iidx);
+            if (!eidx) {
+              eidx = {key};
+              map_iidx.set(iidx, eidx);
+            }
+        }
+    }
+
+    // Nun die 2.8.0 (Einspeisung - die haben aber kein Datum - sondern nur den iidx)
+    /*
+    2.8.0(510.931*kWh)
+    2.8.0*84(373.721)
+    2.8.0*83(347.509)
+    2.8.0&82(319.075)
+    2.8.0*81(309.497)
+    2.8.0*80(282.837)
+    */
+    for (const line of text.split(/\r?\n/)) {
+        const t = line.trim();
+        // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
+        const m = t.match(re_280);
+        if (m) {
+            const [, iidx, valueStr] = m;
+
+            let eidx = map_iidx.get(iidx);
+            if (!eidx) continue;
+
+            const key = eidx.key;
+            let e = map.get(key);
+            if (!e) continue;
+
+            const val = parseFloat(valueStr);
+            const einspeisung = Math.round(val * 1000);
+            if (einspeisung > e.einspeisung) {
+                e.einspeisung = einspeisung;
+            }
+        }
+    }
+
+    // /month-Zeilen bauen - alle die zumindest 1.8.0 und 2.8.0 haben (bezug & einspeisung)
+    const lines = [...map.entries()]
+        .filter(([, e]) => e.bezug != null && e.einspeisung != null)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, e]) =>
+            `${key} ${e.bezug} ${e.einspeisung}`
+        );
+
+    websock.send(JSON.stringify({command:"monthlist", month:lines}));
+
+    return lines.join('\n') + '\n';
+}
+
+async function createMonFileFromBillingDataset() {
+   const [month] = await Promise.all([
+    generateMonthFromBillingDataset(),
+  ]);
+  console.log(month);
+}
+
+async function createMaxDemandFileFromBillingDataset() {
+    const [maxDemand] = await Promise.all([
+     generateDemandFromBillingDataset()
+  ]);
+  console.log(maxDemand);
+}
+
 function toNumberString(value, numberOfDecimals) {
     return value.toFixed(numberOfDecimals).replace('.',',');
 }
@@ -122,11 +416,10 @@ function secsSinceMidnight(dt) {
                     dt.getHours(), dt.getMinutes(), dt.getSeconds());
   da = UTCDate(da);
 
-  let dayBegin = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(),
-                          0, 0, 0);
+  let dayBegin = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0);
   dayBegin = UTCDate(dayBegin);
 
-  let r = ((da.getTime() - dayBegin.getTime()) / 1000) | 0;
+  const r = ((da.getTime() - dayBegin.getTime()) / 1000) | 0;
   return r;
 }
 
@@ -147,7 +440,7 @@ function secsWholeDay(date) {
   let dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(),
                         23, 59, 59);
   dayEnd = UTCDate(dayEnd);
-  let r = ((dayEnd.getTime() - dayStart.getTime()) / 1000) | 0;
+  const r = ((dayEnd.getTime() - dayStart.getTime()) / 1000) | 0;
   return r + 1; // Die Sekunde von 23:59:59 auf 00:00:00 auch noch dazuzählen !
 }
 
@@ -156,21 +449,21 @@ function timeDecoderMbusCP48(tc, update_lastDT) {
   var v;
 
   v = Number("0x" + tc.slice(8,10));
-  let secs = v & 0x3f;    // byte 1
+  const secs = v & 0x3f;    // byte 1
 
   v = Number("0x" + tc.slice(0,8));
-  let mins = v & 0x3f;    // byte 2
+  const mins = v & 0x3f;    // byte 2
   v >>= 8;
 
-  let hrs = v & 0x1f;     // byte 3
+  const hrs = v & 0x1f;     // byte 3
   v >>= 8;
 
-  let day = v & 0x1f;     // byte 4
+  const day = v & 0x1f;     // byte 4
   v >>= 5;
   let year = v & 0x07;
   v >>= 3;
 
-  let month = v & 0x0f;   // byte 5
+  const month = v & 0x0f;   // byte 5
   v >>= 4;
   year |= (v & 0x0f) << 3;
   year += 2000;
@@ -183,13 +476,12 @@ function timeDecoderMbusCP48(tc, update_lastDT) {
          zeroPad(hrs,2) + ':' + zeroPad(mins,2) + ':' + zeroPad(secs,2);
 }
 
-function timeDecoderTS(timestamp) {
-
-  let dt = new Date(timestamp * 1000);
+function timeDecoderTS(timestamp, delimiter=' ') {
+  // verwendet die Zeitzone des Browsers
+  const dt = new Date(timestamp * 1000);
 
   // return dt.toLocaleString(); // output will vary based on system locale settings
-
-  return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + '&nbsp;' +
+  return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + delimiter +
          zeroPad(dt.getHours(),2) + ':' + zeroPad(dt.getMinutes(),2) + ':' + zeroPad(dt.getSeconds(),2);
 }
 
@@ -238,6 +530,27 @@ function setAvgItem(basitemname, totalValue, numberOfSeconds, setcolorNegPos) {
     $(fieldname).html("Ø " + toNumberString((totalValue * 3600) / numberOfSeconds / 1000, 3));
 }
 
+function enableDisableBillingdatasetLink(enable) {
+  const el = document.getElementById('billingdataset_link');
+  if (!el) return;
+  if (!enable) {
+    el.setAttribute('aria-disabled', 'true');
+    el.setAttribute('tabindex', '-1');
+    el.style.color = 'gray';
+    el.style.textDecoration = 'none';
+    el.style.pointerEvents = 'none';   // optional, verhindert auch Hover
+    el.addEventListener('click', blockClick);   // deaktivieren
+  } else {
+    el.removeAttribute('aria-disabled');
+    el.removeAttribute('tabindex');
+    el.style.color = '';
+    el.style.textDecoration = '';
+    el.style.pointerEvents = '';
+    el.removeEventListener('click', blockClick);
+  }
+}
+
+
 function updateElements(obj) {
   let pre;
   let post;
@@ -276,37 +589,58 @@ function updateElements(obj) {
     }
     else if (key==='now') {
       // Now:
-      //      0:  dann beinhaltet .valid den "Fehlercode"
+      //      0:  dann beinhaltet "status" den "Fehlercode"
       //  sonst:  ist es die MBUSCP48(5Byte) Uhrzeit vom Zähler (als Hexstring ohne "0x")
       let v = Number(value);
       if (v === 0) {
-        const valid = obj.valid;
-        switch (valid) {
-          case 0:
-            value = 'Warte auf Zählerdaten...';
-            break;
-          case 1:
-          case 2:
-          case 3:
-          case 4:
-            value = 'Amis-Key ungültig?';
-            break;
-          default:
-            value = 'Invalid valid ' + v;
-        }
+        value = obj.status;
       } else {
         value = timeDecoderMbusCP48(value, true);
       }
+
+      if (lastNow === 0 && v !== 0) {
+        // Live-Zählerdaten wurden soeben gültig
+        websock.send('{"command":"get-billingdataset"}');
+      } else if (lastNow !== 0 && v === 0) {
+        // Live-Zählerdaten wurden soeben ungültig
+        websock.send('{"command":"get-billingdataset"}');
+      }
+      lastNow = v;
     }
     else if (key==='time') {
       // UNIX Timestamp
-      value = timeDecoderTS(value);
+      value = timeDecoderTS(value, '&nbsp;');
     }
-    /*
     else if (key==='serialnumber') {
-      // nothing to do as 'key' matches the 'name' of the div element
+      if (lastSerail !== value) {
+        lastSerail = value;
+        websock.send('{"command":"get-billingdataset"}');
+      }
+      updateHTMLPageContent(key, value); // 'key' matches the 'name' of the div element
+
+    } else if (key==='billingdataset') {
+      //   "filename":"xxxx.yyy", "size":12345, "cr":1234567, "mo":1234567
+
+      billingDataset = value;
+
+      const el_li = document.getElementById('billingdataset_link');
+      if (el_li) {
+        el_li.href = '/' + billingDataset.filename; // Link updaten
+        el_li.textContent = billingDataset.filename; // Angezeigten Text ändern
+      }
+
+      const el_mo = document.getElementById('billingdataset_modified');
+      if (el_mo) {
+          if (billingDataset.size !== 0) {
+              el_mo.textContent = 'geändert: ' + timeDecoderTS(billingDataset.mo);
+          } else {
+              el_mo.textContent = '';
+          }
+      }
+
+      enableDisableBillingdatasetLink(billingDataset.size !== 0 && lastNow !== 0);
     }
-    */
+
     else if (key==='heap' || key==='maxfreeblock' || key==='stack0' || key==='stack1' || key==='stack2') {
       let prefix = key;
       let data = obj[key];
@@ -328,7 +662,7 @@ function updateElements(obj) {
       setAvgItem("tdy_in", value-yestd_in, secsDayStart, false);
       $("#tdy_out" ).html(toNumberString((obj.today_out-yestd_out)/1000, 3));
       setAvgItem("tdy_out", obj.today_out-yestd_out, secsDayStart, false);
-      var diff=(value-yestd_in)-(obj.today_out-yestd_out);
+      const diff=(value-yestd_in)-(obj.today_out-yestd_out);
       if (diff >0) $("#tdy_diff").css({'color':'#FF0000'});
       else         $("#tdy_diff").css({'color':'#0000FF'});
       $("#tdy_diff").html(toNumberString(diff / 1000, 3));
@@ -354,7 +688,7 @@ function updateElements(obj) {
           setAvgItem("wd_in"+i, datax[1], secsDay, false);
           $("#wd_out"+i).html((datax[2] / 1000).toFixed(3).replace('.',','));
           setAvgItem("wd_out"+i, datax[2], secsDay, false);
-          diff=datax[1]-datax[2];
+          const diff=datax[1]-datax[2];
           if (diff >0) $("#wd_diff"+i).css({'color':'#FF0000'});
           else         $("#wd_diff"+i).css({'color':'#0000FF'});
           $("#wd_diff"+i).html(toNumberString(diff / 1000, 3));
@@ -368,7 +702,7 @@ function updateElements(obj) {
       continue;
     }
     else if (key==='1_7_0') {
-      diff=value-obj['2_7_0'];
+      const diff=value-obj['2_7_0'];
       if (diff >0) $("#saldo").css({'color':'#FF0000'});
       else         $("#saldo").css({'color':'#0000FF'});
       $("#saldo").html((diff / 1000).toFixed(3).replace('.',',')+' kW');
@@ -390,7 +724,7 @@ function updateElements(obj) {
       if (value) {
         let v = Number("0x" + value) | 0;
         if (v) {
-          value = timeDecoderTS(v, false);
+          value = timeDecoderTS(v, '&nbsp');
         }
       }
     }
@@ -435,7 +769,7 @@ function updateElements(obj) {
         let t='- - -';
         if (line.ts && Number(line.ts) > (2024-1970)*365*24*3600) {
           // we have a system-timestamp (syncronized from counter)
-          t = timeDecoderTS(Number(line.ts));
+          t = timeDecoderTS(Number(line.ts), '&nbsp;');
         } else if (line.time) {
           // This is the "old" logfile format
           // we have the time of last received counter data
@@ -465,7 +799,7 @@ function updateElements(obj) {
       continue;
     }
     else if (key==='monthlist') {
-      monthlist={command:"monthlist",month:value};
+      monthlist={command:"monthlist",month:value}; // Speichern der Monthlist für Backup
       if (yestd_in===null) continue;
       let t='<table class="pure-table pure-table-striped" width="100%">';
       t+='<thead><tr><th>Monat</th><th align="right">Bezug</th><th align="right">Lfrg.</th><th align="right">Diff.</th></tr></thead>';
@@ -478,8 +812,10 @@ function updateElements(obj) {
         let bzg=(monatsEndBzg-Number(arr[1]))/1000;
         let lfg=(monatsEndLfg-Number(arr[2]))/1000;
         let diff=(bzg-lfg);
-        let c= '#0000FF';           // color for diff
-        if (diff>0) c='#FF0000';
+
+        //if arr.count()
+
+        const c = (diff>0) ?'#FF0000' :'#0000FF';           // color for diff
         t += '<tr><td>' + datum + '</td><td align="right">' + bzg.toFixed(3).replace('.',',') + '</td>';
         t += '<td align="right">' + lfg.toFixed(3).replace('.',',') + '</td>';
         t += '<td align="right" style="color:'+c+'">'+diff.toFixed(3).replace('.',',')+'</td></tr>';
@@ -489,6 +825,34 @@ function updateElements(obj) {
       t+='</tbody>';
       t+='</table>';
       $("#month_table").html(t);
+    }
+    else if (key==='maxdemandhistory') {
+      demandHistory={command:"/maxdemand_hist",items:value}; // Speichern fürs Backup
+
+      const v160vm = value.at(-1)?.split(' ')[1] ?? '';
+      updateHTMLPageContent("1_6_0_vm", v160vm);
+
+      const v160vm_ts = value.at(-1)?.split(' ')[2] ?? 0;
+      const el = document.querySelector('[name="1_6_0_vm"]');
+      const ts_str = timeDecoderTS(v160vm_ts);
+      if (el) {
+        el.title = ts_str; // mouse-over
+      }
+      updateHTMLPageContent("1_6_0_vm_ts", ts_str);
+    }
+    else if (key==='maxdemandcurrent') {
+      demandCurrent={command:"/maxdemand_curr",items:value}; // Speichern fürs Backup
+
+      const v160 = value.at(0)?.split(' ')[1] ?? '';
+      updateHTMLPageContent("1_6_0", v160);
+
+      const v160_ts = value.at(0)?.split(' ')[2] ?? 0;
+      const el = document.querySelector('[name="1_6_0"]');
+      const ts_str = timeDecoderTS(v160_ts);
+      if (el) {
+        el.title = ts_str; // mouse-over
+      }
+      updateHTMLPageContent("1_6_0_ts", ts_str);
     }
     else if (key==='uptime') {
       value = runtimeTimeDecode(value, false, true, true);
@@ -583,7 +947,7 @@ function updateHTMLPageContent(key, value) {
   div = span.attr("div") || 0;
   if (div) {
     value = value / div;
-    value=value.toFixed(3).replace('.',',');
+    value = value.toFixed(3).replace('.',',');
   }
   span.html(pre + value + post);
 
@@ -594,7 +958,7 @@ function updateHTMLPageContent(key, value) {
   div = divt.attr("div") || 0;
   if (div) {
     value = value / div;
-    value=value.toFixed(3).replace('.',',');
+    value = value.toFixed(3).replace('.',',');
   }
   divt.html(pre + value + post);
 
@@ -645,13 +1009,19 @@ function connectWS() {
       websock.send('{"command":"energieWeek"}');
     },1200);
     setTimeout( function(){
-      websock.send('{"command":"energieMonth","jahr":22}');
+      websock.send('{"command":"energieMonth"}');
     },2500);
+    setTimeout( function(){
+      websock.send('{"command":"maxdemandhistory"}');
+    },3000);
+    setTimeout( function(){
+      websock.send('{"command":"maxdemandcurrent"}');
+    },3500);
     //console.log("connectws")
     clearInterval(ws_pingpong);
     ws_pingpong = setInterval(function() {
       websock.send('{"command":"ping"}');
-    }, 3000);
+    }, 4000);
   }
   websock.onclose = function(evt) {
     clearInterval(ws_pingpong);
@@ -756,7 +1126,6 @@ function activatePanel(panelId, updateHash) {
     panelId = "panel-home";
   }
   try { highchartDestroy(false); } catch(e) {};
-
   $(".panel").hide();
   $("#" + panelId).show();
 
@@ -840,7 +1209,15 @@ function beforHC () {
 Nur der private Gebrauch ist gestattet."))
   onload2();
 }
+
 function showPanel() {              // menu click select panel
+  if ($(this).attr("data") === 'panel-file-explorer') {
+    if($("#layout").hasClass("active")) {
+      toggleMenu();
+    }
+    window.open('/fexplorer.html', '_blank');
+    return;
+  }
   if (!$("#layout").hasClass("pinned") || (window.matchMedia && window.matchMedia("(max-width: 48em)").matches)) {
     if ($("#layout").hasClass("active")) {
       toggleMenu();
@@ -1120,7 +1497,14 @@ function storeToFile() {
   }
   greyButtons();
   /* save as blob */
-  var textToSave = JSON.stringify({general:config_general,wifi:config_wifi,mqtt:config_mqtt,month:monthlist,week:weekdata},null,2);
+  var textToSave = JSON.stringify({general:config_general,
+                                    wifi:config_wifi,
+                                    mqtt:config_mqtt,
+                                    month:monthlist,
+                                    week:weekdata,
+                                    demandhistory:demandHistory,
+                                    demandcurrent:demandCurrent
+                                  },null,2);
   var textToSaveAsBlob = new Blob([textToSave], {
     type: "text/plain"
   });
@@ -1130,8 +1514,8 @@ function storeToFile() {
   downloadLink.download = filename;
   downloadLink.innerHTML = "Download File";
   downloadLink.href = textToSaveAsURL;
-  downloadLink.onclick = function () {
-    document.body.removeChild(event.target);
+  downloadLink.onclick = function (e) {
+      e.target.remove();
   };
   downloadLink.style.display = "none";
   document.body.appendChild(downloadLink);
@@ -1171,6 +1555,18 @@ function doRestoreWeek() {
     websock.send(JSON.stringify(restoreData['week']));
   }
 }
+function doRestoreDemandHistory() {
+  if ($(".button-restore-maxdemandhistory").hasClass('button-green')){
+    progressAnimate('prgbar_update',400);
+    websock.send(JSON.stringify(restoreData['demandhistory']));
+  }
+}
+function doRestoreDemandCurrent() {
+  if ($(".button-restore-maxdemandcurrent").hasClass('button-green')){
+    progressAnimate('prgbar_update',400);
+    websock.send(JSON.stringify(restoreData['demandcurrent']));
+  }
+}
 
 function greyButtons() {
   $(".button-restore-general").removeClass("button-green");
@@ -1178,6 +1574,8 @@ function greyButtons() {
   $(".button-restore-mqtt").removeClass("button-green");
   $(".button-restore-month").removeClass("button-green");
   $(".button-restore-week").removeClass("button-green");
+  $(".button-restore-maxdemandhistory").removeClass("button-green");
+  $(".button-restore-maxdemandcurrent").removeClass("button-green");
 }
 
 function amisRestore(file) {
@@ -1204,6 +1602,12 @@ function amisRestore(file) {
             break;
          case 'week':
             $(".button-restore-week").addClass("button-green");    // Green
+            break;
+          case 'demandhistory':
+            $(".button-restore-maxdemandhistory").addClass("button-green");    // Green
+            break;
+          case 'demandcurrent':
+            $(".button-restore-maxdemandcurrent").addClass("button-green");    // Green
             break;
        }
     }
@@ -1283,6 +1687,29 @@ $(function() {            // main
   $(".button-dev-tools-button2").on("click", function () {
     websock.send('{"command":"dev-tools-button2"}');
   });
+  $(".button-dev-dump-reader-serial-on").on("click", function () {
+    websock.send('{"command":"dev-dump-reader-serial", value:1}');
+  });
+  $(".button-dev-dump-reader-serial-off").on("click", function () {
+    websock.send('{"command":"dev-dump-reader-serial", value:0}');
+  });
+  $(".button-dev-dump-reader-serial-clear").on("click", function () {
+    websock.send('{"command":"dev-dump-reader-serial-clear"}');
+  });
+  $(".button-refresh-billingdataset").on("click", function () {
+    websock.send('{"command":"refresh-billingdataset"}');
+  });
+  $(".button-create-mon-from-billingdataset").on("click", function () {
+    if (window.confirm("Vorhandene Monatswerte werden gelöscht. Sicher?")) {
+      createMonFileFromBillingDataset();
+    }
+  });
+  $(".button-create-maxdemand-from-billingdataset").on("click", function () {
+    if (window.confirm("Vorhandene Daten werden gelöscht. Sicher?")) {
+      createMaxDemandFileFromBillingDataset();
+    }
+  });
+
   $(".button-dev-cmd-factory-reset-reboot").on("click", function () {
     if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen, dann 25s warten...")) {
       websock.send('{"command":"factory-reset-reboot"}');
@@ -1300,7 +1727,9 @@ $(function() {            // main
     websock.send('{"command":"ls"}');
   });
   $(".button-dev-cmd-clear").on("click", function () {
-    websock.send('{"command":"clear"}');
+    if(window.confirm("Alle Daten werden gelöscht! Mit OK bestätigen.")) {
+      websock.send('{"command":"clear"}');
+    }
   });
   $(".button-dev-remove-webdeveloper-files").on("click", function () {
     if (window.confirm("Webserverentwicklungsdateien löschen (auch *.gz und *.md5). Sicher?")) {
@@ -1348,6 +1777,10 @@ $(function() {            // main
       websock.send('{"command":"dev-remove-exceptiondumpsall"}');
     }
   });
+  $(".button-open-fexplorer").on("click", function () {
+      window.open('/fexplorer.html', '_blank');
+  });
+
 
   /* Development - Buttons -  End */
 
@@ -1379,6 +1812,8 @@ $(function() {            // main
   $(".button-restore-mqtt").on("click", doRestoreMqtt);
   $(".button-restore-month").on("click", doRestoreMonth);
   $(".button-restore-week").on("click", doRestoreWeek);
+  $(".button-restore-maxdemandhistory").on("click", doRestoreDemandHistory);
+  $(".button-restore-maxdemandcurrent").on("click", doRestoreDemandCurrent);
   updateElements(config_general);     // vordefinierte configs übernehmen
   updateElements(config_wifi);
   updateElements(config_mqtt);
