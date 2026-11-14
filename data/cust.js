@@ -1392,9 +1392,22 @@ $(function() {            // main
   loginUri = proto + "//" + host + "/login";
   UpdateUri = proto + "//" + host + "/update";
   if (host=="localhost") {
-    wsUri = "ws://192.168.42.151/ws";
-    loginUri = "http://192.168.42.151/login";
-    UpdateUri= "http://192.168.42.151/update"
+    // For local UI development:
+    // 1. Start local webserver: python3 -m http.server -d data 8000 (or cd data && python3 -m http.server 8000)
+    // 2. Open in browser: http://localhost:8000/?ip=192.168.xxx.xxx
+    //    (or set in browser console: localStorage.setItem("dev_amis_ip", "192.168.xxx.xxx"))
+    //    Optional: prefix with https:// or wss:// if remote endpoint requires TLS
+    const urlParams = new URLSearchParams(window.location.search);
+    const devTarget = urlParams.get("ip") || localStorage.getItem("dev_amis_ip") || "192.168.2.20";
+    if (urlParams.get("ip")) {
+      localStorage.setItem("dev_amis_ip", urlParams.get("ip"));
+    }
+    const devWsProto = (proto.endsWith("https:") || devTarget.startsWith("https://") || devTarget.startsWith("wss://")) ? "wss:" : "ws:";
+    const devHttpProto = devWsProto === "wss:" ? "https:" : "http:";
+    const cleanDevHost = devTarget.replace(/^(https?|wss?):\/\//, "").replace(/\/+$/, "");
+    wsUri = devWsProto + "//" + cleanDevHost + "/ws";
+    loginUri = devHttpProto + "//" + cleanDevHost + "/login";
+    UpdateUri = devHttpProto + "//" + cleanDevHost + "/update";
   }
   login();
 });
