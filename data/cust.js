@@ -634,8 +634,8 @@ function connectWS() {
   websock = new WebSocket(wsUri);
   websock.addEventListener("message", socketMessageListener);
   websock.onopen = function(evt) {
-    $("#panel-home").show();
-    //$("#panel-graf").show();
+    let currentPanel = $(".panel:visible").attr("id") || getInitialPanel();
+    activatePanel(currentPanel, false);
 
     // Uhrzeit vom Browser senden
     websock.send('{"command":"browsertime","value":' + Math.trunc(Date.now() / 1000) + '}');
@@ -648,12 +648,14 @@ function connectWS() {
       websock.send('{"command":"energieMonth","jahr":22}');
     },2500);
     //console.log("connectws")
+    clearInterval(ws_pingpong);
     ws_pingpong = setInterval(function() {
       websock.send('{"command":"ping"}');
     }, 3000);
   }
   websock.onclose = function(evt) {
     clearInterval(ws_pingpong);
+    clearInterval(wsTimer);
     wsTimer=setInterval(function() {
       if (wsActiveFlag) {
         connectWS();
@@ -698,23 +700,87 @@ function toggleMenu() {               // Hamburger Button
   $("#menuLink").toggleClass("active"); //???
 }
 
-function beforHC () {
-  if(window.confirm("Die nachfolgende Grafik wird mit einer Bibliothek von Highcharts.com erzeugt.\n\
-Nur der private Gebrauch ist gestattet."))
-  onload2();
-}
-function showPanel() {              // menu click select panel
-  try {highchartDestroy(false);}
-  catch(e) {};
-  $(".panel").hide();
-  if($("#layout").hasClass("active")) {
-    toggleMenu();
+function initMenuPin() {
+  let pinned = false;
+  try {
+    pinned = (localStorage.getItem("menuPinned") === "true");
+  } catch(e) {}
+  if (pinned) {
+    $("#layout").addClass("pinned");
+    $("#menuPin").addClass("pinned");
+    $("#menuPin").attr("title", "Menü lösen");
   }
-  $("#" + $(this).attr("data")).show();
-  if ($(this).attr('data')=='panel-home') {
+}
+
+function togglePinMenu() {
+  let isPinned = $("#layout").hasClass("pinned");
+  if (isPinned) {
+    $("#layout").removeClass("pinned");
+    $("#menuPin").removeClass("pinned");
+    $("#menuPin").attr("title", "Menü anheften");
+    try {
+      localStorage.setItem("menuPinned", "false");
+    } catch(e) {}
+  } else {
+    $("#layout").removeClass("active");
+    $("#menu").removeClass("active");
+    $("#menuLink").removeClass("active");
+    $("#layout").addClass("pinned");
+    $("#menuPin").addClass("pinned");
+    $("#menuPin").attr("title", "Menü lösen");
+    try {
+      localStorage.setItem("menuPinned", "true");
+    } catch(e) {}
+  }
+}
+
+function getInitialPanel() {
+  let hash = window.location.hash;
+  if (hash) {
+    hash = hash.replace(/^#/, "");
+    if ($("#" + hash).length > 0) {
+      return hash;
+    }
+  }
+  try {
+    let saved = localStorage.getItem("activePanel");
+    if (saved && $("#" + saved).length > 0) {
+      return saved;
+    }
+  } catch(e) {}
+  return "panel-home";
+}
+
+function activatePanel(panelId, updateHash) {
+  if (!panelId || $("#" + panelId).length === 0) {
+    panelId = "panel-home";
+  }
+  try { highchartDestroy(false); } catch(e) {};
+
+  $(".panel").hide();
+  $("#" + panelId).show();
+
+  $(".pure-menu-item").removeClass("pure-menu-selected");
+  $(".pure-menu-link[data='" + panelId + "']").closest(".pure-menu-item").addClass("pure-menu-selected");
+
+  try {
+    localStorage.setItem("activePanel", panelId);
+  } catch(e) {}
+
+  if (updateHash) {
+    if (window.location.hash !== "#" + panelId) {
+      if (history.replaceState) {
+        history.replaceState(null, null, "#" + panelId);
+      } else {
+        window.location.hash = panelId;
+      }
+    }
+  }
+
+  if (panelId === 'panel-home') {
     if ($('#timing').prop('checked') == false) $(".home_details").hide();
   }
-  if ($(this).attr('data')=='panel-graf') {
+  else if (panelId === 'panel-graf') {
     try {
       onload2();    // create chart
     }
@@ -735,30 +801,53 @@ function showPanel() {              // menu click select panel
       });
     }
   }
-  if ($(this).attr('data')=='panel-general') {
+  else if (panelId === 'panel-general') {
     if ($('#use_auth').prop('checked') == false) $(".auth_details").hide();
     if ($('#thingspeak_aktiv').prop('checked') == false) $(".things_details").hide();
   }
-  else if ($(this).attr('data')=='panel-mqtt') {
+  else if (panelId === 'panel-mqtt') {
     if ($('#mqtt_enabled').prop('checked') == false) $(".mqtt_details").hide();
   }
-  else if ($(this).attr('data')=='panel-status') {
-    websock.send('{"command":"status"}');
+  else if (panelId === 'panel-status') {
+    if (websock && websock.readyState === WebSocket.OPEN) {
+      websock.send('{"command":"status"}');
+    }
   }
-  else if ($(this).attr('data')=='panel-wifi') {
+  else if (panelId === 'panel-wifi') {
     if ($('#dhcp').prop('checked') == true) $(".wifi_details").hide();
-    websock.send('{"command":"scan_wifi"}');
+    if (websock && websock.readyState === WebSocket.OPEN) {
+      websock.send('{"command":"scan_wifi"}');
+    }
   }
-  else if ($(this).attr('data')=='panel-log') {
-    websock.send('{"command":"geteventlog","page":'+logpage+'}');
+  else if (panelId === 'panel-log') {
+    if (websock && websock.readyState === WebSocket.OPEN) {
+      websock.send('{"command":"geteventlog","page":'+logpage+'}');
+    }
   }
-  else if ($(this).attr('data')=='panel-emulation') {
+  else if (panelId === 'panel-emulation') {
     showHideShellyDetails();
   }
-  else if ($(this).attr('data')=='panel-update') {
-    websock.send('{"command":"weekdata"}');
+  else if (panelId === 'panel-update') {
+    if (websock && websock.readyState === WebSocket.OPEN) {
+      websock.send('{"command":"weekdata"}');
+    }
     greyButtons();
   }
+}
+
+function beforHC () {
+  if(window.confirm("Die nachfolgende Grafik wird mit einer Bibliothek von Highcharts.com erzeugt.\n\
+Nur der private Gebrauch ist gestattet."))
+  onload2();
+}
+function showPanel() {              // menu click select panel
+  if (!$("#layout").hasClass("pinned") || (window.matchMedia && window.matchMedia("(max-width: 48em)").matches)) {
+    if ($("#layout").hasClass("active")) {
+      toggleMenu();
+    }
+  }
+  let panelId = $(this).attr("data");
+  activatePanel(panelId, true);
 }
 
 function progressAnimate(id,time) {
@@ -1131,16 +1220,31 @@ document.addEventListener("visibilitychange", function (event) {
   else {
     //console.log("visible");
     wsActiveFlag=true;
+    if (!websock || websock.readyState === WebSocket.CLOSED) {
+      connectWS();
+    }
   }
 });
 
 $(function() {            // main
   loadTimeZones();
   createCheckboxes();
+  initMenuPin();
 
   $(".password-reveal").on("click", toggleVisiblePassword);
   $("#menuLink").on("click", toggleMenu);
+  $("#menuPin").on("click", togglePinMenu);
   $(".pure-menu-link").on("click", showPanel);
+  activatePanel(getInitialPanel(), false);
+
+  window.addEventListener("hashchange", function() {
+    let hash = window.location.hash.replace(/^#/, "");
+    if (hash && $("#" + hash).length > 0) {
+      if (!$('#' + hash).is(':visible')) {
+        activatePanel(hash, false);
+      }
+    }
+  });
   $(".button-update-general").on("click", doUpdateGeneral);  // save config
   $(".button-update-emulation").on("click", doUpdateEmulation);  // save config
   $(".button-update-wifi").on("click", doUpdateWiFi);  // save config
@@ -1288,9 +1392,9 @@ $(function() {            // main
   loginUri = proto + "//" + host + "/login";
   UpdateUri = proto + "//" + host + "/update";
   if (host=="localhost") {
-    wsUri = "ws://192.168.2.20/ws";
-    loginUri = "http://192.168.2.20/login";
-    UpdateUri= "http://192.168.2.20/update"
+    wsUri = "ws://192.168.42.151/ws";
+    loginUri = "http://192.168.42.151/login";
+    UpdateUri= "http://192.168.42.151/update"
   }
   login();
 });
