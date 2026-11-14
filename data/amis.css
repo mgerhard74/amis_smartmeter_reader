@@ -483,6 +483,22 @@ body {
     #layout.active .menu-link {
         left: 150px;
     }
+
+    @media (min-width: 48em) {
+        #layout.pinned {
+            padding-left: 150px;
+            left: 0;
+        }
+
+        #layout.pinned #menu {
+            left: 150px;
+            width: 150px;
+        }
+
+        #layout.pinned .menu-link {
+            display: none;
+        }
+    }
 /*The content `<div>` is where all your content goes.*/
 .content {
     margin: 0 auto;
@@ -559,6 +575,40 @@ body {
         font-size: 110%;
         color: #fff;
         margin: 0;
+    }
+
+    #menu .menu-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .menu-pin-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0 4px;
+        line-height: 1;
+        color: #fff;
+        opacity: 0.6;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .menu-pin-btn:hover {
+        opacity: 1;
+    }
+
+    #layout.pinned .menu-pin-btn {
+        opacity: 1;
+        transform: rotate(-45deg);
+        filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.8));
+    }
+
+    @media (max-width: 48em) {
+        .menu-pin-btn {
+            display: none;
+        }
     }
 
 /* -- Dynamic Button For Responsive Menu -------------------------------------
