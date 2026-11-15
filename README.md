@@ -14,8 +14,8 @@ Ebenso kann ein Shelly Smartmeter (Pro 3EM, Pro EM-50, EM Gen3) emuliert werden,
 - "RPC over HTTP" für Speicher, die den Shelly per mDNS im Netzwerk suchen und danach per HTTP abfragen (z.B. Solakon One, Hoymiles, Anker). Der Leser meldet sich dabei als `_http._tcp`/`_shelly._tcp` an und beantwortet unter seiner normalen Webserver-Adresse zusätzlich `/shelly` sowie `/rpc/<Methode>` (`EM.GetStatus`, `EMData.GetStatus`, `EM.GetConfig`, `Shelly.GetDeviceInfo`, `Shelly.ListMethods`, bzw. die `EM1.*` Varianten bei einphasigen Geräten).
   Findet ein Speicher den Leser nicht, kann optional der Shelly-Name (z.B. `ShellyPro3EM-8C4F0044B70B.local`) als mDNS-Hostname verwendet werden - für Geräte, die diesen Namen direkt auflösen statt dem SRV-Eintrag zu folgen. `<Gerätename>.local` ist dann nicht mehr auflösbar, da der ESP8266 nur einen mDNS-Hostnamen führen kann.
 
-In der aktuellen Version ist es auch möglich eine (Tasmota-, Shelly-)Wifi Steckdose aufgrund von PV Überschuss anzusteuern. ("Ein" unter Saldowert; "Aus" über Saldowert; Url für Ein bzw Aus)
-Ein aus dem Bezugszählerstand errechneter 1/4h Spitzenverbrauchswert des aktuellen und Vormonats ist nun auch hinzugefügt worden, dieser ist ab 2027 für den lastabhängigen Teil der Netzgebühr interessant.
+In der aktuellen Version ist es auch möglich eine (Tasmota-, Shelly-)Wifi Steckdose aufgrund von PV Überschuss anzusteuern. ("Ein" unter Saldowert; "Aus" über Saldowert; Url für Ein bzw Aus). 
+Ein aus dem Bezugszählerstand errechneter 1/4h Spitzenverbrauchswert des aktuellen Monats und Vormonats ist nun auch hinzugefügt worden, dieser ist ab 2027 für den lastabhängigen Teil der Netzgebühr interessant.
 
 Startseite Webinterface:
 
