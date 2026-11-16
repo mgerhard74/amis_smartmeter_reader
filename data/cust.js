@@ -1012,11 +1012,11 @@ function connectWS() {
       websock.send('{"command":"energieMonth"}');
     },2500);
     setTimeout( function(){
-      websock.send('{"command":"maxdemandhistory"}');
+      websock.send('{"command":"maxdemandcurrent"}');
     },3000);
     setTimeout( function(){
-      websock.send('{"command":"maxdemandcurrent"}');
-    },3500);
+      websock.send('{"command":"maxdemandhistory"}');
+    },3250);
     //console.log("connectws")
     clearInterval(ws_pingpong);
     ws_pingpong = setInterval(function() {
