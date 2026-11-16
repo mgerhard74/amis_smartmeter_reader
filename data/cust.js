@@ -113,9 +113,51 @@ var config_runtime = {
 
 const blockClick = (e) => e.preventDefault();
 
+function kiloStrToInt(s) {
+  // Wandelte einen Float String in Integer*1000 um
+  // Besser als parseFloat - weil 4.015 * 1000 ev 4014.99 werden kann
+  const [intPart, fracPart = ""] = s.split(".");
+  const frac3 = (fracPart + "000").substring(0, 3); // auf 3 Stellen auffüllen/kürzen
+  return parseInt(intPart + frac3, 10);
+}
 
+function unixTimestampToWallClockStr(timestamp, timezone = 'Europe/Vienna') {
+  // timestamp: Unix-Timestamp in Sekunden
+  // Rückgabe: Wallclock in der angegebenen timezone (Offset/Sommer-/Winterzeit)
+  //           Das Format wird NICHT von der timezone bestimmt und ist fixiert auf "yyyy/MM/dd hh:mm:ss"
 
-function ISO8601StrToUnixTimestamp(dateStr, timezone = "Europe/Vienna") {
+  const utcMs = timestamp * 1000;
+
+  if (!timezone) {
+    // wenn keine Zeitzone amgegeben: nehmen wir die vom Browser oder UTC
+    const BROWSER_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    timezone = BROWSER_TZ;
+  }
+
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+
+  const parts = {};
+  for (const { type, value } of fmt.formatToParts(utcMs)) {
+    if (type !== "literal") parts[type] = value;
+  }
+
+  // year/month/day/hour/minute/second sind bereits 2-stellig (außer year)
+  const yyyy = parts.year.padStart(4, "0");
+  const MM   = parts.month.padStart(2, "0");
+  const dd   = parts.day.padStart(2, "0");
+  const hh   = parts.hour.padStart(2, "0");
+  const mm   = parts.minute.padStart(2, "0");
+  const ss   = parts.second.padStart(2, "0");
+
+  return `${yyyy}/${MM}/${dd} ${hh}:${mm}:${ss}`;
+}
+
+function ISO8601StrToUnixTimestamp(dateStr, timezone = 'Europe/Vienna') {
   // dateStr: yyyy-MM-ddThh:mm:ss           (timezone verwenden)
   //          yyyy-MM-ddThh:mm:ssZ          (ist schon UTC  / timezone ignorieren )
   //          yyyy-MM-ddThh:mm:ss+02:00     (offset ist angegeben / timezone ignorieren)
@@ -199,6 +241,7 @@ function unixTimestampToAmisStr(timestamp) {
 async function generateDemandFromBillingDataset() {
     if (billingDataset.size == 0) return;
 
+    // Unser Format:
     // YYMM v.1.6.0 Timestamp(Beginn)
 
     // 1) /xxx.txt laden
@@ -214,8 +257,6 @@ async function generateDemandFromBillingDataset() {
     //  "1.6.0(3.888*kW)(26-11-06 11:15)"
     const re_160_curr = /^1\.6\.0\(([\d.]+)\*kW\)\((\d{2})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\)/;
 
-    var m_160_curr = null;
-
     // Bauen wir das Set aus den 1.6.0'er Werten (höchster viertelstunden wert)
     /*
     1.6.0(3.888*kW)(26-11-06 11:15)
@@ -225,40 +266,68 @@ async function generateDemandFromBillingDataset() {
     1.6.0*81(3.964)(26-04-28 16:15)
     1.6.0*80(4.276)(26-03-29 18:00)
     */
+
+    // Alle Einträge in dem Set 'map' zusammenfassen
     for (const line of text.split(/\r?\n/)) {
         const t = line.trim();
+        let [valueStr, yy, mm, dd, hh, min] =  [0,0,0,0,0,0];
 
-        if (!m_160_curr) { // use first match
-          m_160_curr = t.match(re_160_curr);
-          if (m_160_curr) {
-            const [, valueStr, yy, mm, dd, hh, min] = m_160_curr;
-            const key = yy + mm;
-            const quarterMax = Math.round(parseFloat(valueStr) * 1000);
-            const quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-            // console.log(`20${yy}-${mm}-${dd} ${hh}:${min}:00`, timeDecoderTS(quarterMaxDT));
-            m_160_curr = `${key} ${quarterMax} ${quarterMaxDT}`;
-          }
+        const m_160_curr = t.match(re_160_curr);
+        if (m_160_curr) {
+          [, valueStr, yy, mm, dd, hh, min] = m_160_curr;
+        } else {
+          const m_160 = t.match(re_160_hist);
+          if (m_160) {
+            [, , valueStr, yy, mm, dd, hh, min] = m_160;
+           }
+         }
+        if (yy == 0 && mm == 0) {
+          continue;
         }
 
-        const m = t.match(re_160_hist);
-        if (m) {
-            const [, , valueStr, yy, mm, dd, hh, min] = m;
-            const key = yy + mm;
-            let e = map.get(key);
-            if (!e) {
-              e = {quarterMax:0, quarterMaxDT:0};
-              map.set(key, e);
-            }
-            const q_max = Math.round(parseFloat(valueStr) * 1000);
-            if (q_max > e.quarterMax) {
-              e.quarterMax = q_max;
-              e.quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`);
-              // console.log(`20${yy}-${mm}-${dd} ${hh}:${min}:00`, timeDecoderTS(e.quarterMaxDT));
-            }
-        }
+        const quarterMax = kiloStrToInt(valueStr);
+        // Dammed:
+        //   Der Zähler die Uhrzeit am "Ende" der Viertelstunde
+        //      ==> Theoretisch kann sich dadurch das Monat verschieben
+        const quarterMaxDT = ISO8601StrToUnixTimestamp(`20${yy}-${mm}-${dd}T${hh}:${min}:00`, 'Europe/Vienna') - (15*60);
+        const quarterBegin = unixTimestampToWallClockStr(quarterMaxDT, 'Europe/Vienna');
+        const yyb = quarterBegin.substring(2, 4);
+        const mmb = quarterBegin.substring(5, 7);
+        const key = yyb + mmb;
+
+        // Jetzt noch ins map-Set hinzufügen
+        let e = map.get(key);
+        if (!e) {
+          e = {quarterMax, quarterMaxDT};
+          map.set(key, e);
+        } else if (quarterMax > e.quarterMax) {
+          e.quarterMax = quarterMax;
+          e.quarterMaxDT = quarterMaxDT;
+          // console.log(`20${yyb}-${mmb}-${dd} ${hh}:${min}:00`, timeDecoderTS(e.quarterMaxDT));
+         }
+     }
+
+    // Den Eintrag des aktuellen Monats aus dem map-Set extrahieren und extra ausgeben
+    let r_160_curr;
+    // Holen wir uns mal "now_yy" und "now_mm" (mit der gleichen Methodik wie wir die anderen Zeiten berechnen)
+    const now = new Date().toISOString().slice(0, 19) + "Z";
+    const now_ts = ISO8601StrToUnixTimestamp(now, 'UTC');
+    const now_wallclock = unixTimestampToWallClockStr(now_ts, 'Europe/Vienna');
+    const now_yy = now_wallclock.substring(2, 4);
+    const now_mm = now_wallclock.substring(5, 7);
+    const now_key = now_yy + now_mm;
+    const n = map.get(now_key);
+    if (n) {
+      // Wir haben einen Wert für das aktuelle Monat
+      r_160_curr = `${now_key} ${n.quarterMax} ${n.quarterMaxDT}`
+      map.delete(now_key);
+    } else {
+      // Fürs aktuelle Monat nichts gefunden
+      r_160_curr = `${now_key} 0 0`;
     }
 
-    // /monthend-Zeilen bauen - alle
+
+    // "/maxdemand_hist" - Zeilen bauen - alle
     const lines = [...map.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, e]) =>
@@ -266,9 +335,9 @@ async function generateDemandFromBillingDataset() {
         );
 
     websock.send(JSON.stringify({command:"/maxdemand_hist", items:lines}));
-    websock.send(JSON.stringify({command:"/maxdemand_curr", items:[m_160_curr]}));
+    websock.send(JSON.stringify({command:"/maxdemand_curr", items:[r_160_curr]}));
 
-    return { curr:m_160_curr, history:lines.join('\n') + '\n' };
+    return { curr:r_160_curr, history:lines.join('\n') + '\n' };
 }
 
 async function generateMonthFromBillingDataset() {
@@ -306,17 +375,16 @@ async function generateMonthFromBillingDataset() {
             const key = yy + mm;
             if (key === '0000') continue; // bei "00-00-00 00:00" wäre das der aktuelle Wert
 
-            const val = parseFloat(valueStr);
+            const bezug = kiloStrToInt(valueStr);
             let e = map.get(key);
             if (!e) {
-              e = {einspeisung:0, bezug:0};
+              e = {einspeisung:null, bezug};
               map.set(key, e);
-            }
-            const bezug = Math.round(val * 1000);
-            if (bezug > e.bezug) {
-                e.bezug = bezug;
+            } else if (bezug < e.bezug) {
+              e.bezug = bezug;
             }
 
+            // Auch noch ein Set mit iidx => key aufbauen
             let eidx = map_iidx.get(iidx);
             if (!eidx) {
               eidx = {key};
@@ -336,7 +404,7 @@ async function generateMonthFromBillingDataset() {
     */
     for (const line of text.split(/\r?\n/)) {
         const t = line.trim();
-        // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit aus der Klammer
+        // Index ist monatsbezogen -> wir nehmen das Datum/Uhrzeit von 1.8.0
         const m = t.match(re_280);
         if (m) {
             const [, iidx, valueStr] = m;
@@ -348,9 +416,8 @@ async function generateMonthFromBillingDataset() {
             let e = map.get(key);
             if (!e) continue;
 
-            const val = parseFloat(valueStr);
-            const einspeisung = Math.round(val * 1000);
-            if (einspeisung > e.einspeisung) {
+            const einspeisung = kiloStrToInt(valueStr);
+            if (e.einspeisung == null || einspeisung < e.einspeisung) {
                 e.einspeisung = einspeisung;
             }
         }
@@ -477,12 +544,11 @@ function timeDecoderMbusCP48(tc, update_lastDT) {
 }
 
 function timeDecoderTS(timestamp, delimiter=' ') {
-  // verwendet die Zeitzone des Browsers
-  const dt = new Date(timestamp * 1000);
-
-  // return dt.toLocaleString(); // output will vary based on system locale settings
-  return dt.getFullYear() + '/' + zeroPad(dt.getMonth()+1,2) + '/' + zeroPad(dt.getDate(),2) + delimiter +
-         zeroPad(dt.getHours(),2) + ':' + zeroPad(dt.getMinutes(),2) + ':' + zeroPad(dt.getSeconds(),2);
+  const s = unixTimestampToWallClockStr(timestamp, ''); // '' -> verwendet die Zeitzone des Browsers
+  if (delimiter !== ' ') {
+    return s.replaceAll(' ', delimiter);
+  }
+  return s;
 }
 
 function runtimeTimeDecode(v, isMilliSeconds, displayDays, displayHours) {
