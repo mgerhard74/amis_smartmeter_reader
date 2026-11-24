@@ -207,6 +207,8 @@ void setup() {
 
     secTicker.attach_scheduled(1, secTick);
 
+    AmisReader.clearSerialRx();
+
     SYSTEMMONITOR_STAT();
 
     LOG_IP("System setup completed, running");

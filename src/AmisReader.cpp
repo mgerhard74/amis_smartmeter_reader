@@ -521,6 +521,8 @@ void AmisReaderClass::init(uint8_t serialNo)
     } else {
         _serial = nullptr;
     }
+
+    clearSerialRx();
 }
 
 void AmisReaderClass::end()

@@ -59,6 +59,8 @@ public:
 
     void fetchSerialData(size_t nbytes);
 
+    size_t clearSerialRx();
+
 private:
     enum AmisReaderState_t {
         initReadSerial,         // serielle: baudrate usw einstellen
@@ -88,7 +90,6 @@ private:
 
     size_t serialWrite(const char *str);
     size_t serialWrite(uint8_t byte);
-    size_t clearSerialRx();
     size_t pollSerial(size_t nbytes);
 
     void eatSerialReadBuffer(size_t n);
