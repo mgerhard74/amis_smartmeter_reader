@@ -57,6 +57,8 @@ public:
     void serialEnableDump(bool enable);
     void serialClearDumpFile();
 
+    void fetchSerialData(size_t nbytes);
+
 private:
     enum AmisReaderState_t {
         initReadSerial,         // serielle: baudrate usw einstellen

@@ -218,6 +218,8 @@ void loop() {
     }
     Reboot.loop();
 
+    AmisReader.fetchSerialData(32);
+
     Network.loop();
 
     if (ws->count()) {      // ws-connections
@@ -230,14 +232,17 @@ void loop() {
     Mqtt.loop();
 
     AmisReader.loop();  // Zähler auslesen
-
     yield(); // geben wir dem System mal Zeit sich um den System-Context (WiFi, Serial, ... zu kümmern)
 
     Log.loop(); // Eine Seite des Logfiles an einen Websocket client senden
 
     LedBlue.loop();
 
+    AmisReader.fetchSerialData(32);
+
     WatchdogPing.loop();
+
+    AmisReader.fetchSerialData(32);
 
     MDNS.update();
 

@@ -420,6 +420,14 @@ size_t AmisReaderClass::pollSerialSimulateSerialInput()
 #endif // (AMISREADER_SIMULATE_SERIAL)
 
 
+void AmisReaderClass::fetchSerialData(size_t nbytes)
+{
+    if (_isEnabled) {
+        // read some bytes from the serial interface preventing overflow errors
+        _rxSerailRead += pollSerial(nbytes);
+    }
+}
+
 size_t AmisReaderClass::pollSerial(size_t nbytes)
 {
 #if (AMISREADER_SIMULATE_SERIAL)
