@@ -656,12 +656,13 @@ function updateElements(obj) {
     else if (key==='now') {
       // Now:
       //      0:  dann beinhaltet "status" den "Fehlercode"
-      //  sonst:  ist es die MBUSCP48(5Byte) Uhrzeit vom Zähler (als Hexstring ohne "0x")
+      //  sonst:  ist es die Uhrzeit vom Zähler als UNIX-Timestamp (UTC, Sekunden)
       let v = Number(value);
       if (v === 0) {
         value = obj.status;
       } else {
-        value = timeDecoderMbusCP48(value, true);
+        g_lastDT = new Date(v * 1000);
+        value = timeDecoderTS(v, '&nbsp;');
       }
 
       if (lastNow === 0 && v !== 0) {
