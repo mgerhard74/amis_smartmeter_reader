@@ -415,7 +415,7 @@ static void sendZData() {
     /*
     // Zählerdaen ausgeben: Werte verfügbar
     {
-        "now": "324b703624",
+        "now": 1768780204,
         "time": 4294967288,
         "1.8.0": 4294967295,
         "2.8.0": 4294967294,
@@ -448,7 +448,7 @@ static void sendZData() {
     doc["time"] = static_cast<uint32_t>(time(NULL));
 
     if (Databroker.valid == 5) {
-        doc["now"] = Databroker.timeCp48Hex;
+        doc["now"] = static_cast<uint32_t>(Databroker.ts);  // Zählerzeit als UNIX-Timestamp (UTC)
 
         doc[Config_restValueKeys[1][0]] = Databroker.results_u32[0];
         doc[Config_restValueKeys[1][1]] = Databroker.results_u32[1];
