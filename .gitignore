@@ -11,3 +11,5 @@
 platformio_override.ini
 
 src/local/DefaultConfigurations.cpp
+
+utils/AmisMeterSimulator/local_config.mk
