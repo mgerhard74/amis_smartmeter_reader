@@ -186,7 +186,9 @@ static void postmortem_report(uint32_t sp_dump) {
     }
     else if (s_panic_file) {
         postmortem_rst_info.exception_extra_info_type = exception_type_panic;
+        postmortem_rst_info.u_exception_extra_info.panic.file = s_panic_file;
         postmortem_rst_info.u_exception_extra_info.panic.line = s_panic_line;
+        postmortem_rst_info.u_exception_extra_info.panic.func = s_panic_func;
         ets_printf_P(PSTR("\nPanic %S:%d"), s_panic_file, s_panic_line);
         ets_printf_P(PSTR(" %S\n"), s_panic_func);
     }

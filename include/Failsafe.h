@@ -23,8 +23,17 @@
 #define FAILSAFE_CLEAR_AFTER_SEC 90 //the time span on which reboots are counted for bootloop detection
 #define FAILSAFE_RETRY_BOOT_SEC  5*60 //retry normal boot after this time in failsafe mode
 #define FAILSAFE_HTTP_PORT 80
-//TODO(anyone): calculate offset based on sizeof(BootState) and alignment requirements, and add static_assert to check at compile time
-#define FAILSAFE_RTC_OFFSET 64 //offset in RTC memory to store boot state, must be 4-byte aligned and large enough to hold BootState struct
+
+
+#ifndef FAILSAFE_RTC_OFFSET
+#include "RTC.h"
+#define FAILSAFE_RTC_OFFSET RTC_FAILSAFE_OFFSET
+#endif
+
+#ifndef FAILSAFE_RTC_MAXSIZE
+#include "RTC.h"
+#define FAILSAFE_RTC_MAXSIZE RTC_FAILSAFE_MAXSIZE
+#endif
 
 class FailsafeClass
 {
@@ -99,6 +108,8 @@ class FailsafeClass
 
         } __attribute__((packed, aligned(4))) _bootState;  // must be aligned(4)
         static_assert((sizeof(BootState) % 4) == 0, "sizeof(BootState) must be a multiple of 4");
+        static_assert(sizeof(BootState) == 4, "sizeof(BootState) must be 4 ... else you must adjust RTC_EXCEPTION_OFFSET");
+        static_assert(FAILSAFE_RTC_MAXSIZE >= sizeof(BootState), "sizeof(BootState) exceeds FAILSAFE_RTC_MAXSIZE");
 
         void startFailsafeMode();
 

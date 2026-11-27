@@ -1,9 +1,9 @@
 // Versuch eine minimale Crash info abzuspeichern.
 // Ein vollständiger Stackdump macht eigentlich nur im "build_type = debug" Sinn.
-// Aber Mithilfe des Mapfiles (build_flags = -Wl,-Map,output.map) sollte man zumindest
-// die Abbruchstelle erruieren können.
+// Aber Mithilfe des Elf-files sollte man zumindest die Abbruchstelle erruieren können.
+// Das Mapfile ist mWn nicht nötig (build_flags = -Wl,-Map,output.map)
 // In dem Amis-Leser-Projekt ist der Stacktrace auch meist sehr groß (~5kB) ... da dauert
-// das Schreiben ins EEPROM zu lange oder geht sich vom Speicher her gar nicht aus.
+// das Schreiben ins EEPROM oder RTC-Memory zu lange oder geht sich vom Speicher her gar nicht aus.
 // Also hier nur die minimal Info abspeichern!
 //
 // Zusätzliche Infos zu dem Thema:
@@ -16,21 +16,20 @@
 //      see: .platformio/platforms/espressif8266/monitor/filter_exception_decoder.py
 
 #include "Exception.h"
+#include "RTC.h"
 #include "Log.h"
 #define LOGMODULE   LOGMODULE_SYSTEM
 #include "Utils.h"
 #include "framework/replacement/core_esp8266_postmortem.h"
 #include "__compiled_constants.h"
 
-#include <EEPROM.h>
 #include <LittleFS.h>
 #include <time.h>
 #include <user_interface.h>
 
-
 extern "C" {
-    extern uint32_t _iram_start;
-    extern uint32_t _iram_end;
+    extern uint32_t _iram_start;            // üblicherweise 0x40100000
+    extern uint32_t _iram_end;              // üblicherweise 0x40108000
     extern uint32_t _irom0_text_start;
     extern uint32_t _irom0_text_end;
 }
@@ -38,19 +37,21 @@ extern "C" {
 extern "C" uint32_t __crc_val;
 
 #define EXCEPTIONS_MAX_SAVED_ON_DISC        10  //  "/crashes/0.dump" ... "/crashes/9.dump"
-#define EXCEPTIONS_MAX_EEPROM_STR_LEN       32  //  max length of saved strings
-#define EXCEPTIONS_MAX_EEPROM_STACK_VALUES  32  //  max stack values
+#define EXCEPTIONS_MAX_SAVED_STR_LEN        32  //  max length of saved strings
+#define EXCEPTIONS_MAX_SAVED_STACK_VALUES   32  //  max stack values
+                                                //  aktuell hätten wir noch 92 Bytes frei ==> ergäbe 55 Stackwerte
 
 
 static uint32_t _interrestingAdressesStart = (uint32_t)&_irom0_text_start;
 static uint32_t _interrestingAdressesEnd = (uint32_t)&_irom0_text_end;
 
-struct __attribute__((__packed__)) exceptionInformationV1_s {
-    uint8_t version;                // Oberste Bit (0x80) kennzeichnet, ob die Info bereits gelesen und verarbeitet wurde
+struct __attribute__((__packed__, aligned(4))) exceptionInformationV2_s {
+    uint32_t crc32;     // crc32 of whole struct (including the following strings and this(crc32) field with a value of 0)
+
+    uint8_t magic;      // 0x82
     exception_extra_info_type_t exception_extra_info_type;
     exception_context_t exception_context;
     uint8_t interrestingStackValueCnt;
-//    uint32_t interrestingStackValues[32];
 
     // jetzt die "struct rst_info"
     struct rst_info rst_info;
@@ -64,6 +65,8 @@ struct __attribute__((__packed__)) exceptionInformationV1_s {
     uint32_t ms;            // millis();
 //    time_t tsCompiled;      // __COMPILED_DATE_TIME_UTC_TIME_T__
 
+    uint32_t interrestingStackValues[EXCEPTIONS_MAX_SAVED_STACK_VALUES];
+
     union {
         struct __attribute__((__packed__)) {
             int line;
@@ -72,54 +75,42 @@ struct __attribute__((__packed__)) exceptionInformationV1_s {
             uint32_t addr;
         } stacksmash;
     } u_exception_extra_info;
+
+    union {
+        struct __attribute__((__packed__)) {
+            char file[EXCEPTIONS_MAX_SAVED_STR_LEN + 1];
+            char func[EXCEPTIONS_MAX_SAVED_STR_LEN + 1];
+            char what[EXCEPTIONS_MAX_SAVED_STR_LEN + 1];
+        } strings_ffw;
+        struct __attribute__((__packed__)) {
+            char unhandled_exception[EXCEPTIONS_MAX_SAVED_STR_LEN + 1];
+        } strings_ue;
+    } u_exception_strings;
+    char _dummy_filler_multple4[1]; // extend size of struct to a multple of 4
 };
+static_assert(sizeof(exceptionInformationV2_s) % 4 == 0,  "Total struct size must be a multiple of 4 for RTC memory");
+static_assert(offsetof(exceptionInformationV2_s, rst_info) % 4 == 0, "rst_info member offset must be a multiple of 4");
+static_assert(offsetof(exceptionInformationV2_s, interrestingStackValues) % 4 == 0, "interrestingStackValues member offset must be a multiple of 4");
+static_assert(RTC_EXCEPTION_MAXSIZE >= sizeof(exceptionInformationV2_s), "exceptionInformationV2_s mismatch RTC_EXCEPTION_MAXSIZE");
 
 
-static size_t strToEEPromFromBack(uint8_t *eepromData, const char *str, size_t maxStrLen) {
-    // Copy maximal 'maxLen' trailing bytes from string 'str' into eepromData
-    // Trailing '\0' is added !
-    if (!str) {
-        *eepromData = 0;
-        return 1;
-    }
+/*
+Stack durchsuchen und "interessante" Adressen sammeln (die wir für Codeadressen halten)
+"onlyInterresting" ...Adressen von Funktionen, die wir auch "beinflussen" können also in  "unserem" Code liegen
+Das Problem ist ja, dass wir ja einfach nur gesamten Stack vor uns haben und nicht wissen,
+ob der Wert am Stack eine Rücksprungadresse oder was anderes ist.
+Wir könnten derzeit aber maximal 87 Stackwerte im RTC speichern (speichern nur 32 damit Platz für was anderes bleibt).
+Aus diesem Grund filtern wir nur die Werte raus, die irgenwo in unserem eigen Code liegen
+*/
 
-    size_t strLen = strlen_P(str); // 'str' can be within the flash memory - so use _P
-    const char *strEnd = str+strLen;
-    if (strLen > maxStrLen) {
-        str = strEnd - maxStrLen;
-        strLen = maxStrLen;
-    }
-    memcpy_P(eepromData, str, strLen); // 'str' can be within the flash memory - so use _P
-    eepromData[strLen] = 0;
-    return strLen + 1;
+/*
+static bool isCodeAddress(uint32_t addr) {
+    bool inIromCode = (addr >= (uint32_t)&_irom0_text_start) && (addr < (uint32_t)&_irom0_text_end);
+    bool inIramCode = (addr >= (uint32_t)&_iram_start) && (addr < (uint32_t)&_iram_end);
+    return inIromCode || inIramCode;
 }
+*/
 
-
-static size_t strToEEProm(uint8_t *eepromData, const char *str, size_t maxStrLen) {
-    // Copy maximal 'maxLen' bytes from string 'str' into eepromData
-    // Trailing '\0' is added !
-    if (!str) {
-        *eepromData = 0;
-        return 1;
-    }
-    size_t strLen = strlen_P(str); // 'str' can be within the flash memory - so use _P
-    if (strLen > maxStrLen) {
-        strLen = maxStrLen;
-    }
-    memcpy_P(eepromData, str, strLen);
-    eepromData[strLen] = 0;
-    return strLen + 1;
-}
-
-static size_t strFromEEProm(char *str, const uint8_t *eepromData, size_t maxStrLen) {
-    // copy 'len' bytes from 'eepromData' into 'str'
-    // Add a trailing '\0' to 'str'
-    strlcpy(str, (const char *)eepromData, maxStrLen+1);
-    return strlen(str) + 1;
-}
-
-
-/* Stack durchsuchen und "interessante" Adressen sammeln (die wir für Codeadressen halten)*/
 static inline size_t fetchStackValues(uint32_t start, uint32_t end, uint32_t *stackValues, size_t &foundCnt, size_t maxentries, bool onlyInterresting, bool uniqueAdressesOnly)
 {
     uint32_t *s, *e;
@@ -137,7 +128,7 @@ static inline size_t fetchStackValues(uint32_t start, uint32_t end, uint32_t *st
             }
         }
         */
-        if (!onlyInterresting || (stackValue >= _interrestingAdressesStart && stackValue <= _interrestingAdressesEnd)) {
+        if (!onlyInterresting || (stackValue >= _interrestingAdressesStart && stackValue < _interrestingAdressesEnd)) { // isCodeAddress(stackValue)
 
             // Check if we have "stackValue" already in our list
             bool isNewAddress = true;
@@ -158,9 +149,25 @@ static inline size_t fetchStackValues(uint32_t start, uint32_t end, uint32_t *st
     return foundCnt;
 }
 
+#define EXINFO_ON_STACK 0
+
+#if (!EXINFO_ON_STACK)
+// Declare exInfo here: In case of a crash we don't have to "allocate" it on the stack!
+// But: Needs 288 bytes DRAM !
+static exceptionInformationV2_s exInfo = {};
+#endif
 
 extern "C" void Exception_postmortem_report_callback(const postmortem_rst_info_t *postmortem_rst_info, bool *doSerialReport)
 {
+    // System hat eine Exception erreicht - Dammed!!
+    // Nicht direkt ins Filesystem schreiben - LittleFS ist ev zerschossen und funktioniert womöglich nicht mehr!
+    // Möglichst keine großartigen mallocs() oder new mehr machen - ev haben wir keinen Speicher verfügbar!
+    // Keine großen Strukturen/Variablen deklarieren - ev haben wir keinen Stack mehr!
+    // Versuchen wir noch ein paar Daten vor dem Reboot zu sichern, damit wir die nach dem Reboot als crashfile "sauber" abspeichern können
+    // Die übliche - serielle Dump Ausgabe - macht bei dieser Hardware Konfiguration  keinen Sinn!
+    // Wir sind eingeschränkt, mit dem was wir speichern können (Platz/Zeit): Deswegen nur Stack-Value-Referenzen auf "eigene" Funktionen
+
+
     // Gather reset information and store it in the eeprom (called from our own postmortem_report() function)
     //
     // After rebooting (more memory and file system avaliable) a dump gets
@@ -174,7 +181,10 @@ extern "C" void Exception_postmortem_report_callback(const postmortem_rst_info_t
 
     if (doSerialReport) {
         // Beim ersten Aufruf ist der Pointer doSerialReport gesetzt.
-        // Dafür sind jedoch erst minimale Infos in postmortem_rst_info vorhanden
+        // Dafür sind nur minimale Infos in postmortem_rst_info vorhanden
+        // Hier entscheiden wir, ob wir das auch über die serielle Schnittstelle ausgeben
+        // Üblicherweise (Non-Developer): Keine serielle Ausgabe
+
         //Serial.begin(115200, SERIAL_8N1);
         *doSerialReport = false;
         return;
@@ -182,46 +192,51 @@ extern "C" void Exception_postmortem_report_callback(const postmortem_rst_info_t
 
     _inCallback = true;
 
-    exceptionInformationV1_s exInfo = {};
-    exInfo.version = 0x81;
+#if (EXINFO_ON_STACK)
+    exceptionInformationV2_s exInfo = {};
+#else
+    memset(&exInfo, 0, sizeof(exInfo));
+#endif
+
+    exInfo.magic = 0x82;
     memcpy(&exInfo.rst_info, &postmortem_rst_info->rst_info, sizeof(exInfo.rst_info));
     exInfo.excsave1 = postmortem_rst_info->excsave1;
     exInfo.stack = postmortem_rst_info->sp_dump;
+    exInfo.exception_context = postmortem_rst_info->exception_context;
     //exInfo.stack_end = postmortem_rst_info->stack_end;
     exInfo.ms = millis();
     exInfo.ts = time(NULL);
     exInfo.exception_extra_info_type = postmortem_rst_info->exception_extra_info_type;
 
-    size_t eepromSizeNeed = sizeof(exInfo);
     if (exInfo.exception_extra_info_type == exception_type_assert) {
         exInfo.u_exception_extra_info.panic.line = postmortem_rst_info->u_exception_extra_info.panic.line;
         if (postmortem_rst_info->u_exception_extra_info.panic.file) {
-            eepromSizeNeed += std::min(strlen_P(postmortem_rst_info->u_exception_extra_info.panic.file), (size_t)EXCEPTIONS_MAX_EEPROM_STR_LEN);
+            strncpy_P(exInfo.u_exception_strings.strings_ffw.file, postmortem_rst_info->u_exception_extra_info.panic.file, sizeof(exInfo.u_exception_strings.strings_ffw.file)-1);
+            exInfo.u_exception_strings.strings_ffw.file[sizeof(exInfo.u_exception_strings.strings_ffw.file)-1] = 0;
         }
-        eepromSizeNeed += 1;
         if (postmortem_rst_info->u_exception_extra_info.panic.func) {
-            eepromSizeNeed += std::min(strlen_P(postmortem_rst_info->u_exception_extra_info.panic.func), (size_t)EXCEPTIONS_MAX_EEPROM_STR_LEN);
+            strncpy_P(exInfo.u_exception_strings.strings_ffw.func, postmortem_rst_info->u_exception_extra_info.panic.func, sizeof(exInfo.u_exception_strings.strings_ffw.func)-1);
+            exInfo.u_exception_strings.strings_ffw.func[sizeof(exInfo.u_exception_strings.strings_ffw.func)-1] = 0;
         }
-        eepromSizeNeed += 1;
         if (postmortem_rst_info->u_exception_extra_info.panic.what) {
-            eepromSizeNeed += std::min(strlen_P(postmortem_rst_info->u_exception_extra_info.panic.what), (size_t)EXCEPTIONS_MAX_EEPROM_STR_LEN);
+            strncpy_P(exInfo.u_exception_strings.strings_ffw.what, postmortem_rst_info->u_exception_extra_info.panic.what, sizeof(exInfo.u_exception_strings.strings_ffw.what)-1);
+            exInfo.u_exception_strings.strings_ffw.what[sizeof(exInfo.u_exception_strings.strings_ffw.what)-1] = 0;
         }
-        eepromSizeNeed += 1;
     } else if (exInfo.exception_extra_info_type == exception_type_panic) {
         exInfo.u_exception_extra_info.panic.line = postmortem_rst_info->u_exception_extra_info.panic.line;
         if (postmortem_rst_info->u_exception_extra_info.panic.file) {
-            eepromSizeNeed += std::min(strlen_P(postmortem_rst_info->u_exception_extra_info.panic.file), (size_t)EXCEPTIONS_MAX_EEPROM_STR_LEN);
+            strncpy_P(exInfo.u_exception_strings.strings_ffw.file, postmortem_rst_info->u_exception_extra_info.panic.file, sizeof(exInfo.u_exception_strings.strings_ffw.file)-1);
+            exInfo.u_exception_strings.strings_ffw.file[sizeof(exInfo.u_exception_strings.strings_ffw.file)-1] = 0;
         }
-        eepromSizeNeed += 1;
         if (postmortem_rst_info->u_exception_extra_info.panic.func) {
-            eepromSizeNeed += std::min(strlen_P(postmortem_rst_info->u_exception_extra_info.panic.func), (size_t)EXCEPTIONS_MAX_EEPROM_STR_LEN);
+            strncpy_P(exInfo.u_exception_strings.strings_ffw.func, postmortem_rst_info->u_exception_extra_info.panic.func, sizeof(exInfo.u_exception_strings.strings_ffw.func)-1);
+            exInfo.u_exception_strings.strings_ffw.func[sizeof(exInfo.u_exception_strings.strings_ffw.func)-1] = 0;
         }
-        eepromSizeNeed += 1;
     } else if (exInfo.exception_extra_info_type == exception_type_unhandled_exception) {
         if (postmortem_rst_info->u_exception_extra_info.unhandled_exception.unhandled_exception) {
-            eepromSizeNeed += std::min(strlen_P(postmortem_rst_info->u_exception_extra_info.unhandled_exception.unhandled_exception), (size_t)EXCEPTIONS_MAX_EEPROM_STR_LEN);
+            strncpy_P(exInfo.u_exception_strings.strings_ue.unhandled_exception, postmortem_rst_info->u_exception_extra_info.unhandled_exception.unhandled_exception, sizeof(exInfo.u_exception_strings.strings_ue.unhandled_exception)-1);
+            exInfo.u_exception_strings.strings_ue.unhandled_exception[sizeof(exInfo.u_exception_strings.strings_ue.unhandled_exception)-1] = 0;
         }
-        eepromSizeNeed += 1;
     } else if (exInfo.rst_info.reason == REASON_EXCEPTION_RST) {
         // Setting excause to 6 (=div by 0)  was already done in our own postmortem_report()
     } else if (exInfo.rst_info.reason == REASON_SOFT_WDT_RST) {
@@ -268,12 +283,11 @@ extern "C" void Exception_postmortem_report_callback(const postmortem_rst_info_t
 
     uint32_t sp_dump = exInfo.stack;
     size_t interrestingStackValueCnt = 0;
-    uint32_t interrestingStackValues[EXCEPTIONS_MAX_EEPROM_STACK_VALUES];
     if (sp_dump > stack_thunk_get_stack_bot() && sp_dump <= stack_thunk_get_stack_top()) {
         // BearSSL we dump the BSSL second stack and then reset SP back to the main cont stack
         // ets_printf_P(PSTR("\nctx: bearssl\nsp: %08x end: %08x offset: %04x\n"), sp_dump, stack_thunk_get_stack_top(), offset);
         // print_stack(sp_dump + offset, stack_thunk_get_stack_top());
-        fetchStackValues(sp_dump + offset, stack_thunk_get_stack_top(), interrestingStackValues, interrestingStackValueCnt, std::size(interrestingStackValues), true, true);
+        fetchStackValues(sp_dump + offset, stack_thunk_get_stack_top(), &exInfo.interrestingStackValues[0], interrestingStackValueCnt, std::size(exInfo.interrestingStackValues), true, true);
         offset = 0; // No offset needed anymore, the exception info was stored in the bssl stack
         sp_dump = stack_thunk_get_cont_sp();
     }
@@ -291,35 +305,15 @@ extern "C" void Exception_postmortem_report_callback(const postmortem_rst_info_t
     }
 
     // print_stack(sp_dump + offset, stack_end);
-    fetchStackValues(sp_dump + offset, stack_end, interrestingStackValues, interrestingStackValueCnt, std::size(interrestingStackValues), true, true);
+    fetchStackValues(sp_dump + offset, stack_end, &exInfo.interrestingStackValues[0], interrestingStackValueCnt, std::size(exInfo.interrestingStackValues), true, true);
 
     exInfo.interrestingStackValueCnt = interrestingStackValueCnt;
 
-    eepromSizeNeed += interrestingStackValueCnt * sizeof(uint32_t);
+    // Create a CRC32 over the structure (crc which is within structure is 0)
+    exInfo.crc32 = crc32(&exInfo, sizeof(exInfo));
 
-    // Now write all the Info to EEPROM
-    EEPROM.begin(eepromSizeNeed);
-    size_t eepromAddress = 0;
-    uint8_t *eepromData = EEPROM.getDataPtr();
-    memcpy(eepromData + eepromAddress, &exInfo, sizeof(exInfo)); // EEPROM.put(eepromAddress, exInfo);
-    eepromAddress += sizeof(exInfo);
-
-    if (interrestingStackValueCnt != 0) {
-        memcpy(eepromData + eepromAddress, &interrestingStackValues[0], sizeof(interrestingStackValues[0]) * interrestingStackValueCnt);
-        eepromAddress += sizeof(interrestingStackValues[0]) * interrestingStackValueCnt;
-    }
-
-    if (exInfo.exception_extra_info_type == exception_type_assert) {
-        eepromAddress += strToEEPromFromBack(eepromData + eepromAddress, postmortem_rst_info->u_exception_extra_info.panic.file, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-        eepromAddress += strToEEPromFromBack(eepromData + eepromAddress, postmortem_rst_info->u_exception_extra_info.panic.func, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-        eepromAddress += strToEEProm(eepromData + eepromAddress, postmortem_rst_info->u_exception_extra_info.panic.what, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-    } else if (exInfo.exception_extra_info_type == exception_type_panic) {
-        eepromAddress += strToEEPromFromBack(eepromData + eepromAddress, postmortem_rst_info->u_exception_extra_info.panic.file, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-        eepromAddress += strToEEPromFromBack(eepromData + eepromAddress, postmortem_rst_info->u_exception_extra_info.panic.func, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-    } else if (exInfo.exception_extra_info_type == exception_type_unhandled_exception) {
-        eepromAddress += strToEEProm(eepromData + eepromAddress, postmortem_rst_info->u_exception_extra_info.unhandled_exception.unhandled_exception, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-    }
-    EEPROM.end();
+    // Write all the Info to RTC Memory - Should be honored on upcoming boot
+    ESP.rtcUserMemoryWrite(RTC_EXCEPTION_OFFSET, (uint32_t *) &exInfo ,sizeof(exInfo));
 }
 
 void Exception_InstallPostmortem(int target)
@@ -350,7 +344,7 @@ static inline void cut_here(File &f)
 static inline String getCrashFilename(unsigned no)
 {
 #if EXCEPTIONS_MAX_SAVED_ON_DISC > 100
-#error buffer get to small!
+#error buffer gets to small!
 #endif
     char buffer[17]; // "/crashes/xx.dump"
 
@@ -369,11 +363,13 @@ void Exception_RemoveAllDumps()
 
 void Exception_DumpLastCrashToFile()
 {
-    // Gather reset information from EEprom or ESP.getResetInfoPtr()
+    // Gather reset information from RTC memory or ESP.getResetInfoPtr()
     //
     // Write the dump information to the filesystem
 
-    struct exceptionInformationV1_s exInfo;
+#if (EXINFO_ON_STACK)
+    exceptionInformationV2_s exInfo;
+#endif
     struct rst_info rst_info;
 
     char tsBuffer[30]; // 24 bytes should be enough
@@ -381,59 +377,35 @@ void Exception_DumpLastCrashToFile()
     struct tm timeinfo;
     bool infoIsFrom_getResetInfoPtr;
 
-    size_t interrestingStackValueCnt = 0;
-    uint32_t interrestingStackValues[EXCEPTIONS_MAX_EEPROM_STACK_VALUES];
+    if (!ESP.rtcUserMemoryRead(RTC_EXCEPTION_OFFSET, (uint32_t *) &exInfo ,sizeof(exInfo))) {
+        return;
+    }
 
-    // Open EEPROM with max size we need
-    EEPROM.begin(sizeof(exInfo) + sizeof(interrestingStackValues) + (EXCEPTIONS_MAX_EEPROM_STR_LEN+1) * 3);
-    EEPROM.get(0, exInfo);
-    if (exInfo.version  != 0x81) { // exin.version = 0x01 | 0x80 (dump available)
-        // No info in eeprom: Use Information from ESP.getResetInfoPtr()
+    if (exInfo.magic  != 0x82) {
+        // No info in RTC memory: Use Information from ESP.getResetInfoPtr()
         memset(&exInfo, 0, sizeof(exInfo));
         memcpy(&exInfo.rst_info, ESP.getResetInfoPtr(), sizeof(rst_info));
         infoIsFrom_getResetInfoPtr = true;
     } else {
-        exInfo.version &= 0x7f;
-        EEPROM.put(0, exInfo.version); // write exin.version = 0x01 | (not available)
-        infoIsFrom_getResetInfoPtr = false;
-        interrestingStackValueCnt = exInfo.interrestingStackValueCnt;
-        if (interrestingStackValueCnt > std::size(interrestingStackValues)) {
-            interrestingStackValueCnt = std::size(interrestingStackValues);
+        uint32_t crc32_v = 0;
+        ESP.rtcUserMemoryWrite(RTC_EXCEPTION_OFFSET, &crc32_v ,sizeof(crc32_v)) ; // Clear RTC memory - exInfo.crc32
+        ESP.rtcUserMemoryWrite(RTC_EXCEPTION_OFFSET+1, &crc32_v ,sizeof(crc32_v)) ; // Clear RTC memory - exInfo.magic...
+        crc32_v = exInfo.crc32;
+        exInfo.crc32 = 0;
+        if( crc32_v != crc32(&exInfo, sizeof(exInfo)) ) {
+            memset(&exInfo, 0, sizeof(exInfo));
+            memcpy(&exInfo.rst_info, ESP.getResetInfoPtr(), sizeof(rst_info));
+            infoIsFrom_getResetInfoPtr = true;
+        } else {
+            infoIsFrom_getResetInfoPtr = false;
         }
     }
     memcpy(&rst_info, &exInfo.rst_info, sizeof(rst_info)); // get aligned values
 
     if (rst_info.reason == REASON_SOFT_RESTART || rst_info.reason == REASON_DEFAULT_RST) {
         // Skip dumping SoftwareRestart or PowerOn
-        EEPROM.end();
         return;
     }
-
-    char panic_file[EXCEPTIONS_MAX_EEPROM_STR_LEN + 1];
-    char panic_func[EXCEPTIONS_MAX_EEPROM_STR_LEN + 1];
-    char panic_what[EXCEPTIONS_MAX_EEPROM_STR_LEN + 1];
-    char unhandled_exception[EXCEPTIONS_MAX_EEPROM_STR_LEN + 1];
-    panic_file[0] = panic_func[0] = panic_what[0] = unhandled_exception[0] = 0;
-
-    if (!infoIsFrom_getResetInfoPtr) {
-        const uint8_t *eepromData = EEPROM.getConstDataPtr();
-        int eepromAddress = sizeof(exInfo);
-        if (interrestingStackValueCnt) {
-            memcpy(&interrestingStackValues[0], eepromData + eepromAddress, sizeof(interrestingStackValues[0]) * interrestingStackValueCnt);
-            eepromAddress += sizeof(interrestingStackValues[0]) * interrestingStackValueCnt;
-        }
-        if (exInfo.exception_extra_info_type == exception_type_assert) {
-            eepromAddress += strFromEEProm(panic_file, eepromData + eepromAddress, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-            eepromAddress += strFromEEProm(panic_func, eepromData + eepromAddress, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-            eepromAddress += strFromEEProm(panic_what, eepromData + eepromAddress, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-        } else if (exInfo.exception_extra_info_type == exception_type_panic) {
-            eepromAddress += strFromEEProm(panic_file, eepromData + eepromAddress, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-            eepromAddress += strFromEEProm(panic_func, eepromData + eepromAddress, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-        } else if (exInfo.exception_extra_info_type == exception_type_unhandled_exception) {
-            eepromAddress += strFromEEProm(unhandled_exception, eepromData + eepromAddress, EXCEPTIONS_MAX_EEPROM_STR_LEN);
-        }
-    }
-    EEPROM.end();
 
     LittleFS.mkdir(F("/crashes"));
 
@@ -456,7 +428,7 @@ void Exception_DumpLastCrashToFile()
     LittleFS.remove(getCrashFilename(i+1).c_str());
 
     // Set filetime to at minimum compiled time
-    /// So the dump file hast time of exception or at minimum the timestamp of the version the exception writes the dump
+    /// So the dump file has time of exception or at minimum the timestamp of the version the exception writes the dump
     time_t previousFSTime;
     time_t exceptionTime;
     exceptionTime = (exInfo.ts > __COMPILED_DATE_TIME_UTC_TIME_T__) ?exInfo.ts :__COMPILED_DATE_TIME_UTC_TIME_T__;
@@ -471,7 +443,7 @@ void Exception_DumpLastCrashToFile()
     if (infoIsFrom_getResetInfoPtr) {
         f.printf_P(PSTR("Info from getResetInfoPtr()."));
     } else {
-        f.printf_P(PSTR("Info from EEProm save."));
+        f.printf_P(PSTR("Info from RTC memory save."));
     }
     f.write('\n');
     f.printf_P(PSTR("ESP.getResetReason() = %s\n"), ESP.getResetReason().c_str());
@@ -505,13 +477,18 @@ void Exception_DumpLastCrashToFile()
     /* now build a block match exception like postmortem (but without a real stack trace) */
     cut_here(f);
 
+    const char *panic_file = exInfo.u_exception_strings.strings_ffw.file;
+    const char *panic_func = exInfo.u_exception_strings.strings_ffw.func;
+    const char *panic_what = exInfo.u_exception_strings.strings_ffw.what;
+    const char *unhandled_exception = exInfo.u_exception_strings.strings_ue.unhandled_exception;
+
     if (exInfo.exception_extra_info_type == exception_type_assert) {
         f.printf_P(PSTR("\nPanic %s:%d %s"), panic_file, exInfo.u_exception_extra_info.panic.line, panic_func);
         if (panic_what[0]) {
             f.printf_P(PSTR(": Assertion '%s' failed."), panic_what);
         }
     } else if (exInfo.exception_extra_info_type == exception_type_panic) {
-        f.printf_P(PSTR("\nPanic %S\n"), panic_file);
+        f.printf_P(PSTR("\nPanic %s:%d %s\n"), panic_file, exInfo.u_exception_extra_info.panic.line, panic_func);
     } else if (exInfo.exception_extra_info_type == exception_type_unhandled_exception) {
         f.printf_P(PSTR("\nUnhandled C++ exception: %s\n"), unhandled_exception);
     } else if (exInfo.exception_extra_info_type == exception_type_abort) {
@@ -548,9 +525,12 @@ void Exception_DumpLastCrashToFile()
     // das stimmt zwar so nicht - bessere Info haben wir aber nicht
     f.printf_P(PSTR("sp: %08x end: %08x offset: %04x\n"), exInfo.stack, 0xffffffff, 0);
 
+    const uint32_t *interrestingStackValues = &exInfo.interrestingStackValues[0];
     // Elements in interrestingStackValues must be multiple of 4 as we always print 4 items
-    static_assert(((sizeof(interrestingStackValues)/sizeof(interrestingStackValues[0])) & 3) == 0);
-    for (size_t i=0; i < interrestingStackValueCnt; i+=4) {
+    static_assert(((sizeof(exInfo.interrestingStackValues)/sizeof(exInfo.interrestingStackValues[0])) & 3) == 0);
+    for (size_t i=0; i < exInfo.interrestingStackValueCnt; i+=4) {
+        // Wert des Stack stimmt nicht wirklich!
+        // Dient nur dazu das Ausgabeformat für den Exception Decoder zu generieren
         f.printf_P(PSTR("%08x:  %08x %08x %08x %08x\n"),
                 exInfo.stack + (0x10 * i),
                 interrestingStackValues[i], interrestingStackValues[i+1],
@@ -572,11 +552,11 @@ void Exception_DumpLastCrashToFile()
     if (rst_info.epc3) {
         f.printf_P(PSTR_0x08x, rst_info.epc3);
     }
-    if (rst_info.epc3) {
-        f.printf_P(PSTR_0x08x, rst_info.epc3);
+    if (exInfo.excsave1) {
+        f.printf_P(PSTR_0x08x, exInfo.excsave1);
     }
 
-    for (size_t i=0; i < interrestingStackValueCnt; i++) {
+    for (size_t i=0; i < exInfo.interrestingStackValueCnt; i++) {
         if (interrestingStackValues[i]) {
             f.printf_P(PSTR_0x08x, interrestingStackValues[i]);
         }
